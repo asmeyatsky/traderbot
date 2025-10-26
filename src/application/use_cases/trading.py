@@ -5,6 +5,8 @@ This module contains the application use cases that orchestrate
 domain entities and services to implement business functionality.
 Following clean architecture principles and DDD patterns.
 """
+from __future__ import annotations
+
 from datetime import datetime
 from typing import List, Optional
 import uuid
@@ -223,13 +225,16 @@ class AnalyzeNewsSentimentUseCase:
         self.market_data_service = market_data_service
         self.portfolio_repository = portfolio_repository
     
-    def execute(self, symbol: Symbol) -> List[object]:  # Using object to avoid circular imports
+    def execute(self, symbol: Symbol) -> List[dict]:
         """
         Analyze sentiment of recent news for a symbol.
+
+        Returns:
+            List of dictionaries containing article, sentiment, and timestamp
         """
         # Get recent news for the symbol
         news_articles = self.market_data_service.get_market_news(symbol)
-        
+
         # Analyze sentiment for each article
         sentiment_results = []
         for article in news_articles:
@@ -239,7 +244,7 @@ class AnalyzeNewsSentimentUseCase:
                 'sentiment': sentiment,
                 'timestamp': datetime.now()
             })
-        
+
         # Calculate aggregate sentiment
         if sentiment_results:
             avg_sentiment = sum(item['sentiment'].score for item in sentiment_results) / len(sentiment_results)
@@ -248,13 +253,13 @@ class AnalyzeNewsSentimentUseCase:
                 'confidence': 80,
                 'source': 'Aggregate'
             })()
-            
+
             sentiment_results.append({
                 'article': 'AGGREGATE',
                 'sentiment': overall_sentiment,
                 'timestamp': datetime.now()
             })
-        
+
         return sentiment_results
 
 

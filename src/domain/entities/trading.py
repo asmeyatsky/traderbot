@@ -4,13 +4,14 @@ Trading Domain Entities
 This module contains the core domain entities for the trading platform,
 following DDD principles and clean architecture patterns.
 """
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 from enum import Enum
 from src.domain.value_objects import Money, Symbol, TradingVolume
-from src.domain.entities.user import User  # Forward reference for typing
 
 
 class OrderStatus(Enum):

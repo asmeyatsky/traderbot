@@ -4,6 +4,8 @@ User Domain Entity
 This module contains the user domain entity for the trading platform,
 following DDD principles and clean architecture patterns.
 """
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
