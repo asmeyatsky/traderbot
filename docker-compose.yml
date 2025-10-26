@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # FastAPI Application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trading-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      - DATABASE_URL=postgresql://trading:trading@db:5432/traderbot
+      - REDIS_URL=redis://cache:6379/0
+      - TF_SERVING_HOST=ml-model
+      - TF_SERVING_PORT=8501
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs
+    networks:
+      - trading-network
+    command: uvicorn src.presentation.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: trading-db
+    environment:
+      - POSTGRES_USER=trading
+      - POSTGRES_PASSWORD=trading
+      - POSTGRES_DB=traderbot
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - trading-network
+
+  # Redis Cache
+  cache:
+    image: redis:7-alpine
+    container_name: trading-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - trading-network
+    command: redis-server --appendonly yes
+
+  # Optional: TensorFlow Serving for ML Models
+  # Uncomment to enable ML model serving
+  # ml-model:
+  #   image: tensorflow/serving:latest-gpu
+  #   container_name: trading-ml
+  #   ports:
+  #     - "8501:8501"
+  #   volumes:
+  #     - ./models:/models
+  #   environment:
+  #     - MODEL_NAME=trading_model
+  #     - MODEL_BASE_PATH=/models
+  #   networks:
+  #     - trading-network
+
+  # Optional: Adminer for Database Management
+  adminer:
+    image: adminer:latest
+    container_name: trading-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=db
+    depends_on:
+      - db
+    networks:
+      - trading-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  trading-network:
+    driver: bridge
