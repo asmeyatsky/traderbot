@@ -234,9 +234,9 @@ class Position:
 class Portfolio:
     """
     Portfolio Domain Entity
-    
+
     Aggregates all positions for a user and manages portfolio-level operations.
-    
+
     Architectural Intent:
     - Serves as an aggregate root for positions
     - Maintains portfolio-level invariants
@@ -244,7 +244,7 @@ class Portfolio:
     """
     id: str
     user_id: str
-    positions: List[Position] = field(default_factory=list)
+    positions: List[Position] = field(default_factory=list)  # Properly initialized mutable default
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     cash_balance: Money = field(default_factory=lambda: Money(Decimal('0'), 'USD'))

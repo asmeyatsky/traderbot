@@ -4,7 +4,7 @@ User Domain Entity
 This module contains the user domain entity for the trading platform,
 following DDD principles and clean architecture patterns.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
@@ -48,19 +48,12 @@ class User:
     daily_loss_limit: Optional[Money] = None
     weekly_loss_limit: Optional[Money] = None
     monthly_loss_limit: Optional[Money] = None
-    sector_preferences: List[str] = None  # List of preferred sectors
-    sector_exclusions: List[str] = None   # List of excluded sectors
+    sector_preferences: List[str] = field(default_factory=list)  # List of preferred sectors
+    sector_exclusions: List[str] = field(default_factory=list)   # List of excluded sectors
     is_active: bool = True
     email_notifications_enabled: bool = True
     sms_notifications_enabled: bool = False
     approval_mode_enabled: bool = False  # Requires approval for trades
-    
-    def __post_init__(self):
-        """Validate the user entity after initialization"""
-        if self.sector_preferences is None:
-            object.__setattr__(self, 'sector_preferences', [])
-        if self.sector_exclusions is None:
-            object.__setattr__(self, 'sector_exclusions', [])
     
     def update_risk_tolerance(self, new_risk_tolerance: RiskTolerance) -> 'User':
         """Update user's risk tolerance and return new instance"""

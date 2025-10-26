@@ -11,8 +11,10 @@ from datetime import datetime
 from decimal import Decimal
 import uuid
 
-from src.domain.entities.trading import Order, Position, Portfolio
-from src.domain.entities.user import User
+from src.domain.entities.trading import (
+    Order, Position, Portfolio, OrderType, PositionType, OrderStatus
+)
+from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
 from src.domain.value_objects import Money, Symbol, Price, NewsSentiment
 
 

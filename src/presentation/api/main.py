@@ -11,6 +11,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from src.infrastructure.config.settings import settings
 
 # Initialize the application
 app = FastAPI(
@@ -19,13 +20,16 @@ app = FastAPI(
     version="0.1.0"
 )
 
-# Add CORS middleware
+# Parse allowed origins from settings
+allowed_origins = settings.ALLOWED_ORIGINS.split(",")
+
+# Add CORS middleware with proper configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, configure this properly
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 @app.get("/")
