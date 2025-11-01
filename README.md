@@ -12,6 +12,14 @@ An enterprise-grade, AI-powered autonomous trading platform that intelligently a
 - **Backtesting Framework**: Validate trading strategies against historical data
 - **RESTful API**: Comprehensive API with OpenAPI documentation
 - **Enterprise Security**: JWT authentication, rate limiting, CORS, input validation
+- **Advanced Risk Analytics**: Value at Risk (VaR), Expected Shortfall (ES), stress testing, correlation analysis
+- **Enhanced User Experience**: Comprehensive dashboard with technical indicators, performance charts, allocation breakdowns
+- **Market Data Enhancement**: Multi-source integration, sentiment analysis, economic calendar
+- **Performance Optimization**: Advanced caching strategies, monitoring, response time optimization
+- **Multi-Broker Integration**: Support for Alpaca, Interactive Brokers, and other providers
+- **Alternative Data Sources**: Satellite imagery, credit card data, supply chain, social media sentiment, ESG scoring
+- **Advanced AI/ML Models**: Price prediction, regime detection, volatility forecasting, portfolio optimization
+- **Reinforcement Learning Trading Agents**: DQN, PPO, A2C algorithms with ensemble methods
 
 ## 🏗️ Architecture
 
@@ -59,7 +67,12 @@ traderbot/
 │   │   │   └── __init__.py             # Money, Symbol, Price, Sentiment
 │   │   ├── services/
 │   │   │   ├── trading.py              # Trading domain services
-│   │   │   └── risk_management.py      # Risk management logic
+│   │   │   ├── risk_management.py      # Risk management logic
+│   │   │   ├── advanced_risk_management.py # Advanced risk analytics
+│   │   │   ├── dashboard_analytics.py  # Enhanced dashboard analytics
+│   │   │   ├── market_data_enhancement.py # Market data enhancement
+│   │   │   ├── ml_model_service.py     # ML/AI model services
+│   │   │   └── rl_trading_agents.py    # Reinforcement learning agents
 │   │   ├── ports/                      # Interface definitions
 │   │   ├── events.py                   # Domain events
 │   │   └── exceptions.py               # Custom exceptions
@@ -80,6 +93,10 @@ traderbot/
 │   │   ├── security.py                 # JWT authentication
 │   │   ├── logging.py                  # Structured logging
 │   │   ├── di_container.py             # Dependency injection
+│   │   ├── cache_layer.py              # Multi-tier caching
+│   │   ├── performance_optimization.py # Performance optimization
+│   │   ├── broker_integration.py       # Broker integration
+│   │   ├── alternative_data_integration.py # Alternative data integration
 │   │   ├── api_clients/                # External API clients
 │   │   ├── repositories/               # Data persistence
 │   │   └── adapters/                   # External service adapters
@@ -90,7 +107,15 @@ traderbot/
 │   │       └── routers/
 │   │           ├── orders.py           # Order endpoints
 │   │           ├── portfolio.py        # Portfolio endpoints
-│   │           └── users.py            # User endpoints
+│   │           ├── users.py            # User endpoints
+│   │           ├── risk.py             # Risk analytics endpoints
+│   │           ├── dashboard.py        # Dashboard endpoints
+│   │           ├── market_data.py      # Market data endpoints
+│   │           ├── performance.py      # Performance monitoring endpoints
+│   │           ├── brokers.py          # Broker integration endpoints
+│   │           ├── alternative_data.py # Alternative data endpoints
+│   │           ├── ml.py               # Machine learning endpoints
+│   │           └── rl.py               # Reinforcement learning endpoints
 │   │
 │   └── tests/                          # Test Suite
 │       └── domain_tests.py             # Domain layer tests
@@ -185,7 +210,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 - **ReDoc**: http://localhost:8000/api/redocs
 - **OpenAPI Schema**: http://localhost:8000/api/openapi.json
 
-### Endpoint Groups
+### Enhanced Endpoint Groups
 
 #### Orders API (`/api/v1/orders`)
 - `POST /create` - Create new order
@@ -208,6 +233,56 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 - `PUT /me` - Update profile
 - `PUT /me/risk-settings` - Update risk settings
 - `PUT /me/sector-preferences` - Update sector preferences
+
+#### Risk Analytics API (`/api/v1/risk`)
+- `GET /portfolio/{user_id}` - Get portfolio risk metrics (VaR, ES, volatility, correlations)
+- `POST /stress-test/{user_id}` - Perform stress testing under market scenarios
+- `GET /correlation-matrix/{user_id}` - Get portfolio correlation matrix
+
+#### Enhanced Dashboard API (`/api/v1/dashboard`)
+- `GET /overview/{user_id}` - Get comprehensive portfolio dashboard
+- `GET /allocation/{user_id}` - Get portfolio allocation breakdown
+- `GET /technical-indicators/{symbol}` - Get technical indicators for a symbol
+
+#### Market Data Enhancement API (`/api/v1/market-data`)
+- `GET /enhanced/{symbol}` - Get enhanced market data with news sentiment
+- `GET /sentiment/{symbol}` - Get news sentiment for a symbol
+- `GET /economic-calendar` - Get economic calendar events
+- `GET /volatility-forecast/{symbol}` - Get volatility forecast
+
+#### Performance Monitoring API (`/api/v1/performance`)
+- `GET /metrics` - Get system performance metrics
+- `GET /cache-stats` - Get cache performance statistics
+- `POST /cache/warm/{user_id}` - Warm up user's cache
+
+#### Broker Integration API (`/api/v1/brokers`)
+- `GET /available` - Get available broker integrations
+- `POST /{broker_type}/place-order` - Place an order with a specific broker
+- `GET /{broker_type}/positions` - Get positions from a specific broker
+- `GET /{broker_type}/account-info` - Get account information from a broker
+
+#### Alternative Data API (`/api/v1/alternative-data`)
+- `GET /satellite/{symbol}` - Get satellite imagery data
+- `GET /credit-card/{symbol}` - Get credit card transaction trends
+- `GET /supply-chain/{symbol}` - Get supply chain events
+- `GET /social-sentiment/{symbol}` - Get social media sentiment
+- `GET /esg/{symbol}` - Get ESG scores
+- `GET /insights/{symbol}` - Get alternative data insights
+
+#### Machine Learning API (`/api/v1/ml`)
+- `GET /predict/{symbol}` - Get price prediction
+- `GET /regime/{symbol}` - Get market regime detection
+- `GET /signal/{symbol}/{user_id}` - Get trading signal
+- `POST /optimize-portfolio/{user_id}` - Optimize portfolio allocation
+- `GET /volatility-forecast/{symbol}` - Get volatility forecast
+- `GET /model-performance/{model_type}` - Get model performance metrics
+
+#### Reinforcement Learning API (`/api/v1/rl`)
+- `GET /algorithms` - Get available RL algorithms
+- `POST /agents/train/{symbol}` - Train RL trading agent
+- `POST /agents/evaluate/{symbol}` - Evaluate RL trading agent
+- `GET /agents/ensemble-performance` - Get ensemble performance
+- `POST /agents/get-action/{symbol}/{user_id}` - Get action from RL agent
 
 ## 🧪 Testing
 
@@ -314,10 +389,12 @@ Database / Cache
 ## 📈 Performance Considerations
 
 - **Database**: Connection pooling with QueuePool
-- **Caching**: Redis caching layer for frequent queries
+- **Caching**: Multi-tier caching (L1 Memory, L2 Redis) for frequent queries
 - **Async Operations**: FastAPI async endpoints
 - **Rate Limiting**: slowapi rate limiting per IP
 - **Batch Operations**: Efficient bulk database operations
+- **Performance Monitoring**: Cache hit rates, response time tracking
+- **Query Optimization**: Optimized database queries and indexing
 
 ## 🚨 Error Handling
 
@@ -333,6 +410,9 @@ DomainException (base)
 ├── PortfolioException
 ├── UserException
 ├── RiskManagementException
+├── AdvancedRiskManagementException
+├── MLModelException
+├── RLAgentException
 └── TradingException
 ```
 
@@ -379,5 +459,5 @@ For issues and questions, please open an issue on GitHub or contact the developm
 
 ---
 
-**Last Updated**: 2025-10-26
+**Last Updated**: 2025-11-01
 **Version**: 1.0.0
