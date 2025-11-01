@@ -34,7 +34,7 @@ class ServiceContainer(containers.DeclarativeContainer):
 
     repositories = providers.DependsOn(RepositoryContainer)
 
-    # Domain services (will be created in next phase)
+    # Domain services
     # trading_service = providers.Singleton(
     #     DefaultTradingDomainService
     # )
@@ -44,6 +44,46 @@ class ServiceContainer(containers.DeclarativeContainer):
     # portfolio_optimization_service = providers.Singleton(
     #     DefaultPortfolioOptimizationDomainService
     # )
+    
+    # Advanced risk management service
+    advanced_risk_management_service = providers.Singleton(
+        "src.domain.services.advanced_risk_management.DefaultAdvancedRiskManagementService"
+    )
+    
+    # Dashboard analytics service
+    dashboard_analytics_service = providers.Singleton(
+        "src.domain.services.dashboard_analytics.DefaultDashboardAnalyticsService"
+    )
+    
+    # Market data enhancement service
+    market_data_enhancement_service = providers.Singleton(
+        "src.domain.services.market_data_enhancement.DefaultMarketDataEnhancementService"
+    )
+    
+    # Performance optimizer service (infrastructure service)
+    performance_optimizer_service = providers.Singleton(
+        "src.infrastructure.performance_optimization.DefaultPerformanceOptimizerService"
+    )
+    
+    # ML model service
+    ml_model_service = providers.Singleton(
+        "src.domain.services.ml_model_service.DefaultMLModelService"
+    )
+    
+    # RL trading agent service
+    rl_trading_agent_service = providers.Singleton(
+        "src.domain.services.rl_trading_agents.MockRLAgent"
+    )
+    
+    # ML model service
+    ml_model_service = providers.Singleton(
+        "src.domain.services.ml_model_service.DefaultMLModelService"
+    )
+    
+    # RL trading agent service
+    rl_trading_agent_service = providers.Singleton(
+        "src.domain.services.rl_trading_agents.MockRLAgent"
+    )
 
 
 class AdapterContainer(containers.DeclarativeContainer):
