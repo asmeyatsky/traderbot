@@ -1,167 +1,188 @@
 """
-Dependency Injection Container
+Dependency Injection Container for the Trading Platform
 
-This module provides a centralized dependency injection container using
-the dependency-injector library to manage all application dependencies.
-
-Architectural Intent:
-- Invert control to the container for dependency management
-- Decouple components from their concrete implementations
-- Enable easy testing with mock implementations
-- Provide single source of truth for dependency configuration
+This module defines the DI container using dependency_injector to manage
+dependencies across the application following clean architecture principles.
 """
 from __future__ import annotations
 
 from dependency_injector import containers, providers
+from dependency_injector.wiring import Provide, inject
+
 from src.infrastructure.config.settings import settings
+from src.infrastructure.database import DatabaseManager
+from src.infrastructure.cache import CacheManager
+from src.infrastructure.security import JWTAuthenticator
+from src.infrastructure.rate_limiting import RateLimiter
+from src.infrastructure.event_bus import EventBus
+from src.infrastructure.logging import setup_logging
+from src.infrastructure.repositories import (
+    UserRepository,
+    OrderRepository,
+    PositionRepository,
+    PortfolioRepository,
+)
+from src.infrastructure.data_processing.ml_model_service import (
+    LSTMPricePredictionService,
+    TransformerSentimentAnalysisService,
+    RLTradingAgentService,
+    EnsembleModelService,
+    AdvancedRiskAnalyticsService,
+    PortfolioOptimizationService
+)
+from src.infrastructure.data_processing.news_aggregation_service import (
+    MarketauxNewsService,
+    EnhancedNewsAggregationService,
+    NewsImpactAnalyzer
+)
+from src.infrastructure.data_processing.backtesting_engine import (
+    YahooFinanceDataProvider
+)
+from src.infrastructure.broker_integration import (
+    AlpacaBrokerService,
+    BrokerIntegrationService
+)
+from src.domain.services.trading import DefaultTradingDomainService, DefaultRiskManagementDomainService
 
 
 class RepositoryContainer(containers.DeclarativeContainer):
     """Container for repository dependencies."""
 
-    # Database configuration would go here
-    # database = providers.Singleton(Database, url=settings.DATABASE_URL)
+    # Core Services
+    database_manager = providers.Singleton(DatabaseManager)
+    cache_manager = providers.Singleton(CacheManager)
 
-    # Repository implementations (will be created in next phase)
-    # order_repository = providers.Singleton(OrderRepositoryImpl, db=database)
-    # portfolio_repository = providers.Singleton(PortfolioRepositoryImpl, db=database)
-    # user_repository = providers.Singleton(UserRepositoryImpl, db=database)
-    # position_repository = providers.Singleton(PositionRepositoryImpl, db=database)
+    # Repository implementations
+    user_repository = providers.Factory(UserRepository)
+    order_repository = providers.Factory(OrderRepository)
+    position_repository = providers.Factory(PositionRepository)
+    portfolio_repository = providers.Factory(PortfolioRepository)
 
 
 class ServiceContainer(containers.DeclarativeContainer):
-    """Container for domain service dependencies."""
+    """Container for domain and application service dependencies."""
 
-    repositories = providers.DependsOn(RepositoryContainer)
+    repositories = providers.DependenciesContainer()
 
-    # Domain services
-    # trading_service = providers.Singleton(
-    #     DefaultTradingDomainService
-    # )
-    # risk_management_service = providers.Singleton(
-    #     DefaultRiskManagementDomainService
-    # )
-    # portfolio_optimization_service = providers.Singleton(
-    #     DefaultPortfolioOptimizationDomainService
-    # )
-    
-    # Advanced risk management service
-    advanced_risk_management_service = providers.Singleton(
-        "src.domain.services.advanced_risk_management.DefaultAdvancedRiskManagementService"
+    # Core domain services
+    trading_domain_service = providers.Factory(DefaultTradingDomainService)
+    risk_management_service = providers.Factory(DefaultRiskManagementDomainService)
+
+    # AI/ML Services
+    lstm_model_service = providers.Factory(LSTMPricePredictionService)
+    sentiment_analysis_service = providers.Factory(TransformerSentimentAnalysisService)
+    rl_agent_service = providers.Factory(RLTradingAgentService)
+
+    # Ensemble service combining multiple AI models
+    ml_model_service = providers.Factory(
+        EnsembleModelService,
+        lstm_service=lstm_model_service,
+        sentiment_service=sentiment_analysis_service
     )
-    
-    # Dashboard analytics service
-    dashboard_analytics_service = providers.Singleton(
-        "src.domain.services.dashboard_analytics.DefaultDashboardAnalyticsService"
+
+    # Advanced analytics services
+    risk_analytics_service = providers.Factory(AdvancedRiskAnalyticsService)
+    portfolio_optimization_service = providers.Factory(PortfolioOptimizationService)
+
+    # News services
+    marketaux_news_service = providers.Factory(
+        MarketauxNewsService,
+        api_key=settings.MARKETAUX_API_KEY,
+        sentiment_service=sentiment_analysis_service
     )
-    
-    # Market data enhancement service
-    market_data_enhancement_service = providers.Singleton(
-        "src.domain.services.market_data_enhancement.DefaultMarketDataEnhancementService"
+
+    news_aggregation_service = providers.Factory(
+        EnhancedNewsAggregationService,
+        marketaux_service=marketaux_news_service,
+        sentiment_service=sentiment_analysis_service
     )
-    
-    # Performance optimizer service (infrastructure service)
-    performance_optimizer_service = providers.Singleton(
-        "src.infrastructure.performance_optimization.DefaultPerformanceOptimizerService"
-    )
-    
-    # ML model service
-    ml_model_service = providers.Singleton(
-        "src.domain.services.ml_model_service.DefaultMLModelService"
-    )
-    
-    # RL trading agent service
-    rl_trading_agent_service = providers.Singleton(
-        "src.domain.services.rl_trading_agents.MockRLAgent"
-    )
-    
-    # ML model service
-    ml_model_service = providers.Singleton(
-        "src.domain.services.ml_model_service.DefaultMLModelService"
-    )
-    
-    # RL trading agent service
-    rl_trading_agent_service = providers.Singleton(
-        "src.domain.services.rl_trading_agents.MockRLAgent"
+
+    news_impact_analyzer_service = providers.Factory(
+        NewsImpactAnalyzer,
+        news_aggregation_service=news_aggregation_service
     )
 
 
 class AdapterContainer(containers.DeclarativeContainer):
     """Container for external adapter dependencies."""
 
-    config = providers.Configuration()
+    # Data provider for backtesting and market data
+    data_provider_service = providers.Factory(YahooFinanceDataProvider)
 
-    # Market data adapters
-    # market_data_adapter = providers.Singleton(
-    #     PolygonMarketDataAdapter,
-    #     api_key=settings.POLYGON_API_KEY
-    # )
+    # Broker integration
+    alpaca_broker_service = providers.Factory(
+        AlpacaBrokerService,
+        api_key=settings.ALPACA_API_KEY,
+        secret_key=settings.ALPACA_SECRET_KEY,
+        paper_trading=True  # Default to paper trading
+    )
 
-    # News analysis adapters
-    # news_analysis_adapter = providers.Singleton(
-    #     NLTKNewsAnalysisAdapter
-    # )
+    broker_integration_service = providers.Factory(
+        BrokerIntegrationService,
+        alpaca_service=alpaca_broker_service
+    )
 
-    # Trading execution adapters
-    # trading_execution_adapter = providers.Singleton(
-    #     AlpacaTradingExecutionAdapter,
-    #     api_key=settings.ALPACA_API_KEY,
-    #     secret_key=settings.ALPACA_SECRET_KEY
-    # )
-
-    # Notification adapters
-    # notification_adapter = providers.Singleton(
-    #     EmailNotificationAdapter
-    # )
+    # Security and infrastructure
+    jwt_authenticator = providers.Singleton(JWTAuthenticator)
+    rate_limiter = providers.Singleton(RateLimiter)
+    event_bus = providers.Singleton(EventBus)
 
 
 class UseCaseContainer(containers.DeclarativeContainer):
     """Container for use case dependencies."""
 
-    repositories = providers.DependsOn(RepositoryContainer)
-    services = providers.DependsOn(ServiceContainer)
-    adapters = providers.DependsOn(AdapterContainer)
+    repositories = providers.DependenciesContainer()
+    services = providers.DependenciesContainer()
+    adapters = providers.DependenciesContainer()
 
-    # Use cases (will be created in next phase)
-    # create_order_use_case = providers.Factory(
-    #     CreateOrderUseCase,
-    #     order_repository=repositories.order_repository,
-    #     portfolio_repository=repositories.portfolio_repository,
-    #     user_repository=repositories.user_repository,
-    #     trading_service=services.trading_service,
-    #     market_data_service=adapters.market_data_adapter
-    # )
+    # Use cases
+    from src.application.use_cases.trading import (
+        CreateOrderUseCase,
+        ExecuteTradeUseCase,
+        AnalyzeNewsSentimentUseCase,
+        GetPortfolioPerformanceUseCase,
+        GetUserPreferencesUseCase,
+    )
 
-    # execute_trade_use_case = providers.Factory(
-    #     ExecuteTradeUseCase,
-    #     order_repository=repositories.order_repository,
-    #     portfolio_repository=repositories.portfolio_repository,
-    #     user_repository=repositories.user_repository,
-    #     trading_service=services.trading_service,
-    #     risk_service=services.risk_management_service,
-    #     market_data_service=adapters.market_data_adapter,
-    #     trading_execution_service=adapters.trading_execution_adapter,
-    #     notification_service=adapters.notification_adapter,
-    #     ai_model_service=providers.Factory(MockAIModelAdapter)
-    # )
+    create_order_use_case = providers.Factory(
+        CreateOrderUseCase,
+        order_repository=repositories.order_repository,
+        portfolio_repository=repositories.portfolio_repository,
+        user_repository=repositories.user_repository,
+        trading_service=services.trading_domain_service,
+        market_data_service=services.news_aggregation_service,
+    )
 
-    # analyze_news_sentiment_use_case = providers.Factory(
-    #     AnalyzeNewsSentimentUseCase,
-    #     news_analysis_service=adapters.news_analysis_adapter,
-    #     market_data_service=adapters.market_data_adapter,
-    #     portfolio_repository=repositories.portfolio_repository
-    # )
+    execute_trade_use_case = providers.Factory(
+        ExecuteTradeUseCase,
+        order_repository=repositories.order_repository,
+        portfolio_repository=repositories.portfolio_repository,
+        user_repository=repositories.user_repository,
+        trading_service=services.trading_domain_service,
+        risk_service=services.risk_analytics_service,
+        market_data_service=services.news_aggregation_service,
+        trading_execution_service=adapters.broker_integration_service,
+        notification_service=providers.Singleton(object),  # Placeholder for notification service
+        ai_model_service=services.ml_model_service,
+    )
 
-    # get_portfolio_performance_use_case = providers.Factory(
-    #     GetPortfolioPerformanceUseCase,
-    #     portfolio_repository=repositories.portfolio_repository,
-    #     market_data_service=adapters.market_data_adapter
-    # )
+    analyze_news_sentiment_use_case = providers.Factory(
+        AnalyzeNewsSentimentUseCase,
+        news_analysis_service=services.news_aggregation_service,
+        market_data_service=services.news_aggregation_service,
+        portfolio_repository=repositories.portfolio_repository,
+    )
 
-    # get_user_preferences_use_case = providers.Factory(
-    #     GetUserPreferencesUseCase,
-    #     user_repository=repositories.user_repository
-    # )
+    get_portfolio_performance_use_case = providers.Factory(
+        GetPortfolioPerformanceUseCase,
+        portfolio_repository=repositories.portfolio_repository,
+        market_data_service=services.news_aggregation_service,
+    )
+
+    get_user_preferences_use_case = providers.Factory(
+        GetUserPreferencesUseCase,
+        user_repository=repositories.user_repository,
+    )
 
 
 class Container(containers.DeclarativeContainer):
@@ -173,15 +194,44 @@ class Container(containers.DeclarativeContainer):
     })
 
     repositories = providers.Container(RepositoryContainer)
-    services = providers.Container(ServiceContainer)
+    services = providers.Container(ServiceContainer, repositories=repositories)
     adapters = providers.Container(AdapterContainer)
-    use_cases = providers.Container(UseCaseContainer)
+    use_cases = providers.Container(UseCaseContainer,
+                                   repositories=repositories,
+                                   services=services,
+                                   adapters=adapters)
 
 
-# Create global container instance
+# Create the main container instance
 container = Container()
 
 
 def get_container() -> Container:
     """Get the global DI container."""
     return container
+
+
+# Convenience functions to access services directly from container
+def ml_model_service():
+    """Get the ML model service instance."""
+    return container.services.ml_model_service()
+
+def news_impact_analyzer_service():
+    """Get the news impact analyzer service instance."""
+    return container.services.news_impact_analyzer_service()
+
+def risk_analytics_service():
+    """Get the risk analytics service instance."""
+    return container.services.risk_analytics_service()
+
+def portfolio_optimization_service():
+    """Get the portfolio optimization service instance."""
+    return container.services.portfolio_optimization_service()
+
+def data_provider_service():
+    """Get the data provider service instance."""
+    return container.adapters.data_provider_service()
+
+def broker_integration_service():
+    """Get the broker integration service instance."""
+    return container.adapters.broker_integration_service()

@@ -28,7 +28,7 @@ from slowapi.errors import RateLimitExceeded
 
 from src.infrastructure.config.settings import settings
 from src.infrastructure.logging import setup_logging
-from src.presentation.api.routers import orders, portfolio, users, risk, dashboard, market_data, performance, brokers, alternative_data, ml, rl, performance, brokers, alternative_data, ml, rl
+from src.presentation.api.routers import orders, portfolio, users, risk, dashboard, market_data, performance, brokers, alternative_data, ml, rl
 
 # Setup logging
 logger = setup_logging()
@@ -116,11 +116,6 @@ app.include_router(users.router)
 app.include_router(risk.router)
 app.include_router(dashboard.router)
 app.include_router(market_data.router)
-app.include_router(performance.router)
-app.include_router(brokers.router)
-app.include_router(alternative_data.router)
-app.include_router(ml.router)
-app.include_router(rl.router)
 app.include_router(performance.router)
 app.include_router(brokers.router)
 app.include_router(alternative_data.router)

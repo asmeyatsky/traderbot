@@ -1,41 +1,74 @@
-# World-Class AI-Powered Autonomous Trading Platform
+Metadata-Version: 2.4
+Name: ai-trading-platform
+Version: 0.1.0
+Summary: An AI-powered autonomous trading platform
+Home-page: https://github.com/aitradingplatform/ai-trading-platform
+Author: AI Trading Platform Team
+Author-email: dev@aitradingplatform.com
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: python-dotenv==1.0.0
+Requires-Dist: requests==2.31.0
+Requires-Dist: pandas==2.1.4
+Requires-Dist: numpy==1.24.3
+Requires-Dist: scikit-learn==1.3.2
+Requires-Dist: tensorflow==2.15.0
+Requires-Dist: torch==2.1.2
+Requires-Dist: transformers==4.36.0
+Requires-Dist: pydantic[email]==2.5.0
+Requires-Dist: fastapi==0.104.1
+Requires-Dist: uvicorn==0.24.0
+Requires-Dist: sqlalchemy==2.0.23
+Requires-Dist: asyncpg==0.29.0
+Requires-Dist: redis==5.0.1
+Requires-Dist: celery==5.3.4
+Requires-Dist: kafka-python==2.0.2
+Requires-Dist: websockets==12.0
+Requires-Dist: pyjwt==2.8.0
+Requires-Dist: passlib==1.7.4
+Requires-Dist: bcrypt==4.1.2
+Requires-Dist: dependency-injector==4.41.0
+Requires-Dist: slowapi==0.1.9
+Requires-Dist: textblob==0.17.1
+Requires-Dist: vaderSentiment==3.3.2
+Requires-Dist: nltk==3.8.1
+Requires-Dist: spacy==3.7.2
+Requires-Dist: yfinance==0.2.18
+Requires-Dist: alpha-vantage==2.1.4
+Requires-Dist: polygon-api-client==1.13.0
+Requires-Dist: finnhub-python==2.4.14
+Requires-Dist: pytest==7.4.3
+Requires-Dist: pytest-asyncio==0.21.1
+Requires-Dist: pytest-mock==3.12.0
+Requires-Dist: pytest-cov==4.1.0
+Requires-Dist: factory-boy==3.3.0
+Requires-Dist: python-slugify==8.0.1
+Requires-Dist: Pillow==10.1.0
+Requires-Dist: python-multipart==0.0.6
+Requires-Dist: cryptography==41.0.8
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
-The world's most advanced AI-powered autonomous trading platform that intelligently aggregates real-time market data, company news, and financial fundamentals to enable superior trading decisions. Built with cutting-edge technology, clean architecture, domain-driven design, and comprehensive security measures.
+# AI-Powered Autonomous Trading Platform
 
-## 🚀 World-Leading Features
+An enterprise-grade, AI-powered autonomous trading platform that intelligently aggregates real-time market data, company news, and financial fundamentals to enable intelligent trading decisions. Built with clean architecture, domain-driven design, and comprehensive security measures.
 
-### 1. Advanced AI/ML Intelligence Core
-- **Multi-Model Ensemble**: Combines LSTM, Transformer models, and Reinforcement Learning agents for superior predictions
-- **Real-Time Sentiment Analysis**: Advanced NLP using transformer models (FinBERT) for financial sentiment
-- **Reinforcement Learning Agents**: DQN, PPO algorithms for adaptive trading strategies
-- **Predictive Analytics**: Price prediction models with 70%+ directional accuracy
-- **AI Explainability**: Clear rationale for all trading decisions
+## 🎯 Key Features
 
-### 2. Comprehensive Risk Management
-- **Advanced Risk Analytics**: Value at Risk (VaR), Expected Shortfall (ES), stress testing, correlation analysis
-- **Real-Time Risk Monitoring**: Portfolio-level risk controls with instant alerts
-- **Dynamic Position Sizing**: AI-optimized position sizing based on risk tolerance
-- **Circuit Breakers**: Automatic trading pauses during extreme market conditions
-
-### 3. Professional-Grade Trading Execution
-- **Multi-Broker Integration**: Alpaca, Interactive Brokers with smart order routing
-- **VWAP/TWAP Execution**: Advanced execution algorithms to minimize market impact
-- **Backtesting Engine**: Comprehensive backtesting with multiple strategies and Monte Carlo simulation
-- **Real-Time Execution**: Sub-100ms trade execution latency
-
-### 4. Intelligent Portfolio Optimization
-- **Modern Portfolio Theory**: Mean-variance optimization with Black-Litterman model
-- **AI-Enhanced Allocation**: Machine learning augmented portfolio rebalancing
-- **Tax-Aware Rebalancing**: Optimization considering tax implications
-- **Correlation Analysis**: Advanced correlation matrix for portfolio diversification
-
-### 5. Real-Time Market Intelligence
-- **News Aggregation**: Multiple news source integration (Marketaux, Alpha Vantage, etc.)
-- **Sentiment Impact Scoring**: Quantified news impact on stock prices
-- **Alternative Data Integration**: Satellite imagery, web traffic, credit card data
-- **Economic Calendar**: Real-time economic event tracking
-
-### 6. Complete Feature Set
 - **Real-time Market Data**: Integration with multiple data providers (Polygon, Alpha Vantage, Finnhub)
 - **AI-Powered Sentiment Analysis**: NLP-based analysis of financial news and market sentiment
 - **Automated Trading**: Risk-aware order execution with multiple broker integrations (Alpaca, Interactive Brokers)
@@ -44,13 +77,16 @@ The world's most advanced AI-powered autonomous trading platform that intelligen
 - **Backtesting Framework**: Validate trading strategies against historical data
 - **RESTful API**: Comprehensive API with OpenAPI documentation
 - **Enterprise Security**: JWT authentication, rate limiting, CORS, input validation
+- **Advanced Risk Analytics**: Value at Risk (VaR), Expected Shortfall (ES), stress testing, correlation analysis
 - **Enhanced User Experience**: Comprehensive dashboard with technical indicators, performance charts, allocation breakdowns
 - **Market Data Enhancement**: Multi-source integration, sentiment analysis, economic calendar
 - **Performance Optimization**: Advanced caching strategies, monitoring, response time optimization
 - **Multi-Broker Integration**: Support for Alpaca, Interactive Brokers, and other providers
 - **Alternative Data Sources**: Satellite imagery, credit card data, supply chain, social media sentiment, ESG scoring
+- **Advanced AI/ML Models**: Price prediction, regime detection, volatility forecasting, portfolio optimization
+- **Reinforcement Learning Trading Agents**: DQN, PPO, A2C algorithms with ensemble methods
 
-## 🏗️ World-Class Architecture
+## 🏗️ Architecture
 
 Built on **Clean Architecture** and **Domain-Driven Design** principles:
 
@@ -128,13 +164,9 @@ traderbot/
 │   │   ├── alternative_data_integration.py # Alternative data integration
 │   │   ├── api_clients/                # External API clients
 │   │   ├── repositories/               # Data persistence
-│   │   ├── data_processing/            # ML models, NLP, backtesting
-│   │   │   ├── ml_model_service.py     # Advanced AI models
-│   │   │   ├── news_aggregation_service.py # News processing
-│   │   │   └── backtesting_engine.py   # Backtesting framework
 │   │   └── adapters/                   # External service adapters
 │   │
-│   └── presentation/                    # Presentation Layer
+│   ├── presentation/                    # Presentation Layer
 │   │   └── api/
 │   │       ├── main.py                 # FastAPI app initialization
 │   │       └── routers/
@@ -147,7 +179,7 @@ traderbot/
 │   │           ├── performance.py      # Performance monitoring endpoints
 │   │           ├── brokers.py          # Broker integration endpoints
 │   │           ├── alternative_data.py # Alternative data endpoints
-│   │           ├── ml.py               # Machine learning endpoints (ENHANCED)
+│   │           ├── ml.py               # Machine learning endpoints
 │   │           └── rl.py               # Reinforcement learning endpoints
 │   │
 │   └── tests/                          # Test Suite
@@ -157,8 +189,6 @@ traderbot/
 ├── docker-compose.yml                  # Development environment
 ├── .env.example                        # Environment template
 ├── setup.py                            # Package configuration
-├── ENHANCEMENT_PLAN.md                # Enhancement roadmap
-├── ENHANCED_README.md                 # Detailed feature documentation
 └── README.md                           # This file
 ```
 
@@ -247,14 +277,6 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 
 ### Enhanced Endpoint Groups
 
-#### ML Analytics API (`/api/v1/ml`)
-- `GET /predict/{symbol}` - AI-powered price predictions
-- `GET /signal/{symbol}/{user_id}` - Personalized trading signals
-- `GET /model-performance/{model_type}` - Model performance metrics
-- `POST /optimize-portfolio/{user_id}` - Portfolio optimization
-- `POST /backtest` - Run strategy backtests
-- `GET /risk-analysis/{user_id}` - Advanced risk analytics
-
 #### Orders API (`/api/v1/orders`)
 - `POST /create` - Create new order
 - `GET /{order_id}` - Get order details
@@ -312,6 +334,14 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 - `GET /esg/{symbol}` - Get ESG scores
 - `GET /insights/{symbol}` - Get alternative data insights
 
+#### Machine Learning API (`/api/v1/ml`)
+- `GET /predict/{symbol}` - Get price prediction
+- `GET /regime/{symbol}` - Get market regime detection
+- `GET /signal/{symbol}/{user_id}` - Get trading signal
+- `POST /optimize-portfolio/{user_id}` - Optimize portfolio allocation
+- `GET /volatility-forecast/{symbol}` - Get volatility forecast
+- `GET /model-performance/{model_type}` - Get model performance metrics
+
 #### Reinforcement Learning API (`/api/v1/rl`)
 - `GET /algorithms` - Get available RL algorithms
 - `POST /agents/train/{symbol}` - Train RL trading agent
@@ -352,9 +382,6 @@ See `.env.example` for comprehensive configuration:
 POLYGON_API_KEY=...
 ALPHA_VANTAGE_API_KEY=...
 FINNHUB_API_KEY=...
-
-# News APIs
-MARKETAUX_API_KEY=...
 
 # Broker APIs
 ALPACA_API_KEY=...
@@ -400,6 +427,29 @@ Repository (Persistence)
     ↓
 Database / Cache
 ```
+
+## 🛠️ Development Workflow
+
+### Adding New Features
+
+1. **Define Domain Model** (`src/domain/entities/`)
+2. **Create Value Objects** (`src/domain/value_objects/`)
+3. **Implement Domain Services** (`src/domain/services/`)
+4. **Define Repository Ports** (`src/domain/ports/`)
+5. **Implement Use Cases** (`src/application/use_cases/`)
+6. **Create DTOs** (`src/application/dtos/`)
+7. **Implement Repositories** (`src/infrastructure/repositories/`)
+8. **Add API Router** (`src/presentation/api/routers/`)
+9. **Write Tests** (`src/tests/`)
+
+### Code Quality Standards
+
+- Clean Architecture principles
+- Domain-Driven Design patterns
+- SOLID principles
+- Comprehensive type hints
+- Full test coverage (80%+)
+- Clear docstrings and comments
 
 ## 📈 Performance Considerations
 
@@ -449,38 +499,17 @@ Sensitive fields automatically masked in logs:
 - Tokens
 - Secret keys
 
-## 🏆 World-Class Excellence
-
-### Performance Metrics
-- **API Latency**: <200ms (95th percentile)
-- **Trade Execution**: <100ms from signal to execution
-- **Model Accuracy**: 70%+ directional prediction accuracy
-- **System Uptime**: 99.95% SLA
-- **Scalability**: Supports 50,000+ concurrent users
-- **Return Targets**: 15-30% annualized returns above benchmarks
-- **Risk Management**: <20% maximum drawdown
-
-### Why This is the World's Best Platform
-1. **Most Comprehensive AI**: Combines multiple state-of-the-art models
-2. **Unrivaled Risk Management**: Most advanced risk analytics in the industry
-3. **Superior Performance**: Proven metrics exceeding industry standards
-4. **Unmatched Transparency**: Complete AI explainability
-5. **Best-in-Class Architecture**: Clean, maintainable, and scalable codebase
-6. **Ultimate Flexibility**: Supports all major brokers and strategies
-7. **World-Grade Security**: Enterprise-grade security and compliance
-
 ## 🤝 Contributing
 
-We welcome contributions that enhance the world-class nature of this platform:
 1. Create feature branch from `main`
 2. Implement feature following architecture
-3. Write comprehensive tests (80%+ coverage)
+3. Write comprehensive tests
 4. Update documentation
 5. Submit pull request with detailed description
 
 ## 📄 License
 
-Apache 2.0 License - see LICENSE file for details
+See LICENSE file for details
 
 ## 🔗 Resources
 
@@ -495,6 +524,5 @@ For issues and questions, please open an issue on GitHub or contact the developm
 
 ---
 
-**Built for Excellence** | **Engineered for Performance** | **Designed for the Future**
-**Last Updated**: 2025-12-07
+**Last Updated**: 2025-11-01
 **Version**: 1.0.0

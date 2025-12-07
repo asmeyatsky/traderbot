@@ -1,21 +1,31 @@
 """
-Advanced ML/AI Model API Router
+Machine Learning API Router
 
-This router handles all ML/AI model endpoints following RESTful principles.
-All endpoints require authentication.
+This router handles all AI/ML related endpoints including model predictions,
+sentiment analysis, trading signals, and model performance metrics.
 """
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any, Optional
 import logging
+from datetime import datetime, timedelta
 
 from src.infrastructure.security import get_current_user
-from src.domain.services.ml_model_service import (
-    DefaultMLModelService, MLModelType, TradingSignal, PredictionResult
-)
 from src.domain.value_objects import Symbol
 from src.infrastructure.di_container import container
+from src.infrastructure.data_processing.ml_model_service import (
+    MLModelService, TradingSignal, ModelPerformance, 
+    EnsembleModelService, AdvancedRiskAnalyticsService, 
+    PortfolioOptimizationService
+)
+from src.infrastructure.data_processing.news_aggregation_service import NewsImpactAnalyzer
+from src.infrastructure.data_processing.backtesting_engine import (
+    BacktestingEngine, BacktestConfiguration, StrategyComparator, 
+    SMACrossoverStrategy, MLStrategy
+)
+from src.infrastructure.broker_integration import BrokerIntegrationService
+
 
 logger = logging.getLogger(__name__)
 
@@ -26,352 +36,188 @@ router = APIRouter(prefix="/api/v1/ml", tags=["ml"])
     "/predict/{symbol}",
     summary="Get price prediction for a symbol",
     responses={
-        200: {"description": "Price prediction retrieved successfully"},
+        200: {"description": "Price prediction with confidence"},
+        400: {"description": "Invalid symbol"},
         401: {"description": "Unauthorized"},
-        404: {"description": "Symbol not found"},
+        500: {"description": "Internal server error"},
     }
 )
 async def get_price_prediction(
     symbol: str,
-    days_ahead: int = Query(1, description="Number of days ahead to predict"),
-    model_type: str = Query("ensemble", description="Type of model to use"),
-    current_user_id: str = Depends(get_current_user),
+    lookback_days: int = Query(30, ge=1, le=365, description="Number of days to look back for prediction"),
+    user_id: str = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
-    Get price prediction for a symbol using ML/AI models.
+    Get AI-powered price prediction for a given symbol.
+
+    Args:
+        symbol: Stock symbol to predict
+        lookback_days: Number of historical days to consider for prediction
+        user_id: Current authenticated user ID
 
     Returns:
-        Price prediction with confidence and technical indicators
+        Dictionary containing prediction details
     """
     try:
-        # Get the ML model service from DI container
+        # Validate symbol format
+        try:
+            symbol_obj = Symbol(symbol.upper())
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid symbol format: {e}"
+            )
+
+        # Get ML service from container
         ml_service = container.ml_model_service()
-        
-        # Get price prediction
-        prediction = ml_service.predict_price(Symbol(symbol), days_ahead)
-        
-        result = {
-            "symbol": str(prediction.symbol),
-            "predicted_price": {
-                "amount": float(prediction.predicted_price.amount),
-                "currency": prediction.predicted_price.currency
-            },
-            "confidence": float(prediction.confidence),
-            "prediction_horizon": prediction.prediction_horizon,
-            "model_used": prediction.model_used,
-            "features_used": prediction.features_used,
-            "prediction_timestamp": prediction.prediction_timestamp.isoformat(),
-            "technical_indicators": prediction.technical_indicators,
-            "market_regime": prediction.market_regime,
-            "calculated_at": datetime.now().isoformat()
-        }
-        
-        logger.info(f"Price prediction retrieved for symbol {symbol}")
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error retrieving price prediction: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve price prediction"
-        )
+        if not ml_service:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="ML service not available"
+            )
 
+        logger.info(f"Getting price prediction for {symbol} for user {user_id}")
 
-@router.get(
-    "/regime/{symbol}",
-    summary="Get market regime detection for a symbol",
-    responses={
-        200: {"description": "Market regime retrieved successfully"},
-        401: {"description": "Unauthorized"},
-        404: {"description": "Symbol not found"},
-    }
-)
-async def get_market_regime(
-    symbol: str,
-    current_user_id: str = Depends(get_current_user),
-) -> Dict[str, Any]:
-    """
-    Get current market regime detection for a symbol.
+        # Get prediction from ensemble model (which combines multiple models)
+        if hasattr(ml_service, 'predict_price_direction'):
+            prediction = ml_service.predict_price_direction(symbol_obj, lookback_days)
+        else:
+            # Fallback to a specific model if ensemble not available
+            from src.infrastructure.data_processing.ml_model_service import LSTMPricePredictionService
+            lstm_service = LSTMPricePredictionService()
+            prediction = lstm_service.predict_price_direction(symbol_obj, lookback_days)
 
-    Returns:
-        Market regime with characteristics and confidence
-    """
-    try:
-        ml_service = container.ml_model_service()
-        
-        # Get market regime
-        regime = ml_service.detect_market_regime(Symbol(symbol))
-        
-        result = {
+        return {
             "symbol": symbol,
-            "market_regime": {
-                "regime_type": regime.regime_type,
-                "confidence": float(regime.confidence),
-                "start_date": regime.start_date.isoformat(),
-                "end_date": regime.end_date.isoformat() if regime.end_date else None,
-                "characteristics": regime.characteristics
-            },
-            "calculated_at": datetime.now().isoformat()
+            "prediction": prediction.signal,
+            "confidence": prediction.confidence,
+            "score": prediction.score,
+            "explanation": prediction.explanation,
+            "timestamp": datetime.utcnow(),
+            "lookback_days": lookback_days
         }
-        
-        logger.info(f"Market regime retrieved for symbol {symbol}")
-        return result
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error retrieving market regime: {e}")
+        logger.error(f"Error getting price prediction for {symbol}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve market regime"
+            detail="Failed to generate price prediction"
         )
 
 
 @router.get(
     "/signal/{symbol}/{user_id}",
-    summary="Get trading signal for a symbol",
+    summary="Get trading signal for a symbol and user",
     responses={
-        200: {"description": "Trading signal retrieved successfully"},
+        200: {"description": "Trading signal with user context"},
+        400: {"description": "Invalid parameters"},
         401: {"description": "Unauthorized"},
-        404: {"description": "Symbol or user not found"},
+        500: {"description": "Internal server error"},
     }
 )
 async def get_trading_signal(
     symbol: str,
     user_id: str,
-    current_user_id: str = Depends(get_current_user),
+    risk_level: str = Query("MODERATE", description="User risk tolerance level"),
+    investment_goal: str = Query("BALANCED_GROWTH", description="User investment goal"),
 ) -> Dict[str, Any]:
     """
-    Get trading signal for a symbol based on ML/AI analysis.
+    Get personalized trading signal based on symbol and user profile.
 
     Args:
         symbol: Stock symbol to analyze
-        user_id: User ID to personalize the signal
-        current_user_id: Authenticated user ID (for authorization)
+        user_id: User ID for personalization
+        risk_level: User's risk tolerance (CONSERVATIVE, MODERATE, AGGRESSIVE)
+        investment_goal: User's investment goal
 
     Returns:
-        Trading signal with confidence level
+        Dictionary containing trading signal with user context
     """
-    if current_user_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to get signals for this user"
-        )
-    
     try:
-        ml_service = container.ml_model_service()
-        
-        # In a real implementation, we would fetch the user from the repository
-        # For mock, we'll create a user with default values
-        from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
-        from datetime import datetime
-        mock_user = User(
-            id=user_id,
-            email="user@example.com",
-            first_name="Demo",
-            last_name="User",
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            risk_tolerance=RiskTolerance.MODERATE,
-            investment_goal=InvestmentGoal.BALANCED_GROWTH
-        )
-        
-        # Generate trading signal
-        signal, confidence = ml_service.generate_trading_signal(Symbol(symbol), mock_user)
-        
-        result = {
-            "symbol": symbol,
-            "user_id": user_id,
-            "trading_signal": signal.value,
-            "confidence": float(confidence),
-            "generated_at": datetime.now().isoformat()
-        }
-        
-        logger.info(f"Trading signal retrieved for symbol {symbol} and user {user_id}")
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error retrieving trading signal: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve trading signal"
-        )
-
-
-@router.post(
-    "/optimize-portfolio/{user_id}",
-    summary="Optimize user's portfolio allocation",
-    responses={
-        200: {"description": "Portfolio optimization completed successfully"},
-        401: {"description": "Unauthorized"},
-        404: {"description": "User not found"},
-    }
-)
-async def optimize_portfolio(
-    user_id: str,
-    include_rebalancing: bool = Query(True, description="Include rebalancing suggestions"),
-    optimization_method: str = Query("mean_variance", description="Optimization method to use"),
-    current_user_id: str = Depends(get_current_user),
-) -> Dict[str, Any]:
-    """
-    Optimize portfolio allocation for a user using ML/AI models.
-
-    Args:
-        user_id: User ID whose portfolio to optimize
-        include_rebalancing: Whether to include rebalancing suggestions
-        optimization_method: Method to use for optimization
-        current_user_id: Authenticated user ID (for authorization)
-
-    Returns:
-        Optimized portfolio allocation with risk metrics
-    """
-    if current_user_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to optimize portfolio for this user"
-        )
-    
-    try:
-        ml_service = container.ml_model_service()
-        
-        # In a real implementation, we would fetch the user and portfolio from repositories
-        # For mock, we'll create a mock user and portfolio
-        from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
-        from src.domain.entities.trading import Portfolio, Position, PositionType
-        from src.domain.value_objects import Money
-        from datetime import datetime
-        
-        mock_user = User(
-            id=user_id,
-            email="user@example.com",
-            first_name="Demo",
-            last_name="User",
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            risk_tolerance=RiskTolerance.MODERATE,
-            investment_goal=InvestmentGoal.BALANCED_GROWTH
-        )
-        
-        mock_positions = [
-            Position(
-                id="pos_1",
-                user_id=user_id,
-                symbol=Symbol("AAPL"),
-                position_type=PositionType.LONG,
-                quantity=100,
-                average_buy_price=Money(Decimal('150.00'), 'USD'),
-                current_price=Money(Decimal('175.00'), 'USD'),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            ),
-            Position(
-                id="pos_2",
-                user_id=user_id,
-                symbol=Symbol("GOOGL"),
-                position_type=PositionType.LONG,
-                quantity=50,
-                average_buy_price=Money(Decimal('2500.00'), 'USD'),
-                current_price=Money(Decimal('2750.00'), 'USD'),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            ),
-            Position(
-                id="pos_3",
-                user_id=user_id,
-                symbol=Symbol("MSFT"),
-                position_type=PositionType.LONG,
-                quantity=75,
-                average_buy_price=Money(Decimal('300.00'), 'USD'),
-                current_price=Money(Decimal('350.00'), 'USD'),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
+        # Validate symbol
+        try:
+            symbol_obj = Symbol(symbol.upper())
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid symbol format: {e}"
             )
-        ]
-        
-        mock_portfolio = Portfolio(
-            id="portfolio_1",
-            user_id=user_id,
-            positions=mock_positions,
-            cash_balance=Money(Decimal('10000.00'), 'USD')
-        )
-        
-        # Optimize portfolio
-        optimization_result = ml_service.optimize_portfolio(mock_portfolio, mock_user)
-        
-        result = {
-            "user_id": user_id,
-            "optimization_method": optimization_method,
-            "allocation": optimization_result["allocation"],
-            "risk_metrics": optimization_result["risk_metrics"],
-            "optimization_timestamp": optimization_result["calculation_timestamp"],
-            "model_used": optimization_result["optimization_method"]
-        }
-        
-        if include_rebalancing:
-            result["rebalancing_suggestions"] = optimization_result["rebalancing_suggestions"]
-        
-        logger.info(f"Portfolio optimization completed for user {user_id}")
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error optimizing portfolio: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to optimize portfolio"
-        )
 
+        # Validate risk level and investment goal
+        valid_risk_levels = ["CONSERVATIVE", "MODERATE", "AGGRESSIVE"]
+        valid_goals = ["CAPITAL_PRESERVATION", "BALANCED_GROWTH", "MAXIMUM_RETURNS"]
 
-@router.get(
-    "/volatility-forecast/{symbol}",
-    summary="Get volatility forecast for a symbol",
-    responses={
-        200: {"description": "Volatility forecast retrieved successfully"},
-        401: {"description": "Unauthorized"},
-        404: {"description": "Symbol not found"},
-    }
-)
-async def get_volatility_forecast(
-    symbol: str,
-    days: int = Query(30, description="Number of days to forecast"),
-    model_type: str = Query("garch", description="Type of volatility model"),
-    current_user_id: str = Depends(get_current_user),
-) -> Dict[str, Any]:
-    """
-    Get volatility forecast for a symbol using ML/AI models.
+        if risk_level not in valid_risk_levels:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid risk level. Valid values: {valid_risk_levels}"
+            )
 
-    Returns:
-        Volatility forecast with confidence intervals
-    """
-    try:
+        if investment_goal not in valid_goals:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid investment goal. Valid values: {valid_goals}"
+            )
+
+        # Get services
         ml_service = container.ml_model_service()
+        news_analyzer = container.news_impact_analyzer_service()
         
-        # Get volatility forecast
-        volatility = ml_service.forecast_volatility(Symbol(symbol), days)
+        if not ml_service or not news_analyzer:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Required services not available"
+            )
+
+        logger.info(f"Getting trading signal for {symbol} for user {user_id}")
+
+        # Get AI prediction
+        prediction = ml_service.predict_price_direction(symbol_obj)
+
+        # Get news impact
+        news_impact = news_analyzer.calculate_news_impact_score(symbol_obj)
+
+        # Adjust signal based on user profile and news impact
+        adjusted_signal = prediction.signal
+        adjusted_confidence = prediction.confidence
         
-        # Calculate confidence intervals (mock)
-        base_vol = float(volatility)
-        confidence_lower = base_vol * 0.8  # 80% of base volatility
-        confidence_upper = base_vol * 1.2  # 120% of base volatility
-        
-        result = {
+        # Modify signal based on user risk profile
+        if risk_level == "CONSERVATIVE" and prediction.signal == "BUY":
+            # Conservative users might get a HOLD instead of BUY
+            if prediction.confidence < 0.7 or news_impact < 0.1:
+                adjusted_signal = "HOLD"
+                adjusted_confidence *= 0.8
+        elif risk_level == "AGGRESSIVE" and prediction.signal == "HOLD":
+            # Aggressive users might take more risks
+            if news_impact > 0.3:
+                adjusted_signal = "BUY"
+                adjusted_confidence *= 1.1
+
+        # Factor in news impact
+        if abs(news_impact) > 0.5:  # Strong news impact
+            adjusted_confidence = min(1.0, adjusted_confidence + 0.1)
+
+        return {
             "symbol": symbol,
-            "volatility_forecast": base_vol,
-            "volatility_percentage": base_vol * 100,  # Convert to percentage
-            "forecast_days": days,
-            "model_type": model_type,
-            "confidence_interval": {
-                "lower": confidence_lower,
-                "upper": confidence_upper
-            },
-            "calculated_at": datetime.now().isoformat()
+            "signal": adjusted_signal,
+            "confidence": adjusted_confidence,
+            "original_signal": prediction.signal,
+            "news_impact": news_impact,
+            "user_risk_profile": risk_level,
+            "investment_goal": investment_goal,
+            "explanation": f"Signal adjusted for {risk_level} risk profile and news impact score of {news_impact:.2f}",
+            "timestamp": datetime.utcnow()
         }
-        
-        logger.info(f"Volatility forecast retrieved for symbol {symbol}")
-        return result
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error retrieving volatility forecast: {e}")
+        logger.error(f"Error getting trading signal for {symbol} and user {user_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve volatility forecast"
+            detail="Failed to generate trading signal"
         )
 
 
@@ -379,67 +225,532 @@ async def get_volatility_forecast(
     "/model-performance/{model_type}",
     summary="Get model performance metrics",
     responses={
-        200: {"description": "Model performance retrieved successfully"},
+        200: {"description": "Model performance metrics"},
+        400: {"description": "Invalid model type"},
         401: {"description": "Unauthorized"},
-        404: {"description": "Model type not found"},
+        500: {"description": "Internal server error"},
     }
 )
 async def get_model_performance(
     model_type: str,
-    current_user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
-    Get performance metrics for a specific ML model type.
+    Get performance metrics for a specific AI model.
+
+    Args:
+        model_type: Type of model to get performance for (e.g., 'lstm', 'ensemble', 'rl')
+        user_id: Current authenticated user ID
 
     Returns:
-        Performance metrics and model information
+        Dictionary containing model performance metrics
     """
     try:
-        ml_service = container.ml_model_service()
-        
-        # Validate model type
-        try:
-            model_enum = MLModelType(model_type.lower().replace('-', '_'))
-        except ValueError:
-            available_models = [m.value for m in MLModelType]
+        valid_model_types = ["lstm", "ensemble", "rl", "sentiment", "all"]
+        if model_type.lower() not in valid_model_types:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid model type: {model_type}. Available: {available_models}"
+                detail=f"Invalid model type. Valid values: {valid_model_types}"
             )
-        
-        # Get model performance
-        performance = ml_service.get_model_performance(model_enum)
-        
-        result = {
-            "model_type": model_type,
-            "performance_metrics": {
-                "accuracy": float(performance.accuracy),
-                "precision": float(performance.precision),
-                "recall": float(performance.recall),
-                "f1_score": float(performance.f1_score),
-                "sharpe_ratio": float(performance.sharpe_ratio),
-                "max_drawdown": float(performance.max_drawdown),
-                "backtest_return": float(performance.backtest_return)
-            },
-            "model_version": performance.model_version,
-            "training_date": performance.training_date.isoformat(),
-            "features_importance": performance.features_importance,
-            "retrieved_at": datetime.now().isoformat()
-        }
-        
-        logger.info(f"Model performance retrieved for {model_type}")
-        return result
-        
+
+        ml_service = container.ml_model_service()
+        if not ml_service:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="ML service not available"
+            )
+
+        logger.info(f"Getting performance for {model_type} model for user {user_id}")
+
+        if model_type.lower() == "all":
+            # Return performance for all models
+            models = ["lstm", "sentiment", "ensemble"]
+            results = {}
+            for m in models:
+                try:
+                    performance = ml_service.get_model_performance(m)
+                    results[m] = {
+                        "accuracy": performance.accuracy,
+                        "precision": performance.precision,
+                        "recall": performance.recall,
+                        "sharpe_ratio": performance.sharpe_ratio,
+                        "max_drawdown": performance.max_drawdown,
+                        "annual_return": performance.annual_return
+                    }
+                except Exception:
+                    results[m] = {"error": "Performance data not available"}
+            
+            return {
+                "model_performance": results,
+                "timestamp": datetime.utcnow()
+            }
+        else:
+            # Get specific model performance
+            performance = ml_service.get_model_performance(model_type)
+            
+            return {
+                "model_type": model_type,
+                "accuracy": performance.accuracy,
+                "precision": performance.precision,
+                "recall": performance.recall,
+                "sharpe_ratio": performance.sharpe_ratio,
+                "max_drawdown": performance.max_drawdown,
+                "annual_return": performance.annual_return,
+                "timestamp": datetime.utcnow()
+            }
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error retrieving model performance: {e}")
+        logger.error(f"Error getting model performance for {model_type}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve model performance"
+            detail="Failed to get model performance"
         )
 
-from datetime import datetime
-from decimal import Decimal
-from src.domain.entities.trading import OrderType, PositionType, OrderStatus
-from src.domain.value_objects import Money
+
+@router.post(
+    "/optimize-portfolio/{user_id}",
+    summary="Optimize portfolio allocation for user",
+    responses={
+        200: {"description": "Optimized portfolio allocation"},
+        400: {"description": "Invalid parameters"},
+        401: {"description": "Unauthorized"},
+        500: {"description": "Internal server error"},
+    }
+)
+async def optimize_portfolio(
+    user_id: str,
+    risk_tolerance: Optional[str] = Query(None, description="Risk tolerance (CONSERVATIVE, MODERATE, AGGRESSIVE)"),
+    investment_goal: Optional[str] = Query(None, description="Investment goal"),
+    symbols: List[str] = Query([], description="List of symbols to consider for allocation"),
+) -> Dict[str, Any]:
+    """
+    Optimize user's portfolio allocation based on risk profile and goals.
+
+    Args:
+        user_id: User ID to optimize portfolio for
+        risk_tolerance: User's risk tolerance level
+        investment_goal: User's investment goal
+        symbols: List of symbols to consider for allocation
+
+    Returns:
+        Dictionary containing optimized allocation recommendations
+    """
+    try:
+        # Validate inputs
+        if risk_tolerance and risk_tolerance not in ["CONSERVATIVE", "MODERATE", "AGGRESSIVE"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid risk tolerance. Valid values: CONSERVATIVE, MODERATE, AGGRESSIVE"
+            )
+
+        if investment_goal and investment_goal not in ["CAPITAL_PRESERVATION", "BALANCED_GROWTH", "MAXIMUM_RETURNS"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid investment goal. Valid values: CAPITAL_PRESERVATION, BALANCED_GROWTH, MAXIMUM_RETURNS"
+            )
+
+        # Convert symbols to Symbol objects
+        symbol_objects = []
+        for sym in symbols:
+            try:
+                symbol_objects.append(Symbol(sym.upper()))
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid symbol format: {sym}"
+                )
+
+        # Get services
+        portfolio_optimizer = container.portfolio_optimization_service()
+        if not portfolio_optimizer:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Portfolio optimization service not available"
+            )
+
+        # In a real implementation, we would fetch user data from database
+        # For now, we'll create a mock user with provided parameters
+        from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
+        from enum import Enum
+        import uuid
+        
+        # Create mock user (in real implementation, fetch from database)
+        risk_enum = RiskTolerance[risk_tolerance] if risk_tolerance else RiskTolerance.MODERATE
+        goal_enum = InvestmentGoal[investment_goal] if investment_goal else InvestmentGoal.BALANCED_GROWTH
+        
+        # Create a mock portfolio for context
+        from src.domain.entities.trading import Portfolio
+        mock_portfolio = Portfolio(
+            id=f"mock_portfolio_{user_id}",
+            user_id=user_id
+        )
+
+        logger.info(f"Optimizing portfolio for user {user_id} with {len(symbol_objects)} symbols")
+
+        # Get optimization
+        allocation = portfolio_optimizer.optimize_portfolio(
+            mock_user, mock_portfolio, symbol_objects
+        )
+
+        return {
+            "user_id": user_id,
+            "risk_tolerance": risk_tolerance or "MODERATE",
+            "investment_goal": investment_goal or "BALANCED_GROWTH",
+            "allocation_recommendation": allocation,
+            "total_allocation": sum(v for k, v in allocation.items() if k != 'cash'),
+            "timestamp": datetime.utcnow()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error optimizing portfolio for user {user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to optimize portfolio"
+        )
+
+
+@router.post(
+    "/backtest",
+    summary="Run backtest on a trading strategy",
+    responses={
+        200: {"description": "Backtest results"},
+        400: {"description": "Invalid parameters"},
+        401: {"description": "Unauthorized"},
+        500: {"description": "Internal server error"},
+    }
+)
+async def run_backtest(
+    start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
+    end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
+    initial_capital: float = Query(..., gt=0, description="Initial capital for backtest"),
+    symbols: List[str] = Query(..., min_length=1, description="Symbols to backtest"),
+    strategy_type: str = Query("sma", description="Type of strategy to backtest (sma, ml)"),
+    user_id: str = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Run backtest on historical data with specified strategy.
+
+    Args:
+        start_date: Start date for backtest (YYYY-MM-DD format)
+        end_date: End date for backtest (YYYY-MM-DD format)
+        initial_capital: Initial capital to start with
+        symbols: List of symbols to backtest
+        strategy_type: Type of strategy to use (sma, ml)
+        user_id: Current authenticated user ID
+
+    Returns:
+        Dictionary containing backtest results
+    """
+    try:
+        from datetime import datetime
+        import re
+
+        # Validate dates
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid date format. Use YYYY-MM-DD."
+            )
+
+        if start_dt >= end_dt:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Start date must be before end date"
+            )
+
+        # Validate and convert symbols
+        symbol_objects = []
+        for sym in symbols:
+            try:
+                symbol_objects.append(Symbol(sym.upper()))
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid symbol format: {sym}"
+                )
+
+        # Validate strategy type
+        if strategy_type not in ["sma", "ml"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid strategy type. Valid values: sma, ml"
+            )
+
+        # Get services
+        data_provider = container.data_provider_service()
+        ml_service = container.ml_model_service()
+        
+        if not data_provider:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Data provider service not available"
+            )
+
+        # Create strategy based on type
+        if strategy_type == "sma":
+            strategy = SMACrossoverStrategy()
+        else:  # ml
+            if not ml_service:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="ML service required for ML strategy"
+                )
+            strategy = MLStrategy(ml_service)
+
+        # Create backtest configuration
+        config = BacktestConfiguration(
+            start_date=start_dt,
+            end_date=end_dt,
+            initial_capital=initial_capital,
+            symbols=symbol_objects
+        )
+
+        logger.info(f"Running backtest for user {user_id} with {strategy_type} strategy")
+
+        # Run backtest
+        engine = BacktestingEngine(data_provider, strategy, config)
+        result = engine.run_backtest()
+
+        # Convert result to dictionary
+        result_dict = {
+            "strategy": strategy.get_strategy_name(),
+            "period": {
+                "start": start_date,
+                "end": end_date
+            },
+            "initial_capital": initial_capital,
+            "final_portfolio_value": result.final_portfolio_value,
+            "total_return_pct": result.total_return * 100,
+            "annualized_return_pct": result.annualized_return * 100,
+            "volatility": result.volatility,
+            "sharpe_ratio": result.sharpe_ratio,
+            "max_drawdown_pct": result.max_drawdown * 100,
+            "win_rate_pct": result.win_rate * 100,
+            "total_trades": result.total_trades,
+            "winning_trades": result.winning_trades,
+            "losing_trades": result.losing_trades,
+            "profit_factor": result.profit_factor,
+            "results_timestamp": datetime.utcnow(),
+            "trades": [
+                {
+                    "date": str(t.get('date', '')),
+                    "symbol": t.get('symbol', ''),
+                    "action": t.get('action', ''),
+                    "quantity": t.get('quantity', 0),
+                    "price": t.get('price', 0),
+                    "value": t.get('value', 0),
+                    "reason": t.get('reason', '')
+                }
+                for t in result.trades[:20]  # Limit to first 20 trades in response
+            ] + ([{"note": f"... and {len(result.trades) - 20} more trades"}] if len(result.trades) > 20 else [])
+        }
+
+        return result_dict
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error running backtest: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to run backtest"
+        )
+
+
+@router.get(
+    "/risk-analysis/{user_id}",
+    summary="Perform advanced risk analysis for user",
+    responses={
+        200: {"description": "Risk analysis results"},
+        401: {"description": "Unauthorized"},
+        500: {"description": "Internal server error"},
+    }
+)
+async def get_risk_analysis(
+    user_id: str,
+    symbols: List[str] = Query([], description="Portfolio symbols for VaR calculation"),
+) -> Dict[str, Any]:
+    """
+    Perform advanced risk analysis including VaR, Expected Shortfall, and correlation analysis.
+
+    Args:
+        user_id: User ID to analyze risk for
+        symbols: List of portfolio symbols
+
+    Returns:
+        Dictionary containing risk analysis results
+    """
+    try:
+        # Convert symbols to Symbol objects
+        symbol_objects = []
+        for sym in symbols:
+            try:
+                symbol_objects.append(Symbol(sym.upper()))
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid symbol format: {sym}"
+                )
+
+        # Get risk analytics service
+        risk_service = container.risk_analytics_service()
+        if not risk_service:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Risk analytics service not available"
+            )
+
+        # In a real implementation, we'd fetch user's actual portfolio
+        # For now, create a mock portfolio
+        from src.domain.entities.trading import Portfolio, Position
+        from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
+        from decimal import Decimal
+        import uuid
+
+        # Create mock portfolio with positions
+        positions = []
+        for i, symbol_obj in enumerate(symbol_objects):
+            positions.append(
+                Position(
+                    id=f"mock_pos_{i}",
+                    user_id=user_id,
+                    symbol=symbol_obj,
+                    position_type="LONG",
+                    quantity=100,  # Mock quantity
+                    average_buy_price=Money(Decimal('100.0'), "USD"),  # Mock price
+                    current_price=Money(Decimal('100.0'), "USD"),  # Mock price
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+            )
+
+        mock_portfolio = Portfolio(
+            id=f"mock_portfolio_{user_id}",
+            user_id=user_id,
+            positions=positions
+        )
+
+        logger.info(f"Calculating risk metrics for user {user_id} with {len(symbol_objects)} symbols")
+
+        # Calculate VaR (Value at Risk)
+        var_95 = risk_service.calculate_var(mock_portfolio, confidence_level=0.95)
+        var_99 = risk_service.calculate_var(mock_portfolio, confidence_level=0.99)
+        
+        # Calculate Expected Shortfall
+        es_95 = risk_service.calculate_expected_shortfall(mock_portfolio, confidence_level=0.95)
+
+        # Calculate correlation matrix
+        correlations = risk_service.calculate_correlation_matrix(positions)
+
+        # Define example scenarios for stress testing
+        scenarios = [
+            {"name": "Market Crash", "market_impact": -0.20},  # 20% market drop
+            {"name": "Tech Sector Decline", "market_impact": -0.15},  # 15% tech sector drop
+            {"name": "Interest Rate Shock", "market_impact": -0.10}   # 10% across market
+        ]
+
+        # Run stress tests
+        stress_results = risk_service.stress_test_portfolio(mock_portfolio, scenarios)
+
+        return {
+            "user_id": user_id,
+            "risk_metrics": {
+                "value_at_risk_95": float(var_95.amount),
+                "value_at_risk_99": float(var_99.amount),
+                "expected_shortfall_95": float(es_95.amount),
+                "portfolio_volatility": 0.20,  # Mock value for now
+            },
+            "correlation_matrix": correlations,
+            "stress_test_results": stress_results,
+            "analysis_timestamp": datetime.utcnow()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error performing risk analysis for user {user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to perform risk analysis"
+        )
+
+
+@router.get(
+    "/retrain-model/{symbol}",
+    summary="Retrain ML model for a specific symbol",
+    responses={
+        200: {"description": "Model retraining initiated"},
+        400: {"description": "Invalid symbol"},
+        401: {"description": "Unauthorized"},
+        500: {"description": "Internal server error"},
+    }
+)
+async def retrain_model(
+    symbol: str,
+    user_id: str = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Initiate retraining of ML models for a specific symbol with new data.
+
+    Args:
+        symbol: Symbol to retrain model for
+        user_id: Current authenticated user ID
+
+    Returns:
+        Dictionary confirming retraining initiation
+    """
+    try:
+        # Validate symbol
+        try:
+            symbol_obj = Symbol(symbol.upper())
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid symbol format: {e}"
+            )
+
+        # Get ML service
+        ml_service = container.ml_model_service()
+        if not ml_service:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="ML service not available"
+            )
+
+        logger.info(f"Initiating model retraining for {symbol} by user {user_id}")
+
+        # Attempt to retrain model
+        success = ml_service.retrain_model(symbol_obj)
+
+        if success:
+            return {
+                "symbol": symbol,
+                "status": "retraining_initiated",
+                "message": f"Model retraining initiated for {symbol}",
+                "retraining_successful": True,
+                "timestamp": datetime.utcnow()
+            }
+        else:
+            return {
+                "symbol": symbol,
+                "status": "retraining_failed",
+                "message": f"Model retraining failed for {symbol}",
+                "retraining_successful": False,
+                "timestamp": datetime.utcnow()
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error initiating model retraining for {symbol}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to initiate model retraining"
+        )
