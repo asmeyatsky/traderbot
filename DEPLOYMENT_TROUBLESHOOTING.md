@@ -23,5 +23,8 @@ Based on the Terraform outputs, here are the correct values for GitHub secrets:
 4. Ensure the VPC connector is in "READY" state before deployment
 
 ## Root Cause Identified
-The Docker build was failing due to native dependencies of spaCy and other ML packages.
-Fixed by adding build-essential and cmake to system dependencies and upgrading pip.
+1. Docker build was failing due to native dependencies of spaCy and other ML packages.
+   Fixed by adding build-essential and cmake to system dependencies and upgrading pip.
+
+2. Docker build was also failing because setup.py was trying to read README.md which wasn't in the build context.
+   Fixed by copying README.md and src directory before running pip install.
