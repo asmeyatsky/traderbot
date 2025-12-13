@@ -70,7 +70,7 @@ setup(
         "python-slugify==8.0.1",
         "Pillow==10.1.0",
         "python-multipart==0.0.6",
-        "cryptography==41.0.8",
+        "cryptography==41.0.7",  # Changed to available version
     ],
     author="AI Trading Platform Team",
     author_email="dev@aitradingplatform.com",
