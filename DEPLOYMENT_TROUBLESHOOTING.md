@@ -21,3 +21,7 @@ Based on the Terraform outputs, here are the correct values for GitHub secrets:
 2. Verify the service account in GCP_SA_KEY has proper permissions
 3. Verify the database password in DATABASE_URL matches the Terraform configuration
 4. Ensure the VPC connector is in "READY" state before deployment
+
+## Root Cause Identified
+The Docker build was failing due to native dependencies of spaCy and other ML packages.
+Fixed by adding build-essential and cmake to system dependencies and upgrading pip.
