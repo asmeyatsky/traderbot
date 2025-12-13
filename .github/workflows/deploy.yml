@@ -57,7 +57,5 @@ jobs:
             LOG_LEVEL=INFO
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             REDIS_URL=${{ secrets.REDIS_URL }}
-          # VPC Connector for Redis/DB access
-          vpc_connector: projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/connectors/traderbot-connector
-          # Allow unauthenticated requests (remove if you want authentication)
-          allow_unauthenticated: true
+          # Additional flags for VPC Connector and authentication
+          flags: --vpc-connector=projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/connectors/traderbot-connector --allow-unauthenticated
