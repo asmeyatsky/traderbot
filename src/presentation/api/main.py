@@ -187,11 +187,15 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     import uvicorn
+    import os
+
+    # Use PORT environment variable from Cloud Run, default to 8000 for local dev
+    port = int(os.environ.get("PORT", 8000))
 
     uvicorn.run(
         "src.presentation.api.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=port,
         reload=(settings.ENVIRONMENT == "development"),
         log_level=settings.LOG_LEVEL.lower(),
     )
