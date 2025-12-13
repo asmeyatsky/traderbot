@@ -164,3 +164,10 @@ terraform-provider-*
 # Exclude large binary files from Terraform providers
 .terraform/providers/
 .terraform.d/
+
+# Security - Exclude sensitive files
+sa-key.json
+*.key
+*.pem
+*.crt
+*.cert
