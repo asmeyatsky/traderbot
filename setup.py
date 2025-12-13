@@ -14,14 +14,14 @@ setup(
         "numpy==1.24.3",
         "scikit-learn==1.3.2",
 
-        # ML/DL
-        "tensorflow==2.15.0",
-        "torch==2.1.2",
-        "transformers==4.36.0",
+        # ML/DL - using compatible versions
+        "tensorflow==2.13.1",  # Earlier stable version compatible with other deps
+        "torch==2.0.1",  # Earlier stable version compatible with other deps
+        "transformers>=4.35.0,<4.37.0",  # Compatible range with other deps
 
-        # API and validation
-        "pydantic[email]==2.5.0",
-        "fastapi==0.104.1",
+        # API and validation - using compatible versions
+        "pydantic[email]>=2.4.0,<2.6.0",
+        "fastapi>=0.104.0,<0.105.0",
         "uvicorn==0.24.0",
 
         # Database
