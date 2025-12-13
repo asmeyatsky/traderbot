@@ -49,12 +49,12 @@ jobs:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          # Setting environment variables
+          # Setting environment and secret variables
           env_vars: ENVIRONMENT=production,LOG_LEVEL=INFO
           secrets: |
-            DATABASE_URL=DATABASE_URL,
-            REDIS_URL=REDIS_URL
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            REDIS_URL=${{ secrets.REDIS_URL }}
           # VPC Connector for Redis/DB access
-          vpc_connector: ${{ env.REGION }}-traderbot-connector
+          vpc_connector: traderbot-connector
           # Allow unauthenticated requests (remove if you want authentication)
           allow_unauthenticated: true
