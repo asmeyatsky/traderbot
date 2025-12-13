@@ -55,7 +55,7 @@ setup(
 
         # Market data APIs
         "yfinance==0.2.18",
-        "alpha-vantage==2.1.4",
+        "alpha-vantage==2.1.3",  # Changed to available version
         "polygon-api-client==1.13.0",
         "finnhub-python==2.4.14",
 
