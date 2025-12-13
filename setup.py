@@ -15,7 +15,7 @@ setup(
         "scikit-learn==1.3.2",
 
         # ML/DL - using compatible versions
-        "tensorflow==2.13.1",  # Earlier stable version compatible with other deps
+        "tensorflow>=2.15.0",  # Newer version compatible with typing-extensions>=4.8.0
         "torch==2.0.1",  # Earlier stable version compatible with other deps
         "transformers>=4.35.0,<4.37.0",  # Compatible range with other deps
 
