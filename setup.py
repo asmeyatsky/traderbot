@@ -22,6 +22,7 @@ setup(
         # API and validation - using compatible versions
         "pydantic[email]>=2.4.0,<2.6.0",
         "fastapi>=0.104.0,<0.105.0",
+        "typing-extensions>=4.8.0",  # Required by fastapi
         "uvicorn==0.24.0",
 
         # Database
