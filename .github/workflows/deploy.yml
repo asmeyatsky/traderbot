@@ -33,7 +33,9 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
-          region: ${{ env.REGION }}
+
+      - name: Configure gcloud region
+        run: gcloud config set run/region ${{ env.REGION }}
 
       - name: Authorize Docker push
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
