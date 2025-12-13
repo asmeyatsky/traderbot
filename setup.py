@@ -34,7 +34,7 @@ setup(
         "kafka-python==2.0.2",
 
         # Real-time communication
-        "websockets==12.0",
+        "websockets>=10.3,<12.0",  # Compatible with polygon-api-client
 
         # Security
         "pyjwt==2.8.0",
