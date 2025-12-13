@@ -10,10 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     make \
+    build-essential \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
 COPY setup.py requirements.txt* ./
+RUN pip install --user --no-cache-dir --upgrade pip setuptools wheel
 RUN pip install --user --no-cache-dir -e .
 
 # Stage 2: Runtime
