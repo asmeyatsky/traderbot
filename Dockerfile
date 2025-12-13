@@ -14,8 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
-COPY setup.py requirements.txt* ./
+# Copy essential files for installation
+COPY setup.py requirements.txt README.md ./
+COPY src ./src
+
 RUN pip install --user --no-cache-dir --upgrade pip setuptools wheel
 RUN pip install --user --no-cache-dir -e .
 
