@@ -4,14 +4,15 @@ Application Settings Configuration
 This module loads and manages application settings from environment variables.
 Following Pydantic v2 patterns with proper validation.
 """
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic_settings import BaseSettings
+from pydantic import ConfigDict, Field, field_validator
 from typing import Optional
 
 
-class Settings(BaseModel):
+class Settings(BaseSettings):
     """Application settings loaded from environment variables with validation."""
 
-    model_config = ConfigDict(env_file=".env", case_sensitive=True)
+    model_config = ConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
 
     # API Keys - Required
     POLYGON_API_KEY: str = Field(..., min_length=1)
@@ -61,8 +62,21 @@ class Settings(BaseModel):
         return v
 
 
-# Create settings instance - this will fail fast if required env vars are missing
-try:
-    settings = Settings()
-except Exception as e:
-    raise RuntimeError(f"Failed to load application settings: {e}")
+# Import at the top of the file to make sure they're loaded
+from functools import lru_cache
+
+@lru_cache(maxsize=1)
+def get_settings():
+    """
+    Get settings instance with caching to avoid repeated loading
+    """
+    try:
+        return Settings()
+    except Exception as e:
+        raise RuntimeError(f"Failed to load application settings: {e}")
+
+# Defer initialization until first access
+def __getattr__(name):
+    if name == "settings":
+        return get_settings()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

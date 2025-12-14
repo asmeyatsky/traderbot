@@ -21,6 +21,7 @@ import json
 from src.domain.entities.trading import Order, Position, Portfolio
 from src.domain.entities.user import User
 from src.domain.value_objects import Symbol, Money, Price
+from enum import Enum
 
 
 logger = logging.getLogger(__name__)
@@ -567,3 +568,83 @@ class BrokerIntegrationService:
     def supports_vwap_execution(self) -> bool:
         """Check if VWAP execution is supported."""
         return self.vwap_service is not None
+
+
+class BrokerType(str, Enum):
+    """Enumeration of supported broker types."""
+    ALPACA = "alpaca"
+    INTERACTIVE_BROKERS = "interactive_brokers"
+    TD_AMERITRADE = "td_ameritrade"
+    FIDELITY = "fidelity"
+    SCHWAB = "schwab"
+
+
+class BrokerOrder:
+    """Represents an order in the broker's system."""
+    def __init__(self, broker_order_id: str, client_order_id: str, symbol: str, quantity: int,
+                 side: str, order_type: str, status: str, time_in_force: str = "day",
+                 limit_price: Optional[float] = None, stop_price: Optional[float] = None,
+                 created_at: Optional[datetime] = None):
+        self.broker_order_id = broker_order_id
+        self.client_order_id = client_order_id
+        self.symbol = symbol
+        self.quantity = quantity
+        self.side = side  # 'buy' or 'sell'
+        self.order_type = order_type  # 'market', 'limit', 'stop', etc
+        self.status = status  # 'pending', 'filled', 'partial_filled', 'cancelled', 'rejected'
+        self.time_in_force = time_in_force
+        self.limit_price = limit_price
+        self.stop_price = stop_price
+        self.created_at = created_at or datetime.now()
+
+
+class BrokerAdapterManager:
+    """Manager for different broker adapters with routing capabilities."""
+
+    def __init__(self):
+        """Initialize the adapter manager with available broker services."""
+        from src.infrastructure.config.settings import settings
+
+        self.brokers = {}
+
+        # Initialize Alpaca service
+        self.brokers[BrokerType.ALPACA] = AlpacaBrokerService(
+            api_key=settings.ALPACA_API_KEY,
+            secret_key=settings.ALPACA_SECRET_KEY,
+            paper_trading=True
+        )
+
+        # Initialize Interactive Brokers service if API key exists
+        if settings.INTERACTIVE_BROKERS_API_KEY:
+            self.brokers[BrokerType.INTERACTIVE_BROKERS] = InteractiveBrokersService(
+                api_key=settings.INTERACTIVE_BROKERS_API_KEY
+            )
+
+    def get_broker_service(self, broker_type: BrokerType):
+        """Get broker service instance for the specified broker type."""
+        if broker_type not in self.brokers:
+            raise BrokerAPIException(f"Broker type {broker_type} not supported")
+        return self.brokers[broker_type]
+
+    def execute_order(self, order: Order, user: User, broker_type: BrokerType) -> BrokerOrder:
+        """Execute an order through the specified broker."""
+        broker_service = self.get_broker_service(broker_type)
+        return broker_service.execute_order(order, user)
+
+    def get_positions(self, user: User, broker_type: BrokerType) -> List[Position]:
+        """Get positions from the specified broker."""
+        broker_service = self.get_broker_service(broker_type)
+        return broker_service.get_positions(user)
+
+    def get_account_info(self, user: User, broker_type: BrokerType) -> Any:
+        """Get account information from the specified broker."""
+        broker_service = self.get_broker_service(broker_type)
+        return broker_service.get_account_info(user)
+
+    def get_available_brokers(self) -> List[BrokerType]:
+        """Get list of available brokers."""
+        return list(self.brokers.keys())
+
+
+# Global broker integration service instance
+broker_integration_service = BrokerIntegrationService()

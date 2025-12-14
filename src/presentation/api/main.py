@@ -19,6 +19,7 @@ import logging
 
 # Load environment variables before importing other modules
 load_dotenv()
+load_dotenv('.env')  # explicitly load .env file in current directory
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

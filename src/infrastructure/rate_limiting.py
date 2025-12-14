@@ -325,6 +325,32 @@ def get_rate_limiter() -> DistributedRateLimiter:
     return _rate_limiter
 
 
+class RateLimiter:
+    """
+    Simple rate limiter class for dependency injection.
+    Wrapper around the DistributedRateLimiter for DI container compatibility.
+    """
+
+    def __init__(self, redis_url: str = "redis://localhost:6379/0"):
+        """Initialize the rate limiter."""
+        self.distributed_limiter = DistributedRateLimiter(
+            use_redis=True,
+            redis_url=redis_url,
+        )
+
+    def is_allowed(self, key: str, limit: int = None, window: int = None) -> bool:
+        """Check if request is allowed."""
+        return self.distributed_limiter.is_allowed(key, limit, window)
+
+    def get_remaining(self, key: str) -> int:
+        """Get remaining requests."""
+        return self.distributed_limiter.get_remaining(key)
+
+    def get_reset_time(self, key: str) -> datetime:
+        """Get reset time."""
+        return self.distributed_limiter.get_reset_time(key)
+
+
 def set_rate_limiter(limiter: DistributedRateLimiter) -> None:
     """Set the global rate limiter instance."""
     global _rate_limiter

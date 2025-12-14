@@ -17,7 +17,8 @@ from pydantic import BaseModel
 import logging
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer
+from fastapi.security.http import HTTPAuthorizationCredentials
 
 from src.infrastructure.config.settings import settings
 
@@ -194,7 +195,7 @@ class SecurityManager:
 # Dependency injection functions for FastAPI
 
 async def get_current_user(
-    credentials: HTTPAuthCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> str:
     """
     FastAPI dependency to get current authenticated user.
@@ -237,7 +238,7 @@ async def get_current_user(
 
 
 async def get_optional_user(
-    credentials: Optional[HTTPAuthCredentials] = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> Optional[str]:
     """
     FastAPI dependency to optionally get current user.
@@ -256,6 +257,34 @@ async def get_optional_user(
         return await get_current_user(credentials)
     except HTTPException:
         return None
+
+
+class JWTAuthenticator:
+    """JWT authentication service that works with the DI container."""
+
+    def __init__(self):
+        """Initialize JWT authenticator with security manager."""
+        self.security_manager = SecurityManager()
+
+    def create_access_token(self, user_id: str) -> tuple[str, datetime]:
+        """Create a JWT access token."""
+        return self.security_manager.create_access_token(user_id)
+
+    def create_refresh_token(self, user_id: str) -> tuple[str, datetime]:
+        """Create a JWT refresh token."""
+        return self.security_manager.create_refresh_token(user_id)
+
+    def verify_token(self, token: str) -> TokenPayload:
+        """Verify and decode a JWT token."""
+        return self.security_manager.verify_token(token)
+
+    def hash_password(self, password: str) -> str:
+        """Hash a password using bcrypt."""
+        return self.security_manager.hash_password(password)
+
+    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
+        """Verify a plain password against its hash."""
+        return self.security_manager.verify_password(plain_password, hashed_password)
 
 
 # Security manager instance
