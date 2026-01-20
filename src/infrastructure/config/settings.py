@@ -45,6 +45,25 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = Field(default="development", pattern="^(development|staging|production)$")
     LOG_LEVEL: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
 
+    # Risk Management Configuration - Conservative
+    RISK_CONSERVATIVE_MAX_DRAWDOWN: float = Field(default=10.0, ge=0, le=100)
+    RISK_CONSERVATIVE_POSITION_LIMIT_PCT: float = Field(default=5.0, ge=0, le=100)
+    RISK_CONSERVATIVE_VOLATILITY_THRESHOLD: float = Field(default=2.0, ge=0)
+
+    # Risk Management Configuration - Moderate
+    RISK_MODERATE_MAX_DRAWDOWN: float = Field(default=15.0, ge=0, le=100)
+    RISK_MODERATE_POSITION_LIMIT_PCT: float = Field(default=10.0, ge=0, le=100)
+    RISK_MODERATE_VOLATILITY_THRESHOLD: float = Field(default=2.5, ge=0)
+
+    # Risk Management Configuration - Aggressive
+    RISK_AGGRESSIVE_MAX_DRAWDOWN: float = Field(default=25.0, ge=0, le=100)
+    RISK_AGGRESSIVE_POSITION_LIMIT_PCT: float = Field(default=20.0, ge=0, le=100)
+    RISK_AGGRESSIVE_VOLATILITY_THRESHOLD: float = Field(default=3.0, ge=0)
+
+    # Circuit Breaker Configuration
+    CIRCUIT_BREAKER_VOLATILITY_THRESHOLD: float = Field(default=5.0, ge=0)
+    CIRCUIT_BREAKER_RESET_MINUTES: int = Field(default=30, ge=1)
+
     @field_validator('DATABASE_URL')
     @classmethod
     def validate_db_url(cls, v: str) -> str:

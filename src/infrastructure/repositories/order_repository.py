@@ -44,6 +44,12 @@ class OrderRepository(BaseRepository[Order, OrderORM], OrderRepositoryPort):
         if not orm_obj:
             return None
 
+        # Quantize decimal values to 2 decimal places for Money compatibility
+        def quantize_money(value):
+            if value is None:
+                return None
+            return Decimal(str(value)).quantize(Decimal("0.01"))
+
         return Order(
             id=orm_obj.id,
             user_id=orm_obj.user_id,
@@ -54,10 +60,10 @@ class OrderRepository(BaseRepository[Order, OrderORM], OrderRepositoryPort):
             status=orm_obj.status,
             placed_at=orm_obj.placed_at,
             executed_at=orm_obj.executed_at,
-            price=Money(orm_obj.price, "USD") if orm_obj.price else None,
-            stop_price=Money(orm_obj.stop_price, "USD") if orm_obj.stop_price else None,
+            price=Money(quantize_money(orm_obj.price), "USD") if orm_obj.price else None,
+            stop_price=Money(quantize_money(orm_obj.stop_price), "USD") if orm_obj.stop_price else None,
             filled_quantity=orm_obj.filled_quantity,
-            commission=Money(orm_obj.commission or Decimal('0'), "USD"),
+            commission=Money(quantize_money(orm_obj.commission) or Decimal('0'), "USD"),
             notes=orm_obj.notes,
         )
 
@@ -127,7 +133,7 @@ class OrderRepository(BaseRepository[Order, OrderORM], OrderRepositoryPort):
         try:
             orm_objs = session.query(OrderORM).filter(
                 OrderORM.user_id == user_id,
-                OrderORM.status.in_([OrderStatus.PENDING, OrderStatus.PARTIALLY_FILLED])
+                OrderORM.status == OrderStatus.PENDING
             ).order_by(OrderORM.placed_at.desc()).all()
             return [self._to_domain_entity(orm_obj) for orm_obj in orm_objs]
         except Exception as e:

@@ -25,6 +25,10 @@ class PortfolioRepository(BaseRepository[Portfolio, PortfolioORM], PortfolioRepo
     Repository for Portfolio entity persistence.
 
     Implements PortfolioRepositoryPort and provides all portfolio-related persistence operations.
+
+    Note: The Portfolio domain entity uses computed properties for total_value and positions_value,
+    so we store the cash_balance and reconstruct the Portfolio without positions (positions are
+    stored in a separate repository).
     """
 
     def __init__(self):
@@ -44,17 +48,19 @@ class PortfolioRepository(BaseRepository[Portfolio, PortfolioORM], PortfolioRepo
         if not orm_obj:
             return None
 
+        # Quantize decimal values to 2 decimal places for Money compatibility
+        def quantize_money(value):
+            if value is None:
+                return Decimal("0")
+            return Decimal(str(value)).quantize(Decimal("0.01"))
+
+        # Portfolio entity has total_value as a computed property, not a field
+        # We store positions separately, so we create Portfolio with empty positions
         return Portfolio(
             id=orm_obj.id,
             user_id=orm_obj.user_id,
-            total_value=Money(orm_obj.total_value, "USD"),
-            cash_balance=Money(orm_obj.cash_balance, "USD"),
-            invested_value=Money(orm_obj.invested_value, "USD"),
-            total_gain_loss=Money(orm_obj.total_gain_loss, "USD"),
-            total_return_percentage=orm_obj.total_return_percentage,
-            ytd_return_percentage=orm_obj.ytd_return_percentage,
-            current_drawdown=orm_obj.current_drawdown,
-            peak_value=Money(orm_obj.peak_value, "USD"),
+            positions=[],  # Positions are loaded separately
+            cash_balance=Money(quantize_money(orm_obj.cash_balance), "USD"),
             created_at=orm_obj.created_at,
             updated_at=orm_obj.updated_at,
         )
@@ -69,17 +75,21 @@ class PortfolioRepository(BaseRepository[Portfolio, PortfolioORM], PortfolioRepo
         Returns:
             PortfolioORM instance
         """
+        # Calculate values from the entity's computed properties
+        total_value = entity.total_value.amount
+        positions_value = entity.positions_value.amount
+
         return PortfolioORM(
             id=entity.id,
             user_id=entity.user_id,
-            total_value=entity.total_value.amount,
+            total_value=total_value,
             cash_balance=entity.cash_balance.amount,
-            invested_value=entity.invested_value.amount,
-            total_gain_loss=entity.total_gain_loss.amount,
-            total_return_percentage=entity.total_return_percentage,
-            ytd_return_percentage=entity.ytd_return_percentage,
-            current_drawdown=entity.current_drawdown,
-            peak_value=entity.peak_value.amount,
+            invested_value=positions_value,
+            total_gain_loss=Decimal("0"),  # Would need historical data to compute
+            total_return_percentage=Decimal("0"),
+            ytd_return_percentage=Decimal("0"),
+            current_drawdown=Decimal("0"),
+            peak_value=total_value,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
         )
@@ -127,15 +137,13 @@ class PortfolioRepository(BaseRepository[Portfolio, PortfolioORM], PortfolioRepo
             if not orm_obj:
                 raise ValueError(f"Portfolio with ID {entity.id} not found")
 
-            # Update fields
-            orm_obj.total_value = entity.total_value.amount
+            # Update fields - compute values from entity's properties
+            total_value = entity.total_value.amount
+            positions_value = entity.positions_value.amount
+
+            orm_obj.total_value = total_value
             orm_obj.cash_balance = entity.cash_balance.amount
-            orm_obj.invested_value = entity.invested_value.amount
-            orm_obj.total_gain_loss = entity.total_gain_loss.amount
-            orm_obj.total_return_percentage = entity.total_return_percentage
-            orm_obj.ytd_return_percentage = entity.ytd_return_percentage
-            orm_obj.current_drawdown = entity.current_drawdown
-            orm_obj.peak_value = entity.peak_value.amount
+            orm_obj.invested_value = positions_value
             orm_obj.updated_at = datetime.utcnow()
 
             session.commit()

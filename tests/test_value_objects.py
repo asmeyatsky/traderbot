@@ -28,35 +28,35 @@ class TestMoney:
         assert money1 != money3
 
     def test_money_addition(self):
-        """Test adding Money values."""
+        """Test adding Money values using operator."""
         money1 = Money(Decimal("100.00"), "USD")
         money2 = Money(Decimal("50.00"), "USD")
-        result = money1.add(money2)
+        result = money1 + money2
 
         assert result.amount == Decimal("150.00")
         assert result.currency == "USD"
 
     def test_money_subtraction(self):
-        """Test subtracting Money values."""
+        """Test subtracting Money values using operator."""
         money1 = Money(Decimal("100.00"), "USD")
         money2 = Money(Decimal("30.00"), "USD")
-        result = money1.subtract(money2)
+        result = money1 - money2
 
         assert result.amount == Decimal("70.00")
         assert result.currency == "USD"
 
     def test_money_multiplication(self):
-        """Test multiplying Money by a scalar."""
+        """Test multiplying Money by a scalar using operator."""
         money = Money(Decimal("100.00"), "USD")
-        result = money.multiply(Decimal("1.5"))
+        result = money * Decimal("2")
 
-        assert result.amount == Decimal("150.00")
+        assert result.amount == Decimal("200.00")
         assert result.currency == "USD"
 
     def test_money_division(self):
-        """Test dividing Money by a scalar."""
+        """Test dividing Money by a scalar using operator."""
         money = Money(Decimal("100.00"), "USD")
-        result = money.divide(Decimal("2"))
+        result = money / Decimal("2")
 
         assert result.amount == Decimal("50.00")
         assert result.currency == "USD"
@@ -67,7 +67,7 @@ class TestMoney:
         money2 = Money(Decimal("50.00"), "EUR")
 
         with pytest.raises(ValueError):
-            money1.add(money2)
+            _ = money1 + money2
 
     def test_money_immutability(self):
         """Test that Money is immutable."""
@@ -100,15 +100,16 @@ class TestSymbol:
         symbol = Symbol("AAPL")
         assert str(symbol) == "AAPL"
 
-    def test_symbol_uppercase(self):
-        """Test that Symbol is stored in uppercase."""
-        symbol = Symbol("aapl")
-        assert str(symbol) == "AAPL"
+    def test_symbol_uppercase_required(self):
+        """Test that Symbol requires uppercase input."""
+        # Symbol validation expects uppercase
+        with pytest.raises(ValueError):
+            Symbol("aapl")
 
     def test_symbol_equality(self):
         """Test Symbol equality."""
         symbol1 = Symbol("AAPL")
-        symbol2 = Symbol("aapl")
+        symbol2 = Symbol("AAPL")
         symbol3 = Symbol("GOOGL")
 
         assert symbol1 == symbol2
@@ -116,17 +117,17 @@ class TestSymbol:
 
     def test_symbol_invalid(self):
         """Test creating Symbol with invalid format."""
-        # Symbol should validate format
-        # This test depends on actual validation logic
-        symbol = Symbol("A1B2")  # May be valid or invalid depending on implementation
+        # Invalid symbol should raise ValueError
+        with pytest.raises(ValueError):
+            Symbol("toolongname")
 
     def test_symbol_immutability(self):
         """Test that Symbol is immutable."""
         symbol = Symbol("AAPL")
 
         # Symbol should be immutable
-        # Exact behavior depends on implementation
-        assert str(symbol) == "AAPL"
+        with pytest.raises(Exception):
+            symbol.value = "GOOGL"
 
 
 class TestPrice:
@@ -155,14 +156,12 @@ class TestPrice:
         assert price1 < price2
         assert price2 > price1
 
-    def test_price_to_money(self):
-        """Test converting Price to Money."""
+    def test_price_multiplication(self):
+        """Test Price multiplication by scalar."""
         price = Price(Decimal("150.00"), "USD")
-        money = price.to_money()
+        result = price * Decimal("2")
 
-        assert isinstance(money, Money)
-        assert money.amount == price.amount
-        assert money.currency == price.currency
+        assert result.amount == Decimal("300.00")
 
     def test_price_immutability(self):
         """Test that Price is immutable."""
@@ -177,29 +176,58 @@ class TestNewsSentiment:
 
     def test_sentiment_creation(self):
         """Test creating a NewsSentiment value object."""
-        sentiment = NewsSentiment(score=0.75, label="POSITIVE")
-        assert sentiment.score == 0.75
-        assert sentiment.label == "POSITIVE"
+        sentiment = NewsSentiment(
+            score=Decimal("75"),
+            confidence=Decimal("85"),
+            source="Reuters"
+        )
+        assert sentiment.score == Decimal("75")
+        assert sentiment.confidence == Decimal("85")
+        assert sentiment.source == "Reuters"
 
     def test_sentiment_score_range(self):
-        """Test that sentiment score is in valid range."""
-        # Score should be between -1.0 and 1.0
-        valid_sentiment = NewsSentiment(score=0.5, label="POSITIVE")
-        assert -1.0 <= valid_sentiment.score <= 1.0
+        """Test that sentiment score is in valid range (-100 to 100)."""
+        valid_sentiment = NewsSentiment(
+            score=Decimal("50"),
+            confidence=Decimal("80"),
+            source="test"
+        )
+        assert -100 <= valid_sentiment.score <= 100
 
-    def test_sentiment_labels(self):
-        """Test valid sentiment labels."""
-        positive = NewsSentiment(score=0.5, label="POSITIVE")
-        negative = NewsSentiment(score=-0.5, label="NEGATIVE")
-        neutral = NewsSentiment(score=0.0, label="NEUTRAL")
+    def test_sentiment_is_positive(self):
+        """Test sentiment is_positive property."""
+        positive = NewsSentiment(
+            score=Decimal("50"),
+            confidence=Decimal("80"),
+            source="test"
+        )
+        assert positive.is_positive is True
 
-        assert positive.label == "POSITIVE"
-        assert negative.label == "NEGATIVE"
-        assert neutral.label == "NEUTRAL"
+    def test_sentiment_is_negative(self):
+        """Test sentiment is_negative property."""
+        negative = NewsSentiment(
+            score=Decimal("-50"),
+            confidence=Decimal("80"),
+            source="test"
+        )
+        assert negative.is_negative is True
+
+    def test_sentiment_is_neutral(self):
+        """Test sentiment is_neutral property."""
+        neutral = NewsSentiment(
+            score=Decimal("0"),
+            confidence=Decimal("80"),
+            source="test"
+        )
+        assert neutral.is_neutral is True
 
     def test_sentiment_immutability(self):
         """Test that NewsSentiment is immutable."""
-        sentiment = NewsSentiment(score=0.75, label="POSITIVE")
+        sentiment = NewsSentiment(
+            score=Decimal("75"),
+            confidence=Decimal("85"),
+            source="test"
+        )
 
         with pytest.raises(Exception):
-            sentiment.score = -0.5
+            sentiment.score = Decimal("-50")

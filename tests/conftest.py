@@ -64,9 +64,8 @@ def sample_portfolio():
     return Portfolio(
         id="test-portfolio-1",
         user_id="test-user-1",
-        total_value=Money(Decimal("10000.00"), "USD"),
+        positions=[],
         cash_balance=Money(Decimal("5000.00"), "USD"),
-        invested_value=Money(Decimal("5000.00"), "USD"),
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
@@ -81,7 +80,7 @@ def sample_order():
         symbol=Symbol("AAPL"),
         order_type=OrderType.MARKET,
         position_type=PositionType.LONG,
-        quantity=Decimal("100"),
+        quantity=100,
         status=OrderStatus.PENDING,
         placed_at=datetime.now(),
         price=Money(Decimal("150.00"), "USD"),
@@ -95,12 +94,12 @@ def sample_position():
         id="test-position-1",
         user_id="test-user-1",
         symbol=Symbol("AAPL"),
-        quantity=Decimal("100"),
+        quantity=100,
         position_type=PositionType.LONG,
-        average_entry_price=Money(Decimal("150.00"), "USD"),
+        average_buy_price=Money(Decimal("150.00"), "USD"),
         current_price=Money(Decimal("155.00"), "USD"),
-        unrealized_gain_loss=Money(Decimal("500.00"), "USD"),
-        opened_at=datetime.now(),
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
 

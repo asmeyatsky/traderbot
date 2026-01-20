@@ -7,17 +7,75 @@ portfolio state, performance metrics, and allocation.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
+from decimal import Decimal
 import logging
 
 from src.infrastructure.security import get_current_user
 from src.application.dtos.portfolio_dtos import (
     PortfolioResponse, PortfolioPerformanceResponse,
-    PortfolioAllocationResponse, UpdateCashBalanceRequest
+    PortfolioAllocationResponse, UpdateCashBalanceRequest,
+    PositionResponse
 )
+from src.presentation.api.dependencies import (
+    get_portfolio_repository,
+    get_position_repository,
+    get_portfolio_performance_use_case,
+)
+from src.infrastructure.repositories import PortfolioRepository, PositionRepository
+from src.domain.value_objects import Money
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/portfolio", tags=["portfolio"])
+
+
+def _position_to_response(position) -> PositionResponse:
+    """Convert domain Position entity to PositionResponse DTO."""
+    current_price = float(position.current_price.amount) if position.current_price else 0.0
+    avg_buy_price = float(position.average_buy_price.amount) if hasattr(position, 'average_buy_price') and position.average_buy_price else float(position.average_entry_price.amount) if hasattr(position, 'average_entry_price') and position.average_entry_price else 0.0
+    quantity = int(position.quantity) if position.quantity else 0
+    market_value = current_price * quantity
+    unrealized_pnl = (current_price - avg_buy_price) * quantity
+    pnl_percentage = ((current_price - avg_buy_price) / avg_buy_price * 100) if avg_buy_price > 0 else 0.0
+
+    return PositionResponse(
+        id=position.id,
+        symbol=str(position.symbol),
+        position_type=position.position_type.name if hasattr(position.position_type, 'name') else str(position.position_type),
+        quantity=quantity,
+        average_buy_price=avg_buy_price,
+        current_price=current_price,
+        market_value=market_value,
+        unrealized_pnl=unrealized_pnl,
+        pnl_percentage=pnl_percentage,
+        created_at=position.opened_at if hasattr(position, 'opened_at') else datetime.utcnow(),
+        updated_at=position.updated_at if hasattr(position, 'updated_at') else datetime.utcnow(),
+    )
+
+
+def _portfolio_to_response(portfolio, positions=None) -> PortfolioResponse:
+    """Convert domain Portfolio entity to PortfolioResponse DTO."""
+    position_responses = []
+    positions_value = 0.0
+
+    if positions:
+        for pos in positions:
+            pos_response = _position_to_response(pos)
+            position_responses.append(pos_response)
+            positions_value += pos_response.market_value
+
+    return PortfolioResponse(
+        id=portfolio.id,
+        user_id=portfolio.user_id,
+        total_value=float(portfolio.total_value.amount) if portfolio.total_value else 0.0,
+        cash_balance=float(portfolio.cash_balance.amount) if portfolio.cash_balance else 0.0,
+        positions_value=positions_value,
+        position_count=len(position_responses),
+        positions=position_responses,
+        created_at=portfolio.created_at,
+        updated_at=portfolio.updated_at,
+    )
 
 
 @router.get(
@@ -32,6 +90,8 @@ router = APIRouter(prefix="/api/v1/portfolio", tags=["portfolio"])
 )
 async def get_portfolio(
     user_id: str = Depends(get_current_user),
+    portfolio_repository: PortfolioRepository = Depends(get_portfolio_repository),
+    position_repository: PositionRepository = Depends(get_position_repository),
 ) -> PortfolioResponse:
     """
     Get the current portfolio details including all positions and cash balance.
@@ -44,10 +104,19 @@ async def get_portfolio(
     """
     try:
         logger.info(f"Fetching portfolio for user {user_id}")
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Portfolio retrieval not yet implemented"
-        )
+
+        portfolio = portfolio_repository.get_by_user_id(user_id)
+        if not portfolio:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Portfolio not found"
+            )
+
+        # Get positions for this portfolio
+        positions = position_repository.get_by_user_id(user_id)
+
+        return _portfolio_to_response(portfolio, positions)
+
     except HTTPException:
         raise
     except Exception as e:
@@ -70,6 +139,8 @@ async def get_portfolio(
 )
 async def get_portfolio_performance(
     user_id: str = Depends(get_current_user),
+    portfolio_repository: PortfolioRepository = Depends(get_portfolio_repository),
+    position_repository: PositionRepository = Depends(get_position_repository),
 ) -> PortfolioPerformanceResponse:
     """
     Get portfolio performance metrics including returns and drawdowns.
@@ -79,10 +150,35 @@ async def get_portfolio_performance(
     """
     try:
         logger.info(f"Fetching portfolio performance for user {user_id}")
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Performance metrics not yet implemented"
+
+        portfolio = portfolio_repository.get_by_user_id(user_id)
+        if not portfolio:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Portfolio not found"
+            )
+
+        # Get positions
+        positions = position_repository.get_by_user_id(user_id)
+        position_responses = [_position_to_response(pos) for pos in positions] if positions else []
+        positions_value = sum(pos.market_value for pos in position_responses)
+
+        # Calculate total return percentage
+        total_return_pct = float(portfolio.total_return_percentage) if hasattr(portfolio, 'total_return_percentage') and portfolio.total_return_percentage else 0.0
+
+        return PortfolioPerformanceResponse(
+            total_value=float(portfolio.total_value.amount) if portfolio.total_value else 0.0,
+            cash_balance=float(portfolio.cash_balance.amount) if portfolio.cash_balance else 0.0,
+            positions_value=positions_value,
+            position_count=len(position_responses),
+            total_return_percentage=total_return_pct,
+            daily_return_percentage=None,  # Would need historical data
+            weekly_return_percentage=None,  # Would need historical data
+            monthly_return_percentage=None,  # Would need historical data
+            positions=position_responses,
+            timestamp=datetime.utcnow(),
         )
+
     except HTTPException:
         raise
     except Exception as e:
@@ -105,6 +201,8 @@ async def get_portfolio_performance(
 )
 async def get_portfolio_allocation(
     user_id: str = Depends(get_current_user),
+    portfolio_repository: PortfolioRepository = Depends(get_portfolio_repository),
+    position_repository: PositionRepository = Depends(get_position_repository),
 ) -> PortfolioAllocationResponse:
     """
     Get portfolio allocation breakdown by sector and symbol.
@@ -114,10 +212,52 @@ async def get_portfolio_allocation(
     """
     try:
         logger.info(f"Fetching allocation for user {user_id}")
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Allocation retrieval not yet implemented"
+
+        portfolio = portfolio_repository.get_by_user_id(user_id)
+        if not portfolio:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Portfolio not found"
+            )
+
+        # Get positions
+        positions = position_repository.get_by_user_id(user_id)
+
+        total_value = float(portfolio.total_value.amount) if portfolio.total_value else 0.0
+        cash_balance = float(portfolio.cash_balance.amount) if portfolio.cash_balance else 0.0
+
+        if total_value <= 0:
+            return PortfolioAllocationResponse(
+                cash_percentage=100.0,
+                stocks_percentage=0.0,
+                by_sector={},
+                by_symbol={},
+                timestamp=datetime.utcnow(),
+            )
+
+        cash_percentage = (cash_balance / total_value) * 100
+        stocks_percentage = 100.0 - cash_percentage
+
+        # Calculate allocation by symbol
+        by_symbol = {}
+        if positions:
+            for pos in positions:
+                pos_response = _position_to_response(pos)
+                symbol = str(pos.symbol)
+                by_symbol[symbol] = (pos_response.market_value / total_value) * 100
+
+        # Sector allocation would require symbol-to-sector mapping
+        # For now, return empty sector allocation
+        by_sector = {}
+
+        return PortfolioAllocationResponse(
+            cash_percentage=round(cash_percentage, 2),
+            stocks_percentage=round(stocks_percentage, 2),
+            by_sector=by_sector,
+            by_symbol={k: round(v, 2) for k, v in by_symbol.items()},
+            timestamp=datetime.utcnow(),
         )
+
     except HTTPException:
         raise
     except Exception as e:
@@ -142,6 +282,8 @@ async def get_portfolio_allocation(
 async def deposit_cash(
     request: UpdateCashBalanceRequest,
     user_id: str = Depends(get_current_user),
+    portfolio_repository: PortfolioRepository = Depends(get_portfolio_repository),
+    position_repository: PositionRepository = Depends(get_position_repository),
 ) -> PortfolioResponse:
     """
     Deposit cash into the portfolio.
@@ -159,11 +301,35 @@ async def deposit_cash(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Deposit amount must be positive"
             )
+
         logger.info(f"Processing cash deposit for user {user_id}: ${request.amount}")
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Cash deposit not yet implemented"
+
+        portfolio = portfolio_repository.get_by_user_id(user_id)
+        if not portfolio:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Portfolio not found"
+            )
+
+        # Update portfolio with new cash balance
+        from dataclasses import replace
+        new_cash = portfolio.cash_balance.amount + Decimal(str(request.amount))
+        new_total = portfolio.total_value.amount + Decimal(str(request.amount))
+
+        updated_portfolio = replace(
+            portfolio,
+            cash_balance=Money(new_cash, "USD"),
+            total_value=Money(new_total, "USD"),
+            updated_at=datetime.utcnow(),
         )
+
+        saved_portfolio = portfolio_repository.update(updated_portfolio)
+
+        # Get positions for response
+        positions = position_repository.get_by_user_id(user_id)
+
+        return _portfolio_to_response(saved_portfolio, positions)
+
     except HTTPException:
         raise
     except Exception as e:
@@ -188,6 +354,8 @@ async def deposit_cash(
 async def withdraw_cash(
     request: UpdateCashBalanceRequest,
     user_id: str = Depends(get_current_user),
+    portfolio_repository: PortfolioRepository = Depends(get_portfolio_repository),
+    position_repository: PositionRepository = Depends(get_position_repository),
 ) -> PortfolioResponse:
     """
     Withdraw cash from the portfolio.
@@ -205,11 +373,43 @@ async def withdraw_cash(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Withdrawal amount must be positive"
             )
+
         logger.info(f"Processing cash withdrawal for user {user_id}: ${request.amount}")
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Cash withdrawal not yet implemented"
+
+        portfolio = portfolio_repository.get_by_user_id(user_id)
+        if not portfolio:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Portfolio not found"
+            )
+
+        # Check sufficient balance
+        withdrawal_amount = Decimal(str(request.amount))
+        if portfolio.cash_balance.amount < withdrawal_amount:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Insufficient cash balance"
+            )
+
+        # Update portfolio with new cash balance
+        from dataclasses import replace
+        new_cash = portfolio.cash_balance.amount - withdrawal_amount
+        new_total = portfolio.total_value.amount - withdrawal_amount
+
+        updated_portfolio = replace(
+            portfolio,
+            cash_balance=Money(new_cash, "USD"),
+            total_value=Money(new_total, "USD"),
+            updated_at=datetime.utcnow(),
         )
+
+        saved_portfolio = portfolio_repository.update(updated_portfolio)
+
+        # Get positions for response
+        positions = position_repository.get_by_user_id(user_id)
+
+        return _portfolio_to_response(saved_portfolio, positions)
+
     except HTTPException:
         raise
     except Exception as e:

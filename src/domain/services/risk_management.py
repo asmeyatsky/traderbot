@@ -21,7 +21,7 @@ from src.infrastructure.config.settings import settings
 class RiskManager(RiskManagementDomainService):
     """
     Risk Management Service implementing the RiskManagementDomainService interface.
-    
+
     This service implements all the risk management requirements from the PRD:
     - Pre-trade risk checks
     - Real-time position monitoring
@@ -29,24 +29,34 @@ class RiskManager(RiskManagementDomainService):
     - Portfolio-level risk controls
     - Circuit breakers
     """
-    
+
     def __init__(self, notification_service: NotificationPort):
         self.notification_service = notification_service
-        self.risk_limits = {
+        # Load risk limits from configuration
+        self.risk_limits = self._load_risk_limits_from_settings()
+
+    def _load_risk_limits_from_settings(self) -> dict:
+        """
+        Load risk limits from application settings.
+
+        This allows risk parameters to be configured via environment variables
+        rather than being hardcoded.
+        """
+        return {
             RiskTolerance.CONSERVATIVE: {
-                'max_drawdown': Decimal('10.0'),
-                'position_limit_percentage': Decimal('5.0'),
-                'volatility_threshold': Decimal('2.0')
+                'max_drawdown': Decimal(str(settings.RISK_CONSERVATIVE_MAX_DRAWDOWN)),
+                'position_limit_percentage': Decimal(str(settings.RISK_CONSERVATIVE_POSITION_LIMIT_PCT)),
+                'volatility_threshold': Decimal(str(settings.RISK_CONSERVATIVE_VOLATILITY_THRESHOLD))
             },
             RiskTolerance.MODERATE: {
-                'max_drawdown': Decimal('15.0'),
-                'position_limit_percentage': Decimal('10.0'),
-                'volatility_threshold': Decimal('2.5')
+                'max_drawdown': Decimal(str(settings.RISK_MODERATE_MAX_DRAWDOWN)),
+                'position_limit_percentage': Decimal(str(settings.RISK_MODERATE_POSITION_LIMIT_PCT)),
+                'volatility_threshold': Decimal(str(settings.RISK_MODERATE_VOLATILITY_THRESHOLD))
             },
             RiskTolerance.AGGRESSIVE: {
-                'max_drawdown': Decimal('25.0'),
-                'position_limit_percentage': Decimal('20.0'),
-                'volatility_threshold': Decimal('3.0')
+                'max_drawdown': Decimal(str(settings.RISK_AGGRESSIVE_MAX_DRAWDOWN)),
+                'position_limit_percentage': Decimal(str(settings.RISK_AGGRESSIVE_POSITION_LIMIT_PCT)),
+                'volatility_threshold': Decimal(str(settings.RISK_AGGRESSIVE_VOLATILITY_THRESHOLD))
             }
         }
         
@@ -455,13 +465,14 @@ class CircuitBreakerService:
     """
     Service to implement circuit breakers for extreme market conditions.
     """
-    
+
     def __init__(self, notification_service: NotificationPort):
         self.notification_service = notification_service
-        self.extreme_volatility_threshold = Decimal('5.0')  # 5% intraday movement
+        # Load circuit breaker settings from configuration
+        self.extreme_volatility_threshold = Decimal(str(settings.CIRCUIT_BREAKER_VOLATILITY_THRESHOLD))
         self.circuit_breaker_triggered = False
         self.trigger_time = None
-        self.reset_after = timedelta(minutes=30)  # Reset after 30 minutes
+        self.reset_after = timedelta(minutes=settings.CIRCUIT_BREAKER_RESET_MINUTES)
         self.running = False
         self.monitoring_thread = None
     

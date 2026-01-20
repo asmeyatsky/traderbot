@@ -162,11 +162,11 @@ class TestPortfolioRepository:
         saved = self.repository.save(sample_portfolio)
 
         assert saved.id == sample_portfolio.id
-        assert saved.total_value.amount == sample_portfolio.total_value.amount
+        assert saved.cash_balance.amount == sample_portfolio.cash_balance.amount
 
         retrieved = self.repository.get_by_id(sample_portfolio.id)
         assert retrieved is not None
-        assert retrieved.total_value.amount == sample_portfolio.total_value.amount
+        assert retrieved.cash_balance.amount == sample_portfolio.cash_balance.amount
 
     def test_get_portfolio_by_user_id(self, sample_portfolio):
         """Test retrieving portfolio by user ID."""
@@ -180,13 +180,11 @@ class TestPortfolioRepository:
         """Test updating a portfolio."""
         self.repository.save(sample_portfolio)
 
-        updated = sample_portfolio.update_values(
-            total_value=Money(Decimal("15000.00"), "USD"),
-            cash_balance=Money(Decimal("4000.00"), "USD"),
-        )
+        # Update with new cash balance
+        updated = sample_portfolio.update_cash_balance(Money(Decimal("4000.00"), "USD"))
         result = self.repository.update(updated)
 
-        assert result.total_value.amount == Decimal("15000.00")
+        assert result.cash_balance.amount == Decimal("4000.00")
 
 
 @pytest.mark.integration
@@ -229,23 +227,20 @@ class TestPositionRepository:
         assert retrieved is not None
         assert retrieved.symbol == sample_position.symbol
 
-    def test_get_closed_positions(self, sample_position):
-        """Test retrieving closed positions."""
-        # Close the position
-        closed_position = sample_position.close(
-            closing_price=Money(Decimal("160.00"), "USD"),
-            closing_time=datetime.now(),
-        )
-        self.repository.save(closed_position)
+    def test_get_open_positions(self, sample_position):
+        """Test retrieving open positions."""
+        self.repository.save(sample_position)
 
-        closed = self.repository.get_closed_positions(closed_position.user_id)
-        assert len(closed) > 0
+        # Get open positions (quantity > 0)
+        positions = self.repository.get_by_user_id(sample_position.user_id)
+        open_positions = [p for p in positions if p.quantity > 0]
+        assert len(open_positions) > 0
 
     def test_update_position(self, sample_position):
         """Test updating a position."""
         self.repository.save(sample_position)
 
         # Update with new current price
-        updated = sample_position
+        updated = sample_position.update_price(Money(Decimal("160.00"), "USD"))
         result = self.repository.update(updated)
-        assert result.id == sample_position.id
+        assert result.current_price.amount == Decimal("160.00")

@@ -44,18 +44,24 @@ class PositionRepository(BaseRepository[Position, PositionORM], PositionReposito
         if not orm_obj:
             return None
 
+        # Quantize decimal values to 2 decimal places for Money compatibility
+        def quantize_money(value):
+            if value is None:
+                return Decimal("0")
+            return Decimal(str(value)).quantize(Decimal("0.01"))
+
         return Position(
             id=orm_obj.id,
             user_id=orm_obj.user_id,
             symbol=Symbol(orm_obj.symbol),
             quantity=orm_obj.quantity,
             position_type=orm_obj.position_type,
-            average_entry_price=Money(orm_obj.average_entry_price, "USD"),
-            current_price=Money(orm_obj.current_price, "USD") if orm_obj.current_price else None,
-            unrealized_gain_loss=Money(orm_obj.unrealized_gain_loss, "USD"),
-            realized_gain_loss=Money(orm_obj.realized_gain_loss, "USD"),
-            opened_at=orm_obj.opened_at,
-            closed_at=orm_obj.closed_at,
+            average_buy_price=Money(quantize_money(orm_obj.average_entry_price), "USD"),
+            current_price=Money(quantize_money(orm_obj.current_price), "USD"),
+            created_at=orm_obj.opened_at or datetime.utcnow(),
+            updated_at=orm_obj.updated_at or datetime.utcnow(),
+            unrealized_pnl=Money(quantize_money(orm_obj.unrealized_gain_loss), "USD") if orm_obj.unrealized_gain_loss else None,
+            realized_pnl=Money(quantize_money(orm_obj.realized_gain_loss), "USD"),
         )
 
     def _to_orm_model(self, entity: Position) -> PositionORM:
@@ -74,12 +80,12 @@ class PositionRepository(BaseRepository[Position, PositionORM], PositionReposito
             symbol=str(entity.symbol),
             quantity=entity.quantity,
             position_type=entity.position_type,
-            average_entry_price=entity.average_entry_price.amount,
+            average_entry_price=entity.average_buy_price.amount,
             current_price=entity.current_price.amount if entity.current_price else None,
-            unrealized_gain_loss=entity.unrealized_gain_loss.amount,
-            realized_gain_loss=entity.realized_gain_loss.amount,
-            opened_at=entity.opened_at,
-            closed_at=entity.closed_at,
+            unrealized_gain_loss=entity.unrealized_pnl.amount if entity.unrealized_pnl else Decimal("0"),
+            realized_gain_loss=entity.realized_pnl.amount if entity.realized_pnl else Decimal("0"),
+            opened_at=entity.created_at,
+            closed_at=None,  # Position entity doesn't have closed_at field
         )
 
     def get_by_user_id(self, user_id: str) -> List[Position]:
@@ -178,9 +184,8 @@ class PositionRepository(BaseRepository[Position, PositionORM], PositionReposito
 
             orm_obj.quantity = entity.quantity
             orm_obj.current_price = entity.current_price.amount if entity.current_price else None
-            orm_obj.unrealized_gain_loss = entity.unrealized_gain_loss.amount
-            orm_obj.realized_gain_loss = entity.realized_gain_loss.amount
-            orm_obj.closed_at = entity.closed_at
+            orm_obj.unrealized_gain_loss = entity.unrealized_pnl.amount if entity.unrealized_pnl else Decimal("0")
+            orm_obj.realized_gain_loss = entity.realized_pnl.amount if entity.realized_pnl else Decimal("0")
             orm_obj.updated_at = datetime.utcnow()
 
             session.commit()

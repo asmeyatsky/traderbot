@@ -9,7 +9,7 @@ from decimal import Decimal
 from unittest.mock import Mock, MagicMock
 
 from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
-from src.domain.entities.trading import Order, Portfolio, OrderType, PositionType, OrderStatus
+from src.domain.entities.trading import Order, Portfolio, Position, OrderType, PositionType, OrderStatus
 from src.domain.value_objects import Money, Symbol, Price
 from src.domain.services.trading import DefaultTradingDomainService, DefaultRiskManagementDomainService
 
@@ -40,10 +40,22 @@ class TestDefaultTradingDomainService:
     @pytest.fixture
     def sample_portfolio(self):
         """Create a sample portfolio for testing."""
+        # Create a position to give the portfolio value
+        position = Position(
+            id="pos1",
+            user_id="user1",
+            symbol=Symbol("MSFT"),
+            position_type=PositionType.LONG,
+            quantity=50,
+            average_buy_price=Money(Decimal("100.00"), "USD"),
+            current_price=Money(Decimal("100.00"), "USD"),
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
         return Portfolio(
             id="portfolio1",
             user_id="user1",
-            total_value=Money(Decimal("10000.00"), "USD"),
+            positions=[position],
             cash_balance=Money(Decimal("5000.00"), "USD"),
             created_at=datetime.now(),
             updated_at=datetime.now(),
@@ -51,14 +63,17 @@ class TestDefaultTradingDomainService:
 
     @pytest.fixture
     def sample_order(self):
-        """Create a sample order for testing."""
+        """Create a sample order for testing that fits within position size limits."""
+        # Order value: 3 shares * $150 = $450
+        # Portfolio value: $10,000 (5000 cash + 5000 in positions)
+        # Position size: 450/10000 = 4.5%, within 5% limit
         return Order(
             id="order1",
             user_id="user1",
             symbol=Symbol("AAPL"),
             order_type=OrderType.MARKET,
             position_type=PositionType.LONG,
-            quantity=Decimal("100"),
+            quantity=3,
             status=OrderStatus.PENDING,
             placed_at=datetime.now(),
             price=Money(Decimal("150.00"), "USD"),
@@ -75,20 +90,21 @@ class TestDefaultTradingDomainService:
         poor_portfolio = Portfolio(
             id="portfolio1",
             user_id="user1",
-            total_value=Money(Decimal("1000.00"), "USD"),
+            positions=[],
             cash_balance=Money(Decimal("100.00"), "USD"),
             created_at=datetime.now(),
             updated_at=datetime.now(),
         )
 
-        # Create an order that requires more cash than available
+        # Create a LIMIT order that requires more cash than available
+        # (The service only checks cash for non-MARKET orders)
         expensive_order = Order(
             id="order1",
             user_id="user1",
             symbol=Symbol("AAPL"),
-            order_type=OrderType.MARKET,
+            order_type=OrderType.LIMIT,  # Use LIMIT to trigger cash check
             position_type=PositionType.LONG,
-            quantity=Decimal("1000"),  # 1000 shares at $150 = $150,000
+            quantity=1000,  # 1000 shares at $150 = $150,000
             status=OrderStatus.PENDING,
             placed_at=datetime.now(),
             price=Money(Decimal("150.00"), "USD"),
@@ -118,7 +134,7 @@ class TestDefaultTradingDomainService:
             symbol=Symbol("AAPL"),
             order_type=OrderType.MARKET,
             position_type=PositionType.LONG,
-            quantity=Decimal("334"),  # 334 shares * $150 = $50,100 which is ~50% of $10k portfolio
+            quantity=334,  # 334 shares * $150 = $50,100 which is ~50% of $10k portfolio
             status=OrderStatus.PENDING,
             placed_at=datetime.now(),
             price=Money(Decimal("150.00"), "USD"),
@@ -179,7 +195,7 @@ class TestDefaultRiskManagementDomainService:
         return Portfolio(
             id="portfolio1",
             user_id="user1",
-            total_value=Money(Decimal("10000.00"), "USD"),
+            positions=[],
             cash_balance=Money(Decimal("5000.00"), "USD"),
             created_at=datetime.now(),
             updated_at=datetime.now(),
