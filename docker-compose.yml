@@ -27,44 +27,23 @@ services:
       - ./logs:/app/logs
     networks:
       - trading-network
-    command: uvicorn src.presentation.api.main:app --host 0.0.0.0 --port 8000 --reload
 
-  # PostgreSQL Database
-  db:
-    image: postgres:15-alpine
-    container_name: trading-db
-    environment:
-      - POSTGRES_USER=trading
-      - POSTGRES_PASSWORD=trading
-      - POSTGRES_DB=traderbot
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U trading"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - trading-network
-
-  # Redis Cache
+  # KeyDB Cache (Redis-compatible)
   cache:
-    image: redis:7-alpine
+    image: eqalpha/keydb:latest
     container_name: trading-cache
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - keydb_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "keydb-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - trading-network
-    command: redis-server --appendonly yes
+    command: keydb-server --appendonly yes
 
   # Optional: TensorFlow Serving for ML Models
   # Uncomment to enable ML model serving
@@ -96,7 +75,7 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
+  keydb_data:
 
 networks:
   trading-network:

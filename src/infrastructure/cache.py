@@ -1,43 +1,54 @@
 """
-Caching Layer with Redis
+Caching Layer with DiskCache
 
 This module provides a caching abstraction for frequently accessed data,
 reducing database load and improving response times.
 
 Following decorator pattern for easy integration with existing code.
 """
+
 from __future__ import annotations
 
-import redis
 import json
 import logging
 from functools import wraps
 from typing import Optional, Any, Callable
 from datetime import timedelta
 
-from src.infrastructure.config.settings import settings
-
 logger = logging.getLogger(__name__)
 
 
 class CacheManager:
-    """Redis-based cache manager for application data."""
+    """DiskCache-based cache manager for application data."""
 
-    def __init__(self, redis_url: str):
+    def __init__(self, cache_dir: str = "./cache"):
         """
         Initialize cache manager.
 
         Args:
-            redis_url: Redis connection URL
+            cache_dir: Directory for cache storage
         """
-        self.redis_url = redis_url
+        self.cache_dir = cache_dir
         self.client = None
+        self._connect()
+
+    def _connect(self) -> None:
+        """Connect to DiskCache."""
+        try:
+            from diskcache import FanoutCache
+
+            self.client = FanoutCache(self.cache_dir, statistics=True)
+            logger.info("Connected to DiskCache")
+        except Exception as e:
+            logger.error(f"Failed to initialize DiskCache: {e}")
+            self.client = None
         self._connect()
 
     def _connect(self) -> None:
         """Connect to Redis."""
         try:
             from redis import Redis
+
             self.client = Redis.from_url(self.redis_url, decode_responses=True)
             self.client.ping()
             logger.info("Connected to Redis cache")
@@ -47,13 +58,7 @@ class CacheManager:
 
     def is_connected(self) -> bool:
         """Check if cache is connected."""
-        if not self.client:
-            return False
-        try:
-            self.client.ping()
-            return True
-        except Exception:
-            return False
+        return self.client is not None
 
     def get(self, key: str) -> Optional[Any]:
         """
@@ -70,9 +75,7 @@ class CacheManager:
 
         try:
             value = self.client.get(key)
-            if value:
-                return json.loads(value)
-            return None
+            return value
         except Exception as e:
             logger.warning(f"Cache get error for key {key}: {e}")
             return None
@@ -98,11 +101,11 @@ class CacheManager:
             return False
 
         try:
-            json_value = json.dumps(value)
+            expire = ttl if ttl else None
             if ttl:
-                self.client.setex(key, ttl, json_value)
+                self.client.set(key, value, expire=ttl)
             else:
-                self.client.set(key, json_value)
+                self.client.set(key, value)
             return True
         except Exception as e:
             logger.warning(f"Cache set error for key {key}: {e}")
@@ -122,8 +125,7 @@ class CacheManager:
             return False
 
         try:
-            self.client.delete(key)
-            return True
+            return self.client.delete(key)
         except Exception as e:
             logger.warning(f"Cache delete error for key {key}: {e}")
             return False
@@ -142,9 +144,11 @@ class CacheManager:
             return 0
 
         try:
-            keys = self.client.keys(pattern)
-            if keys:
-                return self.client.delete(*keys)
+            # DiskCache doesn't support pattern matching like Redis
+            # For simplicity, clear all cache when pattern is "*"
+            if pattern == "*":
+                self.client.clear()
+                return 1
             return 0
         except Exception as e:
             logger.warning(f"Cache clear error for pattern {pattern}: {e}")
@@ -164,14 +168,14 @@ class CacheManager:
             return {}
 
         try:
-            values = self.client.mget(keys)
             result = {}
-            for key, value in zip(keys, values):
-                if value:
-                    result[key] = json.loads(value)
+            for key in keys:
+                value = self.client.get(key)
+                if value is not None:
+                    result[key] = value
             return result
         except Exception as e:
-            logger.warning(f"Cache mget error: {e}")
+            logger.warning(f"Cache get_many error: {e}")
             return {}
 
     def set_many(
@@ -193,11 +197,15 @@ class CacheManager:
             return False
 
         try:
+            expire = ttl if ttl else None
             for key, value in data.items():
-                self.set(key, value, ttl)
+                if ttl:
+                self.client.set(key, value, expire=ttl)
+            else:
+                self.client.set(key, value)
             return True
         except Exception as e:
-            logger.warning(f"Cache mset error: {e}")
+            logger.warning(f"Cache set_many error: {e}")
             return False
 
 
@@ -238,12 +246,13 @@ def cached(
             # API call
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             # Build cache key
             key_parts = [key_prefix or func.__name__]
-            key_parts.extend(str(arg) for arg in args if not hasattr(arg, '__call__'))
+            key_parts.extend(str(arg) for arg in args if not hasattr(arg, "__call__"))
             key_parts.extend(f"{k}={v}" for k, v in kwargs.items())
             cache_k = cache_key(*key_parts)
 
@@ -268,7 +277,7 @@ def cached(
         def sync_wrapper(*args, **kwargs):
             # Build cache key
             key_parts = [key_prefix or func.__name__]
-            key_parts.extend(str(arg) for arg in args if not hasattr(arg, '__call__'))
+            key_parts.extend(str(arg) for arg in args if not hasattr(arg, "__call__"))
             key_parts.extend(f"{k}={v}" for k, v in kwargs.items())
             cache_k = cache_key(*key_parts)
 
@@ -291,6 +300,7 @@ def cached(
 
         # Determine if function is async
         import inspect
+
         if inspect.iscoroutinefunction(func):
             return async_wrapper
         else:
@@ -307,7 +317,7 @@ def initialize_cache() -> CacheManager:
     """Initialize the global cache manager."""
     global _cache_manager
     if _cache_manager is None:
-        _cache_manager = CacheManager(settings.REDIS_URL)
+        _cache_manager = CacheManager("./cache")
     return _cache_manager
 
 

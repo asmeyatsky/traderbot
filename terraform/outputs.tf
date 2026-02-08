@@ -16,11 +16,11 @@ output "db_password" {
 }
 
 output "redis_host" {
-  value = google_redis_instance.cache.host
+  value = google_compute_instance.keydb.network_interface[0].network_ip
 }
 
 output "redis_port" {
-  value = google_redis_instance.cache.port
+  value = 6379
 }
 
 output "artifact_registry_repo" {

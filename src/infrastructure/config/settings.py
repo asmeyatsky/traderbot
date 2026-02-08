@@ -4,6 +4,7 @@ Application Settings Configuration
 This module loads and manages application settings from environment variables.
 Following Pydantic v2 patterns with proper validation.
 """
+
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict, Field, field_validator
 from typing import Optional
@@ -42,8 +43,12 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = Field(default="http://localhost:3000,http://localhost:8000")
 
     # Application Settings
-    ENVIRONMENT: str = Field(default="development", pattern="^(development|staging|production)$")
-    LOG_LEVEL: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
+    ENVIRONMENT: str = Field(
+        default="development", pattern="^(development|staging|production)$"
+    )
+    LOG_LEVEL: str = Field(
+        default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$"
+    )
 
     # Risk Management Configuration - Conservative
     RISK_CONSERVATIVE_MAX_DRAWDOWN: float = Field(default=10.0, ge=0, le=100)
@@ -64,25 +69,28 @@ class Settings(BaseSettings):
     CIRCUIT_BREAKER_VOLATILITY_THRESHOLD: float = Field(default=5.0, ge=0)
     CIRCUIT_BREAKER_RESET_MINUTES: int = Field(default=30, ge=1)
 
-    @field_validator('DATABASE_URL')
+    @field_validator("DATABASE_URL")
     @classmethod
     def validate_db_url(cls, v: str) -> str:
         """Validate database URL format"""
-        if not v.startswith(('postgresql://', 'sqlite://', 'mysql://')):
-            raise ValueError('Invalid database URL format. Must start with postgresql://, sqlite://, or mysql://')
+        if not v.startswith(("postgresql://", "sqlite://", "mysql://")):
+            raise ValueError(
+                "Invalid database URL format. Must start with postgresql://, sqlite://, or mysql://"
+            )
         return v
 
-    @field_validator('REDIS_URL')
+    @field_validator("REDIS_URL")
     @classmethod
     def validate_redis_url(cls, v: str) -> str:
         """Validate Redis URL format"""
-        if not v.startswith('redis://'):
-            raise ValueError('Invalid Redis URL. Must start with redis://')
+        if not v.startswith("redis://"):
+            raise ValueError("Invalid Redis URL. Must start with redis://")
         return v
 
 
 # Import at the top of the file to make sure they're loaded
 from functools import lru_cache
+
 
 @lru_cache(maxsize=1)
 def get_settings():
@@ -93,6 +101,7 @@ def get_settings():
         return Settings()
     except Exception as e:
         raise RuntimeError(f"Failed to load application settings: {e}")
+
 
 # Defer initialization until first access
 def __getattr__(name):

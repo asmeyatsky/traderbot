@@ -1,7 +1,7 @@
 """
 Caching Layer Implementation
 
-Provides a multi-level caching system with Redis as primary cache
+Provides a multi-level caching system with DiskCache (SQLite) as primary cache
 and in-memory cache as fallback.
 
 Architectural Intent:
@@ -9,7 +9,9 @@ Architectural Intent:
 - Reduces database load for frequently accessed data
 - Improves response times for common queries
 - Automatic cache invalidation strategies
+- Zero-cost local caching using SQLite
 """
+
 from __future__ import annotations
 
 import json
@@ -22,7 +24,7 @@ import hashlib
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class CacheBackend(ABC, Generic[T]):
@@ -132,40 +134,107 @@ class InMemoryCache(CacheBackend[T]):
         return len(self._cache)
 
 
-class RedisCache(CacheBackend[T]):
+class DiskCache(CacheBackend[T]):
     """
-    Redis-based cache implementation.
+    DiskCache (SQLite) implementation.
 
-    Provides distributed caching for multi-instance deployments.
+    Provides persistent local caching without external services.
     """
 
-    def __init__(self, redis_url: str = "redis://localhost:6379/0"):
+    def __init__(self, cache_dir: str = "./cache"):
         """
-        Initialize Redis cache.
+        Initialize DiskCache.
 
         Args:
-            redis_url: Redis connection URL
+            cache_dir: Directory for cache storage
         """
         try:
-            import redis
-            from redis import Redis
-            self.redis_client: Optional[Redis] = Redis.from_url(redis_url, decode_responses=True)
-            # Test connection
-            self.redis_client.ping()
+            from diskcache import FanoutCache
+
+            self.cache_client = FanoutCache(cache_dir, statistics=True)
             self.available = True
-            logger.info(f"Redis cache connected: {redis_url}")
+            logger.info(f"DiskCache initialized: {cache_dir}")
         except ImportError:
-            logger.warning("redis package not installed, Redis cache unavailable")
-            self.redis_client = None
+            logger.warning("diskcache package not installed, DiskCache unavailable")
+            self.cache_client = None
             self.available = False
         except Exception as e:
-            logger.warning(f"Failed to connect to Redis: {e}")
-            self.redis_client = None
+            logger.warning(f"Failed to initialize DiskCache: {e}")
+            self.cache_client = None
             self.available = False
 
     def get(self, key: str) -> Optional[T]:
-        """Get a value from Redis cache."""
-        if not self.available or not self.redis_client:
+        """Get a value from DiskCache."""
+        if not self.available or not self.cache_client:
+            return None
+
+        try:
+            value = self.cache_client.get(key)
+            if value is not None:
+                logger.debug(f"Cache HIT: {key}")
+                return value
+            logger.debug(f"Cache MISS: {key}")
+            return None
+        except Exception as e:
+            logger.error(f"Error getting from DiskCache: {e}")
+            return None
+
+    def set(self, key: str, value: T, ttl: int = 300) -> None:
+        """Set a value in DiskCache."""
+        if not self.available or not self.cache_client:
+            return
+
+        try:
+            self.cache_client.set(key, value, expire=ttl)
+            logger.debug(f"Cache SET: {key} (TTL: {ttl}s)")
+        except Exception as e:
+            logger.error(f"Error setting in DiskCache: {e}")
+
+    def delete(self, key: str) -> bool:
+        """Delete a value from DiskCache."""
+        if not self.available or not self.cache_client:
+            return False
+
+        try:
+            result = self.cache_client.delete(key)
+            logger.debug(f"Cache DELETE: {key}")
+            return result
+        except Exception as e:
+            logger.error(f"Error deleting from DiskCache: {e}")
+            return False
+
+    def clear(self) -> None:
+        """Clear all DiskCache entries."""
+        if not self.available or not self.cache_client:
+            return
+
+        try:
+            self.cache_client.clear()
+            logger.info("DiskCache cleared")
+        except Exception as e:
+            logger.error(f"Error clearing DiskCache: {e}")
+
+    def exists(self, key: str) -> bool:
+        """Check if key exists in DiskCache."""
+        if not self.available or not self.cache_client:
+            return False
+
+        try:
+            return self.cache_client.exists(key)
+        except Exception as e:
+            logger.error(f"Error checking DiskCache: {e}")
+            return False
+
+    def get_ttl(self, key: str) -> Optional[int]:
+        """Get remaining TTL for a key in DiskCache."""
+        if not self.available or not self.cache_client:
+            return None
+
+        try:
+            # DiskCache doesn't expose TTL directly, return -1 if key exists
+            return -1 if self.exists(key) else None
+        except Exception as e:
+            logger.error(f"Error getting TTL from DiskCache: {e}")
             return None
 
         try:
@@ -244,28 +313,28 @@ class RedisCache(CacheBackend[T]):
 
 class HybridCache(CacheBackend[T]):
     """
-    Hybrid cache using both Redis and in-memory cache.
+    Hybrid cache using both DiskCache and in-memory cache.
 
-    - Redis for distributed cache
+    - DiskCache for persistent local cache
     - In-memory for local performance
-    - Automatic fallback if Redis unavailable
+    - Automatic fallback if DiskCache unavailable
     """
 
-    def __init__(self, redis_url: str = "redis://localhost:6379/0"):
+    def __init__(self, cache_dir: str = "./cache"):
         """Initialize hybrid cache."""
         self.memory_cache = InMemoryCache()
-        self.redis_cache = RedisCache(redis_url)
+        self.disk_cache = DiskCache(cache_dir)
 
     def get(self, key: str) -> Optional[T]:
-        """Get from memory cache first, fallback to Redis."""
+        """Get from memory cache first, fallback to DiskCache."""
         # Try memory cache first (fastest)
         value = self.memory_cache.get(key)
         if value is not None:
             logger.debug(f"Cache HIT (memory): {key}")
             return value
 
-        # Fallback to Redis
-        value = self.redis_cache.get(key)
+        # Fallback to DiskCache
+        value = self.disk_cache.get(key)
         if value is not None:
             # Populate memory cache
             self.memory_cache.set(key, value, ttl=60)
@@ -275,27 +344,27 @@ class HybridCache(CacheBackend[T]):
         return None
 
     def set(self, key: str, value: T, ttl: int = 300) -> None:
-        """Set in both memory and Redis cache."""
+        """Set in both memory and DiskCache."""
         self.memory_cache.set(key, value, ttl=min(ttl, 300))  # Keep memory cache short
-        self.redis_cache.set(key, value, ttl=ttl)
+        self.disk_cache.set(key, value, ttl=ttl)
 
     def delete(self, key: str) -> bool:
         """Delete from both caches."""
         self.memory_cache.delete(key)
-        return self.redis_cache.delete(key)
+        return self.disk_cache.delete(key)
 
     def clear(self) -> None:
         """Clear both caches."""
         self.memory_cache.clear()
-        self.redis_cache.clear()
+        self.disk_cache.clear()
 
     def exists(self, key: str) -> bool:
         """Check if key exists in either cache."""
-        return self.memory_cache.exists(key) or self.redis_cache.exists(key)
+        return self.memory_cache.exists(key) or self.disk_cache.exists(key)
 
     def get_ttl(self, key: str) -> Optional[int]:
-        """Get TTL from Redis (authoritative)."""
-        return self.redis_cache.get_ttl(key)
+        """Get TTL from DiskCache (authoritative)."""
+        return self.disk_cache.get_ttl(key)
 
 
 def cache_decorator(
@@ -350,8 +419,7 @@ def get_cache() -> CacheBackend:
     """Get the global cache instance."""
     global _cache_instance
     if _cache_instance is None:
-        from src.infrastructure.config.settings import settings
-        _cache_instance = HybridCache(settings.REDIS_URL)
+        _cache_instance = HybridCache("./cache")
     return _cache_instance
 
 

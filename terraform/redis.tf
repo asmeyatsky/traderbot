@@ -1,20 +1,55 @@
-# Memorystore (Redis)
-resource "google_redis_instance" "cache" {
-  name               = "traderbot-cache"
-  memory_size_gb     = 1
-  tier               = "BASIC"
-  
-  # Ensure we pick a valid zone in the region (e.g. europe-west2-a)
-  # Keeping it simple by letting GCloud pick or appending 'a'? 
-  # Actually, location_id handles zone. If not specified, standard tier picks automatically, basic might too.
-  # But let's be safe and use region + "-a"
-  location_id        = "${var.region}-a"
-  
-  authorized_network = google_compute_network.vpc.id
-  connect_mode       = "DIRECT_PEERING"
+# KeyDB (Redis-compatible open source alternative)
+# Deployed as GCE instance with KeyDB Docker container
+resource "google_compute_instance" "keydb" {
+  name         = "traderbot-keydb"
+  machine_type = "e2-micro"
+  zone         = "${var.region}-a"
 
-  redis_version      = "REDIS_7_0"
-  display_name       = "Traderbot Redis Cache"
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-11"
+      size  = 10
+    }
+  }
+
+  network_interface {
+    network = google_compute_network.vpc.id
+    access_config {
+      # Ephemeral IP for management
+    }
+  }
+
+  metadata = {
+    startup-script = <<-EOT
+      #!/bin/bash
+      apt-get update
+      apt-get install -y docker.io
+      
+      # Run KeyDB container
+      docker run -d \
+        --name keydb \
+        -p 6379:6379 \
+        --restart unless-stopped \
+        eqalpha/keydb:latest \
+        keydb-server --appendonly yes --protected-mode no
+    EOT
+  }
+
+  tags = ["keydb"]
 
   depends_on = [google_service_networking_connection.private_vpc_connection]
+}
+
+# Firewall rule for KeyDB
+resource "google_compute_firewall" "keydb" {
+  name    = "allow-keydb"
+  network = google_compute_network.vpc.id
+
+  allow {
+    protocol = "tcp"
+    ports    = ["6379"]
+  }
+
+  source_tags = ["trading-api"]
+  target_tags = ["keydb"]
 }

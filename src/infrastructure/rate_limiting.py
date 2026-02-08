@@ -12,6 +12,7 @@ Architectural Intent:
 - Support multiple limiting strategies
 - Configurable limits per endpoint/user
 """
+
 from __future__ import annotations
 
 import logging
@@ -73,7 +74,9 @@ class TokenBucketLimiter(RateLimitStrategy):
         """
         self.capacity = capacity
         self.refill_rate = refill_rate
-        self.buckets: Dict[str, Tuple[float, float]] = {}  # key: (tokens, last_refill_time)
+        self.buckets: Dict[
+            str, Tuple[float, float]
+        ] = {}  # key: (tokens, last_refill_time)
 
     def is_allowed(self, key: str) -> bool:
         """Check if request is allowed."""
@@ -150,8 +153,7 @@ class SlidingWindowLimiter(RateLimitStrategy):
 
         # Remove old requests outside window
         self.requests[key] = [
-            req_time for req_time in self.requests[key]
-            if req_time > window_start
+            req_time for req_time in self.requests[key] if req_time > window_start
         ]
 
         # Check limit
@@ -167,8 +169,7 @@ class SlidingWindowLimiter(RateLimitStrategy):
         window_start = now - self.window_seconds
 
         self.requests[key] = [
-            req_time for req_time in self.requests[key]
-            if req_time > window_start
+            req_time for req_time in self.requests[key] if req_time > window_start
         ]
 
         return max(0, self.limit - len(self.requests[key]))
@@ -185,87 +186,95 @@ class SlidingWindowLimiter(RateLimitStrategy):
 
 class DistributedRateLimiter:
     """
-    Rate limiter supporting per-user and per-IP limiting.
-
-    Can use Redis for distributed limiting across multiple instances.
+    Distributed rate limiter using DiskCache for local coordination.
     """
 
     def __init__(
         self,
         strategy: RateLimitStrategy = None,
-        use_redis: bool = False,
-        redis_url: str = "redis://localhost:6379/0",
+        use_disk_cache: bool = True,
+        cache_dir: str = "./rate_limit_cache",
     ):
         """
         Initialize distributed rate limiter.
 
         Args:
             strategy: Rate limiting strategy (defaults to token bucket)
-            use_redis: Whether to use Redis for distributed limiting
-            redis_url: Redis connection URL
+            use_disk_cache: Whether to use DiskCache for persistent limiting
+            cache_dir: Directory for rate limit cache storage
         """
         self.strategy = strategy or TokenBucketLimiter(capacity=1000, refill_rate=100)
-        self.use_redis = use_redis
-        self.redis_client = None
+        self.use_disk_cache = use_disk_cache
+        self.disk_cache = None
 
-        if use_redis:
+        if use_disk_cache:
             try:
-                import redis
-                self.redis_client = redis.Redis.from_url(redis_url, decode_responses=True)
-                self.redis_client.ping()
-                logger.info("Redis rate limiter connected")
+                from diskcache import FanoutCache
+
+                self.disk_cache = FanoutCache(cache_dir, statistics=True)
+                logger.info("DiskCache rate limiter connected")
             except Exception as e:
-                logger.warning(f"Failed to connect to Redis for rate limiting: {e}")
-                self.use_redis = False
+                logger.warning(f"Failed to initialize DiskCache for rate limiting: {e}")
+                self.use_disk_cache = False
 
     def is_allowed(self, key: str, limit: int = None, window: int = None) -> bool:
         """Check if request is allowed."""
-        if self.use_redis and self.redis_client:
-            return self._redis_is_allowed(key, limit or 1000, window or 60)
+        if self.use_disk_cache and self.disk_cache:
+            return self._disk_cache_is_allowed(key, limit or 1000, window or 60)
         return self.strategy.is_allowed(key)
 
     def get_remaining(self, key: str) -> int:
         """Get remaining requests."""
-        if self.use_redis and self.redis_client:
+        if self.use_disk_cache and self.disk_cache:
             try:
-                remaining = self.redis_client.get(f"rl:{key}:remaining")
+                remaining = self.disk_cache.get(f"rl:{key}:remaining")
                 return int(remaining) if remaining else 0
             except Exception as e:
-                logger.error(f"Error getting remaining from Redis: {e}")
+                logger.error(f"Error getting remaining from DiskCache: {e}")
                 return 0
 
         return self.strategy.get_remaining(key)
 
     def get_reset_time(self, key: str) -> datetime:
         """Get reset time."""
-        if self.use_redis and self.redis_client:
+        if self.use_disk_cache and self.disk_cache:
             try:
-                reset_ts = self.redis_client.get(f"rl:{key}:reset")
-                return datetime.fromtimestamp(float(reset_ts)) if reset_ts else datetime.utcnow()
+                reset_ts = self.disk_cache.get(f"rl:{key}:reset")
+                return (
+                    datetime.fromtimestamp(float(reset_ts))
+                    if reset_ts
+                    else datetime.utcnow()
+                )
             except Exception as e:
-                logger.error(f"Error getting reset time from Redis: {e}")
+                logger.error(f"Error getting reset time from DiskCache: {e}")
                 return datetime.utcnow()
 
         return self.strategy.get_reset_time(key)
 
-    def _redis_is_allowed(self, key: str, limit: int, window: int) -> bool:
-        """Check if allowed using Redis."""
+    def _disk_cache_is_allowed(self, key: str, limit: int, window: int) -> bool:
+        """Check if allowed using DiskCache."""
         try:
-            redis_key = f"rl:{key}"
-            pipe = self.redis_client.pipeline()
+            cache_key = f"rl:{key}"
+            current_count = self.disk_cache.get(cache_key) or 0
 
-            pipe.incr(redis_key)
-            pipe.expire(redis_key, window)
-            results = pipe.execute()
+            if current_count >= limit:
+                return False
 
-            count = results[0]
-            remaining = max(0, limit - count)
+            # Increment count
+            new_count = current_count + 1
+            self.disk_cache.set(cache_key, new_count, expire=window)
 
-            self.redis_client.set(f"{redis_key}:remaining", remaining, ex=window)
+            # Set remaining count
+            remaining = max(0, limit - new_count)
+            self.disk_cache.set(f"{cache_key}:remaining", remaining, expire=window)
 
-            return count <= limit
+            # Set reset time
+            reset_time = (datetime.utcnow() + timedelta(seconds=window)).timestamp()
+            self.disk_cache.set(f"{cache_key}:reset", reset_time, expire=window)
+
+            return True
         except Exception as e:
-            logger.error(f"Error in Redis rate limiting: {e}")
+            logger.error(f"Error in DiskCache rate limiting: {e}")
             return True  # Allow if error
 
 
@@ -317,11 +326,26 @@ def get_rate_limiter() -> DistributedRateLimiter:
     """Get the global rate limiter instance."""
     global _rate_limiter
     if _rate_limiter is None:
-        from src.infrastructure.config.settings import settings
         _rate_limiter = DistributedRateLimiter(
-            use_redis=True,
-            redis_url=settings.REDIS_URL,
+            use_disk_cache=True,
+            cache_dir="./rate_limit_cache",
         )
+    return _rate_limiter
+
+
+class RateLimiter:
+    """
+    Simple rate limiter class for dependency injection.
+    Wrapper around the DistributedRateLimiter for DI container compatibility.
+    """
+
+    def __init__(self, cache_dir: str = "./rate_limit_cache"):
+        """Initialize the rate limiter."""
+        self.distributed_limiter = DistributedRateLimiter(
+            use_disk_cache=True,
+            cache_dir=cache_dir,
+        )
+
     return _rate_limiter
 
 
