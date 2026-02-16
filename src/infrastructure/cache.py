@@ -200,9 +200,9 @@ class CacheManager:
             expire = ttl if ttl else None
             for key, value in data.items():
                 if ttl:
-                self.client.set(key, value, expire=ttl)
-            else:
-                self.client.set(key, value)
+                    self.client.set(key, value, expire=ttl)
+                else:
+                    self.client.set(key, value)
             return True
         except Exception as e:
             logger.warning(f"Cache set_many error: {e}")

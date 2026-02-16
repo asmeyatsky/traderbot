@@ -30,6 +30,9 @@ vaderSentiment==3.3.2
 nltk==3.8.1
 spacy==3.7.2
 
+# ML Models
+xgboost>=2.0.0
+
 # Financial Data
 yfinance==0.2.18
 alpha-vantage==2.1.3

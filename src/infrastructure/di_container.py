@@ -24,6 +24,7 @@ from src.infrastructure.repositories import (
 )
 from src.infrastructure.data_processing.ml_model_service import (
     LSTMPricePredictionService,
+    XGBoostPredictionService,
     TransformerSentimentAnalysisService,
     RLTradingAgentService,
     EnsembleModelService,
@@ -70,6 +71,7 @@ class ServiceContainer(containers.DeclarativeContainer):
 
     # AI/ML Services
     lstm_model_service = providers.Factory(LSTMPricePredictionService)
+    xgboost_model_service = providers.Factory(XGBoostPredictionService)
     sentiment_analysis_service = providers.Factory(TransformerSentimentAnalysisService)
     rl_agent_service = providers.Factory(RLTradingAgentService)
 
@@ -77,7 +79,8 @@ class ServiceContainer(containers.DeclarativeContainer):
     ml_model_service = providers.Factory(
         EnsembleModelService,
         lstm_service=lstm_model_service,
-        sentiment_service=sentiment_analysis_service
+        sentiment_service=sentiment_analysis_service,
+        xgboost_service=xgboost_model_service,
     )
 
     # Advanced analytics services

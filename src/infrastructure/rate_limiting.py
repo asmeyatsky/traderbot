@@ -339,22 +339,6 @@ class RateLimiter:
     Wrapper around the DistributedRateLimiter for DI container compatibility.
     """
 
-    def __init__(self, cache_dir: str = "./rate_limit_cache"):
-        """Initialize the rate limiter."""
-        self.distributed_limiter = DistributedRateLimiter(
-            use_disk_cache=True,
-            cache_dir=cache_dir,
-        )
-
-    return _rate_limiter
-
-
-class RateLimiter:
-    """
-    Simple rate limiter class for dependency injection.
-    Wrapper around the DistributedRateLimiter for DI container compatibility.
-    """
-
     def __init__(self, redis_url: str = "redis://localhost:6379/0"):
         """Initialize the rate limiter."""
         self.distributed_limiter = DistributedRateLimiter(
