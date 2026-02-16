@@ -7,17 +7,49 @@ All endpoints require authentication.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from typing import List, Optional, Dict, Any
+from typing import Dict, Any
 import logging
+from datetime import datetime
 from decimal import Decimal
 
 from src.infrastructure.security import get_current_user
-from src.domain.services.dashboard_analytics import DefaultDashboardAnalyticsService, DashboardMetrics
-from src.infrastructure.di_container import container
+from src.domain.services.dashboard_analytics import DefaultDashboardAnalyticsService
+from src.domain.entities.trading import Portfolio
+from src.domain.value_objects import Symbol
+from src.infrastructure.repositories import PortfolioRepository, PositionRepository, UserRepository
+from src.presentation.api.dependencies import (
+    get_portfolio_repository,
+    get_position_repository,
+    get_user_repository,
+    get_dashboard_analytics_service,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
+
+
+def _load_portfolio_with_positions(
+    user_id: str,
+    portfolio_repo: PortfolioRepository,
+    position_repo: PositionRepository,
+) -> Portfolio:
+    """Fetch portfolio and its positions from repositories."""
+    portfolio = portfolio_repo.get_by_user_id(user_id)
+    if not portfolio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Portfolio not found"
+        )
+    positions = position_repo.get_by_user_id(user_id)
+    return Portfolio(
+        id=portfolio.id,
+        user_id=portfolio.user_id,
+        positions=positions,
+        cash_balance=portfolio.cash_balance,
+        created_at=portfolio.created_at,
+        updated_at=portfolio.updated_at,
+    )
 
 
 @router.get(
@@ -34,104 +66,31 @@ async def get_dashboard_overview(
     include_technical: bool = Query(True, description="Include technical indicators"),
     days: int = Query(30, description="Number of days for performance chart"),
     current_user_id: str = Depends(get_current_user),
+    portfolio_repo: PortfolioRepository = Depends(get_portfolio_repository),
+    position_repo: PositionRepository = Depends(get_position_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+    dashboard_service: DefaultDashboardAnalyticsService = Depends(get_dashboard_analytics_service),
 ) -> Dict[str, Any]:
-    """
-    Get comprehensive dashboard overview with portfolio metrics, performance,
-    technical indicators, and allocation breakdown.
-
-    Returns:
-        DashboardMetrics object with all relevant portfolio information
-    """
+    """Get comprehensive dashboard overview with portfolio metrics, performance,
+    technical indicators, and allocation breakdown."""
     if current_user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to view this dashboard"
         )
-    
+
     try:
-        # Get the dashboard analytics service from DI container
-        dashboard_service = container.dashboard_analytics_service()
-        
-        # In a real implementation, we would fetch the portfolio from the repository
-        # For now, we'll create a mock portfolio for demonstration
-        from src.domain.entities.trading import Portfolio
-        from src.domain.entities.trading import Position
-        from src.domain.value_objects import Symbol, Money
-        from src.domain.entities.trading import PositionType
-        from datetime import datetime
-        from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
-        
-        # Create mock portfolio with positions
-        mock_positions = [
-            Position(
-                id="pos_1",
-                user_id=user_id,
-                symbol=Symbol("AAPL"),
-                position_type=PositionType.LONG,
-                quantity=100,
-                average_buy_price=Money(Decimal('150.00'), 'USD'),
-                current_price=Money(Decimal('175.00'), 'USD'),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            ),
-            Position(
-                id="pos_2",
-                user_id=user_id,
-                symbol=Symbol("GOOGL"),
-                position_type=PositionType.LONG,
-                quantity=50,
-                average_buy_price=Money(Decimal('2500.00'), 'USD'),
-                current_price=Money(Decimal('2750.00'), 'USD'),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            ),
-            Position(
-                id="pos_3",
-                user_id=user_id,
-                symbol=Symbol("MSFT"),
-                position_type=PositionType.LONG,
-                quantity=75,
-                average_buy_price=Money(Decimal('300.00'), 'USD'),
-                current_price=Money(Decimal('350.00'), 'USD'),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            ),
-            Position(
-                id="pos_4",
-                user_id=user_id,
-                symbol=Symbol("TSLA"),
-                position_type=PositionType.LONG,
-                quantity=25,
-                average_buy_price=Money(Decimal('250.00'), 'USD'),
-                current_price=Money(Decimal('275.00'), 'USD'),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
+        portfolio = _load_portfolio_with_positions(user_id, portfolio_repo, position_repo)
+
+        user = user_repo.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
             )
-        ]
-        
-        mock_portfolio = Portfolio(
-            id="portfolio_1",
-            user_id=user_id,
-            positions=mock_positions,
-            cash_balance=Money(Decimal('10000.00'), 'USD')
-        )
-        
-        # Create mock user
-        mock_user = User(
-            id=user_id,
-            email="user@example.com",
-            first_name="Demo",
-            last_name="User",
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            risk_tolerance=RiskTolerance.MODERATE,
-            investment_goal=InvestmentGoal.BALANCED_GROWTH
-        )
-        
-        # Calculate dashboard metrics
-        dashboard_metrics = dashboard_service.get_dashboard_metrics(mock_portfolio, mock_user)
-        
-        # Convert to JSON-serializable format
+
+        dashboard_metrics = dashboard_service.get_dashboard_metrics(portfolio, user)
+
         result = {
             "user_id": user_id,
             "calculated_at": datetime.now().isoformat(),
@@ -163,15 +122,15 @@ async def get_dashboard_overview(
                 for symbol, pct in dashboard_metrics.top_losers
             ],
             "allocation_by_sector": {
-                sector: float(pct) 
+                sector: float(pct)
                 for sector, pct in dashboard_metrics.allocation_by_sector.items()
             },
             "allocation_by_asset": {
-                str(symbol): float(pct) 
+                str(symbol): float(pct)
                 for symbol, pct in dashboard_metrics.allocation_by_asset.items()
             },
             "risk_metrics": {
-                metric: float(value) 
+                metric: float(value)
                 for metric, value in dashboard_metrics.risk_metrics.items()
             },
             "performance_chart_data": [
@@ -182,8 +141,7 @@ async def get_dashboard_overview(
                 for item in dashboard_metrics.performance_chart_data
             ]
         }
-        
-        # Include technical indicators if requested
+
         if include_technical:
             result["technical_indicators"] = [
                 {
@@ -202,10 +160,10 @@ async def get_dashboard_overview(
                 }
                 for indicator in dashboard_metrics.technical_indicators
             ]
-        
+
         logger.info(f"Dashboard overview retrieved for user {user_id}")
         return result
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -229,116 +187,53 @@ async def get_allocation_breakdown(
     user_id: str,
     breakdown_type: str = Query("asset", description="Type of breakdown: 'asset', 'sector', or 'both'"),
     current_user_id: str = Depends(get_current_user),
+    portfolio_repo: PortfolioRepository = Depends(get_portfolio_repository),
+    position_repo: PositionRepository = Depends(get_position_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+    dashboard_service: DefaultDashboardAnalyticsService = Depends(get_dashboard_analytics_service),
 ) -> Dict[str, Any]:
-    """
-    Get portfolio allocation breakdown by asset or sector.
-
-    Args:
-        user_id: User ID whose allocation to retrieve
-        breakdown_type: Type of allocation breakdown to return
-        current_user_id: Authenticated user ID (for authorization)
-
-    Returns:
-        Allocation breakdown data
-    """
+    """Get portfolio allocation breakdown by asset or sector."""
     if current_user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to view this allocation"
         )
-    
+
     try:
-        dashboard_service = container.dashboard_analytics_service()
-        
-        # Create mock portfolio
-        from src.domain.entities.trading import Portfolio
-        from src.domain.entities.trading import Position
-        from src.domain.value_objects import Symbol, Money
-        from src.domain.entities.trading import PositionType
-        from datetime import datetime
-        from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
-        
-        mock_positions = [
-            Position(
-                id="pos_1",
-                user_id=user_id,
-                symbol=Symbol("AAPL"),
-                position_type=PositionType.LONG,
-                quantity=100,
-                average_buy_price=Money(Decimal('150.00'), 'USD'),
-                current_price=Money(Decimal('175.00'), 'USD'),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            ),
-            Position(
-                id="pos_2",
-                user_id=user_id,
-                symbol=Symbol("GOOGL"),
-                position_type=PositionType.LONG,
-                quantity=50,
-                average_buy_price=Money(Decimal('2500.00'), 'USD'),
-                current_price=Money(Decimal('2750.00'), 'USD'),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            ),
-            Position(
-                id="pos_3",
-                user_id=user_id,
-                symbol=Symbol("MSFT"),
-                position_type=PositionType.LONG,
-                quantity=75,
-                average_buy_price=Money(Decimal('300.00'), 'USD'),
-                current_price=Money(Decimal('350.00'), 'USD'),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
+        portfolio = _load_portfolio_with_positions(user_id, portfolio_repo, position_repo)
+
+        user = user_repo.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
             )
-        ]
-        
-        mock_portfolio = Portfolio(
-            id="portfolio_1",
-            user_id=user_id,
-            positions=mock_positions
-        )
-        
-        mock_user = User(
-            id=user_id,
-            email="user@example.com",
-            first_name="Demo",
-            last_name="User",
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            risk_tolerance=RiskTolerance.MODERATE,
-            investment_goal=InvestmentGoal.BALANCED_GROWTH
-        )
-        
-        # Get allocation based on requested type
+
         result = {
             "user_id": user_id,
             "breakdown_type": breakdown_type,
             "calculated_at": datetime.now().isoformat()
         }
-        
+
         if breakdown_type in ["asset", "both"]:
             allocation_by_asset = {}
-            total_value = mock_portfolio.total_value.amount
+            total_value = portfolio.total_value.amount
             if total_value > 0:
-                for position in mock_portfolio.positions:
+                for position in portfolio.positions:
                     allocation = (position.market_value.amount / total_value) * 100
                     allocation_by_asset[str(position.symbol)] = float(allocation)
             result["allocation_by_asset"] = allocation_by_asset
-        
+
         if breakdown_type in ["sector", "both"]:
+            dashboard_metrics = dashboard_service.get_dashboard_metrics(portfolio, user)
             result["allocation_by_sector"] = {
-                "Technology": 45.0,
-                "Healthcare": 20.0,
-                "Financials": 15.0,
-                "Consumer": 12.0,
-                "Industrials": 8.0
+                sector: float(pct)
+                for sector, pct in dashboard_metrics.allocation_by_sector.items()
             }
-        
+
         logger.info(f"Allocation breakdown retrieved for user {user_id}")
         return result
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -362,26 +257,14 @@ async def get_technical_indicators(
     symbol: str,
     days: int = Query(90, description="Number of days for calculations"),
     current_user_id: str = Depends(get_current_user),
+    dashboard_service: DefaultDashboardAnalyticsService = Depends(get_dashboard_analytics_service),
 ) -> Dict[str, Any]:
-    """
-    Get technical indicators for a specific symbol.
-
-    Args:
-        symbol: Stock symbol to analyze
-        days: Number of days of historical data to use
-        current_user_id: Authenticated user ID (for authorization)
-
-    Returns:
-        Technical indicators for the requested symbol
-    """
+    """Get technical indicators for a specific symbol."""
     try:
-        dashboard_service = container.dashboard_analytics_service()
-        
-        # Calculate technical indicators
         tech_indicators = dashboard_service.calculate_technical_indicators(
             Symbol(symbol), days
         )
-        
+
         result = {
             "symbol": str(tech_indicators.symbol),
             "calculated_at": tech_indicators.calculated_at.isoformat() if tech_indicators.calculated_at else None,
@@ -397,10 +280,10 @@ async def get_technical_indicators(
             "bollinger_lower": float(tech_indicators.bollinger_lower) if tech_indicators.bollinger_lower else None,
             "atr": float(tech_indicators.atr) if tech_indicators.atr else None
         }
-        
+
         logger.info(f"Technical indicators retrieved for symbol {symbol}")
         return result
-        
+
     except Exception as e:
         logger.error(f"Error calculating technical indicators: {e}")
         raise HTTPException(

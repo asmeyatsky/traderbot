@@ -7,17 +7,36 @@ All endpoints require authentication.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any
 import logging
+import uuid
+from datetime import datetime
+from decimal import Decimal
 
 from src.infrastructure.security import get_current_user
 from src.infrastructure.broker_integration import BrokerAdapterManager, BrokerType, BrokerOrder
-from src.domain.entities.trading import Order
-from src.domain.value_objects import Symbol
+from src.domain.entities.trading import Order, OrderType, PositionType, OrderStatus
+from src.domain.value_objects import Symbol, Money
+from src.infrastructure.repositories import UserRepository
+from src.presentation.api.dependencies import (
+    get_user_repository,
+    get_broker_adapter_manager,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/brokers", tags=["brokers"])
+
+
+def _get_user_or_404(user_repo: UserRepository, user_id: str):
+    """Fetch user from repository or raise 404."""
+    user = user_repo.get_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    return user
 
 
 @router.get(
@@ -30,26 +49,21 @@ router = APIRouter(prefix="/api/v1/brokers", tags=["brokers"])
 )
 async def get_available_brokers(
     current_user_id: str = Depends(get_current_user),
+    adapter_manager: BrokerAdapterManager = Depends(get_broker_adapter_manager),
 ) -> Dict[str, Any]:
-    """
-    Get list of available broker integrations.
-
-    Returns:
-        List of supported broker types
-    """
+    """Get list of available broker integrations."""
     try:
-        adapter_manager = BrokerAdapterManager()
         available_brokers = adapter_manager.get_available_brokers()
-        
+
         result = {
             "available_brokers": [broker.value for broker in available_brokers],
             "broker_count": len(available_brokers),
             "retrieved_at": datetime.now().isoformat()
         }
-        
+
         logger.info(f"Available brokers retrieved for user {current_user_id}")
         return result
-        
+
     except Exception as e:
         logger.error(f"Error retrieving available brokers: {e}")
         raise HTTPException(
@@ -76,23 +90,10 @@ async def place_order(
     limit_price: Optional[float] = Query(None, description="Limit price for limit orders"),
     stop_price: Optional[float] = Query(None, description="Stop price for stop orders"),
     current_user_id: str = Depends(get_current_user),
+    user_repo: UserRepository = Depends(get_user_repository),
+    adapter_manager: BrokerAdapterManager = Depends(get_broker_adapter_manager),
 ) -> Dict[str, Any]:
-    """
-    Place an order with a specific broker.
-
-    Args:
-        broker_type: Type of broker to use
-        symbol: Stock symbol to trade
-        quantity: Number of shares
-        side: Buy or sell
-        order_type: Type of order
-        limit_price: Price for limit orders
-        stop_price: Price for stop orders
-        current_user_id: Authenticated user ID
-
-    Returns:
-        Order confirmation with broker-specific details
-    """
+    """Place an order with a specific broker."""
     try:
         # Validate broker type
         try:
@@ -102,11 +103,11 @@ async def place_order(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid broker type: {broker_type}. Available: {[b.value for b in BrokerType]}"
             )
-        
-        # Create a mock order object (in real implementation, this would come from our domain)
-        from datetime import datetime
-        from decimal import Decimal
-        mock_order = Order(
+
+        user = _get_user_or_404(user_repo, current_user_id)
+
+        # Build domain Order from request parameters
+        order = Order(
             id=str(uuid.uuid4()),
             user_id=current_user_id,
             symbol=Symbol(symbol),
@@ -119,23 +120,9 @@ async def place_order(
             stop_price=Money(Decimal(str(stop_price)), 'USD') if stop_price else None,
             filled_quantity=0
         )
-        
-        # Create mock user (in real implementation, this would come from user repository)
-        from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
-        mock_user = User(
-            id=current_user_id,
-            email="user@example.com",
-            first_name="Demo",
-            last_name="User",
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            risk_tolerance=RiskTolerance.MODERATE,
-            investment_goal=InvestmentGoal.BALANCED_GROWTH
-        )
-        
-        adapter_manager = BrokerAdapterManager()
-        broker_order = adapter_manager.execute_order(mock_order, mock_user, broker_enum)
-        
+
+        broker_order = adapter_manager.execute_order(order, user, broker_enum)
+
         result = {
             "broker_order_id": broker_order.broker_order_id,
             "client_order_id": broker_order.client_order_id,
@@ -150,10 +137,10 @@ async def place_order(
             "placed_at": broker_order.created_at.isoformat() if broker_order.created_at else None,
             "broker_type": broker_type
         }
-        
+
         logger.info(f"Order placed with {broker_type} for user {current_user_id}")
         return result
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -176,17 +163,10 @@ async def place_order(
 async def get_positions(
     broker_type: str,
     current_user_id: str = Depends(get_current_user),
+    user_repo: UserRepository = Depends(get_user_repository),
+    adapter_manager: BrokerAdapterManager = Depends(get_broker_adapter_manager),
 ) -> Dict[str, Any]:
-    """
-    Get current positions from a specific broker.
-
-    Args:
-        broker_type: Type of broker to query
-        current_user_id: Authenticated user ID
-
-    Returns:
-        List of current positions
-    """
+    """Get current positions from a specific broker."""
     try:
         # Validate broker type
         try:
@@ -196,24 +176,10 @@ async def get_positions(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid broker type: {broker_type}. Available: {[b.value for b in BrokerType]}"
             )
-        
-        # Create mock user
-        from datetime import datetime
-        from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
-        mock_user = User(
-            id=current_user_id,
-            email="user@example.com",
-            first_name="Demo",
-            last_name="User",
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            risk_tolerance=RiskTolerance.MODERATE,
-            investment_goal=InvestmentGoal.BALANCED_GROWTH
-        )
-        
-        adapter_manager = BrokerAdapterManager()
-        positions = adapter_manager.get_broker_service(broker_enum).get_positions(mock_user)
-        
+
+        user = _get_user_or_404(user_repo, current_user_id)
+        positions = adapter_manager.get_broker_service(broker_enum).get_positions(user)
+
         result = {
             "positions": [
                 {
@@ -231,10 +197,10 @@ async def get_positions(
             "retrieved_at": datetime.now().isoformat(),
             "broker_type": broker_type
         }
-        
+
         logger.info(f"Positions retrieved from {broker_type} for user {current_user_id}")
         return result
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -257,17 +223,10 @@ async def get_positions(
 async def get_account_info(
     broker_type: str,
     current_user_id: str = Depends(get_current_user),
+    user_repo: UserRepository = Depends(get_user_repository),
+    adapter_manager: BrokerAdapterManager = Depends(get_broker_adapter_manager),
 ) -> Dict[str, Any]:
-    """
-    Get account information from a specific broker.
-
-    Args:
-        broker_type: Type of broker to query
-        current_user_id: Authenticated user ID
-
-    Returns:
-        Account information
-    """
+    """Get account information from a specific broker."""
     try:
         # Validate broker type
         try:
@@ -277,24 +236,10 @@ async def get_account_info(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid broker type: {broker_type}. Available: {[b.value for b in BrokerType]}"
             )
-        
-        # Create mock user
-        from datetime import datetime
-        from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
-        mock_user = User(
-            id=current_user_id,
-            email="user@example.com",
-            first_name="Demo",
-            last_name="User",
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            risk_tolerance=RiskTolerance.MODERATE,
-            investment_goal=InvestmentGoal.BALANCED_GROWTH
-        )
-        
-        adapter_manager = BrokerAdapterManager()
-        account_info = adapter_manager.get_account_info(mock_user, broker_enum)
-        
+
+        user = _get_user_or_404(user_repo, current_user_id)
+        account_info = adapter_manager.get_account_info(user, broker_enum)
+
         result = {
             "account_id": account_info.account_id,
             "account_number": account_info.account_number,
@@ -320,10 +265,10 @@ async def get_account_info(
             "updated_at": account_info.updated_at.isoformat(),
             "broker_type": broker_type
         }
-        
+
         logger.info(f"Account info retrieved from {broker_type} for user {current_user_id}")
         return result
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -332,9 +277,3 @@ async def get_account_info(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve account information"
         )
-
-from datetime import datetime, timedelta
-from uuid import uuid4
-from decimal import Decimal
-from src.domain.entities.trading import OrderType, PositionType, OrderStatus
-from src.domain.value_objects import Money

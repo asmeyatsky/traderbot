@@ -1,4 +1,4 @@
-name: Deploy to Cloud Run
+name: Deploy to AWS ECS
 
 on:
   push:
@@ -6,56 +6,92 @@ on:
       - main
 
 env:
-  PROJECT_ID: traderbot-481101
-  REGION: europe-west2
-  REPO_NAME: traderbot-repo
-  SERVICE_NAME: traderbot-api
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+  ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
+  ECS_TASK_DEFINITION: ${{ secrets.ECS_TASK_DEFINITION }}
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install torch==2.0.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        env:
+          DATABASE_URL: sqlite:///./test.db
+          JWT_SECRET_KEY: test_secret_key_for_ci_at_least_32_characters_long
+          ENVIRONMENT: development
+        run: pytest tests/ -v --tb=short
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
-      contents: 'read'
-      id-token: 'write'
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Google Auth
-        id: auth
-        uses: google-github-actions/auth@v2
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
-          project_id: ${{ env.PROJECT_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.PROJECT_ID }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Configure gcloud region
-        run: gcloud config set run/region ${{ env.REGION }}
-
-      - name: Authorize Docker push
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
-
-      - name: Build and Push Container
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t "${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}" .
-          docker push "${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Deploy to Cloud Run
-        uses: google-github-actions/deploy-cloudrun@v2
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
+            --query taskDefinition \
+            > task-definition.json
+
+      - name: Update ECS task definition with new image
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          service: ${{ env.SERVICE_NAME }}
-          region: ${{ env.REGION }}
-          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          # Setting environment variables from GitHub secrets
-          env_vars: |
-            ENVIRONMENT=production
-            LOG_LEVEL=INFO
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            REDIS_URL=${{ secrets.REDIS_URL }}
-          # Additional flags for VPC Connector and authentication
-          flags: --vpc-connector=projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/connectors/traderbot-connector --allow-unauthenticated
+          task-definition: task-definition.json
+          container-name: traderbot-api
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+          wait-for-minutes: 10

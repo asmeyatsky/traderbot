@@ -21,10 +21,16 @@ from src.infrastructure.data_processing.ml_model_service import (
 )
 from src.infrastructure.data_processing.news_aggregation_service import NewsImpactAnalyzer
 from src.infrastructure.data_processing.backtesting_engine import (
-    BacktestingEngine, BacktestConfiguration, StrategyComparator, 
+    BacktestingEngine, BacktestConfiguration, StrategyComparator,
     SMACrossoverStrategy, MLStrategy
 )
 from src.infrastructure.broker_integration import BrokerIntegrationService
+from src.infrastructure.repositories import PortfolioRepository, PositionRepository, UserRepository
+from src.presentation.api.dependencies import (
+    get_portfolio_repository,
+    get_position_repository,
+    get_user_repository,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -324,6 +330,9 @@ async def optimize_portfolio(
     risk_tolerance: Optional[str] = Query(None, description="Risk tolerance (CONSERVATIVE, MODERATE, AGGRESSIVE)"),
     investment_goal: Optional[str] = Query(None, description="Investment goal"),
     symbols: List[str] = Query([], description="List of symbols to consider for allocation"),
+    user_repo: UserRepository = Depends(get_user_repository),
+    portfolio_repo: PortfolioRepository = Depends(get_portfolio_repository),
+    position_repo: PositionRepository = Depends(get_position_repository),
 ) -> Dict[str, Any]:
     """
     Optimize user's portfolio allocation based on risk profile and goals.
@@ -370,28 +379,37 @@ async def optimize_portfolio(
                 detail="Portfolio optimization service not available"
             )
 
-        # In a real implementation, we would fetch user data from database
-        # For now, we'll create a mock user with provided parameters
-        from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
-        from enum import Enum
-        import uuid
-        
-        # Create mock user (in real implementation, fetch from database)
-        risk_enum = RiskTolerance[risk_tolerance] if risk_tolerance else RiskTolerance.MODERATE
-        goal_enum = InvestmentGoal[investment_goal] if investment_goal else InvestmentGoal.BALANCED_GROWTH
-        
-        # Create a mock portfolio for context
+        # Fetch real user and portfolio from repositories
+        user = user_repo.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        portfolio = portfolio_repo.get_by_user_id(user_id)
+        if not portfolio:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Portfolio not found"
+            )
+
+        positions = position_repo.get_by_user_id(user_id)
         from src.domain.entities.trading import Portfolio
-        mock_portfolio = Portfolio(
-            id=f"mock_portfolio_{user_id}",
-            user_id=user_id
+        full_portfolio = Portfolio(
+            id=portfolio.id,
+            user_id=portfolio.user_id,
+            positions=positions,
+            cash_balance=portfolio.cash_balance,
+            created_at=portfolio.created_at,
+            updated_at=portfolio.updated_at,
         )
 
         logger.info(f"Optimizing portfolio for user {user_id} with {len(symbol_objects)} symbols")
 
         # Get optimization
         allocation = portfolio_optimizer.optimize_portfolio(
-            mock_user, mock_portfolio, symbol_objects
+            user, full_portfolio, symbol_objects
         )
 
         return {
@@ -576,6 +594,8 @@ async def run_backtest(
 async def get_risk_analysis(
     user_id: str,
     symbols: List[str] = Query([], description="Portfolio symbols for VaR calculation"),
+    portfolio_repo: PortfolioRepository = Depends(get_portfolio_repository),
+    position_repo: PositionRepository = Depends(get_position_repository),
 ) -> Dict[str, Any]:
     """
     Perform advanced risk analysis including VaR, Expected Shortfall, and correlation analysis.
@@ -607,57 +627,48 @@ async def get_risk_analysis(
                 detail="Risk analytics service not available"
             )
 
-        # In a real implementation, we'd fetch user's actual portfolio
-        # For now, create a mock portfolio
-        from src.domain.entities.trading import Portfolio, Position
-        from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
+        # Fetch real portfolio and positions from repositories
+        from src.domain.entities.trading import Portfolio
         from decimal import Decimal
-        import uuid
 
-        # Create mock portfolio with positions
-        positions = []
-        for i, symbol_obj in enumerate(symbol_objects):
-            positions.append(
-                Position(
-                    id=f"mock_pos_{i}",
-                    user_id=user_id,
-                    symbol=symbol_obj,
-                    position_type="LONG",
-                    quantity=100,  # Mock quantity
-                    average_buy_price=Money(Decimal('100.0'), "USD"),  # Mock price
-                    current_price=Money(Decimal('100.0'), "USD"),  # Mock price
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow()
-                )
+        portfolio = portfolio_repo.get_by_user_id(user_id)
+        if not portfolio:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Portfolio not found"
             )
 
-        mock_portfolio = Portfolio(
-            id=f"mock_portfolio_{user_id}",
-            user_id=user_id,
-            positions=positions
+        positions = position_repo.get_by_user_id(user_id)
+        full_portfolio = Portfolio(
+            id=portfolio.id,
+            user_id=portfolio.user_id,
+            positions=positions,
+            cash_balance=portfolio.cash_balance,
+            created_at=portfolio.created_at,
+            updated_at=portfolio.updated_at,
         )
 
         logger.info(f"Calculating risk metrics for user {user_id} with {len(symbol_objects)} symbols")
 
         # Calculate VaR (Value at Risk)
-        var_95 = risk_service.calculate_var(mock_portfolio, confidence_level=0.95)
-        var_99 = risk_service.calculate_var(mock_portfolio, confidence_level=0.99)
-        
+        var_95 = risk_service.calculate_var(full_portfolio, confidence_level=0.95)
+        var_99 = risk_service.calculate_var(full_portfolio, confidence_level=0.99)
+
         # Calculate Expected Shortfall
-        es_95 = risk_service.calculate_expected_shortfall(mock_portfolio, confidence_level=0.95)
+        es_95 = risk_service.calculate_expected_shortfall(full_portfolio, confidence_level=0.95)
 
         # Calculate correlation matrix
         correlations = risk_service.calculate_correlation_matrix(positions)
 
         # Define example scenarios for stress testing
         scenarios = [
-            {"name": "Market Crash", "market_impact": -0.20},  # 20% market drop
-            {"name": "Tech Sector Decline", "market_impact": -0.15},  # 15% tech sector drop
-            {"name": "Interest Rate Shock", "market_impact": -0.10}   # 10% across market
+            {"name": "Market Crash", "market_impact": -0.20},
+            {"name": "Tech Sector Decline", "market_impact": -0.15},
+            {"name": "Interest Rate Shock", "market_impact": -0.10}
         ]
 
         # Run stress tests
-        stress_results = risk_service.stress_test_portfolio(mock_portfolio, scenarios)
+        stress_results = risk_service.stress_test_portfolio(full_portfolio, scenarios)
 
         return {
             "user_id": user_id,

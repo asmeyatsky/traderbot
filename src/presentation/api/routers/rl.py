@@ -7,15 +7,22 @@ All endpoints require authentication.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from typing import List, Optional, Dict, Any
+from typing import Dict, Any
 import logging
+from datetime import datetime
+from decimal import Decimal
 
 from src.infrastructure.security import get_current_user
-from src.domain.services.rl_trading_agents import (
-    MockRLAgent, MultiAgentRLEnsemble, RLAlgorithm, TradingAction, RLEnvironment, RLState
-)
+from src.domain.services.rl_trading_agents import RLAlgorithm, TradingAction
+from src.domain.entities.trading import Portfolio
 from src.domain.value_objects import Symbol
-from src.infrastructure.di_container import container
+from src.infrastructure.repositories import PortfolioRepository, PositionRepository, UserRepository
+from src.presentation.api.dependencies import (
+    get_portfolio_repository,
+    get_position_repository,
+    get_user_repository,
+    get_rl_agent_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,24 +40,19 @@ router = APIRouter(prefix="/api/v1/rl", tags=["rl"])
 async def get_available_algorithms(
     current_user_id: str = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    """
-    Get list of available reinforcement learning algorithms.
-
-    Returns:
-        List of available RL algorithms
-    """
+    """Get list of available reinforcement learning algorithms."""
     try:
         algorithms = [alg.value for alg in RLAlgorithm]
-        
+
         result = {
             "available_algorithms": algorithms,
             "algorithm_count": len(algorithms),
             "retrieved_at": datetime.now().isoformat()
         }
-        
+
         logger.info(f"Available RL algorithms retrieved for user {current_user_id}")
         return result
-        
+
     except Exception as e:
         logger.error(f"Error retrieving RL algorithms: {e}")
         raise HTTPException(
@@ -74,68 +76,40 @@ async def train_rl_agent(
     episodes: int = Query(100, description="Number of training episodes"),
     initial_balance: float = Query(10000.0, description="Initial balance for training"),
     current_user_id: str = Depends(get_current_user),
+    rl_service=Depends(get_rl_agent_service),
 ) -> Dict[str, Any]:
-    """
-    Train a reinforcement learning trading agent for a symbol.
-
-    Args:
-        symbol: Stock symbol to train on
-        algorithm: RL algorithm to use
-        episodes: Number of training episodes
-        initial_balance: Initial balance for simulation
-        current_user_id: Authenticated user ID
-
-    Returns:
-        Training results with performance metrics
-    """
+    """Train a reinforcement learning trading agent for a symbol."""
     try:
-        # Validate algorithm
-        try:
-            alg_enum = RLAlgorithm(algorithm.lower().replace('-', '_'))
-        except ValueError:
-            available_algs = [alg.value for alg in RLAlgorithm]
+        # Validate algorithm — accept both enum name (dqn) and value (deep_q_network)
+        normalized = algorithm.lower().replace('-', '_')
+        valid_alg = None
+        for alg in RLAlgorithm:
+            if alg.name.lower() == normalized or alg.value == normalized:
+                valid_alg = alg
+                break
+        if valid_alg is None:
+            available_algs = [alg.name.lower() for alg in RLAlgorithm]
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid algorithm: {algorithm}. Available: {available_algs}"
             )
-        
-        # Create a mock environment for training
-        env = RLEnvironment(
-            symbol=Symbol(symbol),
-            initial_balance=Decimal(str(initial_balance)),
-            current_balance=Decimal(str(initial_balance)),
-            positions={},
-            current_price=Decimal('100.00'),  # Mock current price
-            time_step=0,
-            done=False,
-            max_steps=1000
-        )
-        
-        # Create and train the agent
-        agent = MockRLAgent(alg_enum)
-        training_result = agent.train(env, episodes, max_steps=500)
-        
+
+        training_data = [{"symbol": symbol.upper(), "episodes": episodes}]
+        success = rl_service.train(training_data)
+
         result = {
             "symbol": symbol,
             "algorithm": algorithm,
             "training_result": {
-                "episodes_trained": training_result.episodes_trained,
-                "total_reward": float(training_result.total_reward),
-                "avg_reward": float(training_result.avg_reward),
-                "win_rate": float(training_result.win_rate),
-                "sharpe_ratio": float(training_result.sharpe_ratio),
-                "max_drawdown": float(training_result.max_drawdown),
-                "final_balance": float(training_result.final_balance),
-                "training_duration": str(training_result.training_duration),
-                "hyperparameters": training_result.hyperparameters,
-                "performance_metrics": training_result.performance_metrics
+                "episodes_trained": episodes,
+                "training_successful": success,
             },
             "trained_at": datetime.now().isoformat()
         }
-        
+
         logger.info(f"RL agent trained for symbol {symbol} using {algorithm}")
         return result
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -161,57 +135,44 @@ async def evaluate_rl_agent(
     episodes: int = Query(10, description="Number of evaluation episodes"),
     initial_balance: float = Query(10000.0, description="Initial balance for evaluation"),
     current_user_id: str = Depends(get_current_user),
+    rl_service=Depends(get_rl_agent_service),
 ) -> Dict[str, Any]:
-    """
-    Evaluate a reinforcement learning trading agent for a symbol.
-
-    Args:
-        symbol: Stock symbol to evaluate on
-        algorithm: RL algorithm to use
-        episodes: Number of evaluation episodes
-        initial_balance: Initial balance for simulation
-        current_user_id: Authenticated user ID
-
-    Returns:
-        Evaluation results with performance metrics
-    """
+    """Evaluate a reinforcement learning trading agent for a symbol."""
     try:
-        # Validate algorithm
-        try:
-            alg_enum = RLAlgorithm(algorithm.lower().replace('-', '_'))
-        except ValueError:
-            available_algs = [alg.value for alg in RLAlgorithm]
+        # Validate algorithm — accept both enum name (dqn) and value (deep_q_network)
+        normalized = algorithm.lower().replace('-', '_')
+        valid_alg = None
+        for alg in RLAlgorithm:
+            if alg.name.lower() == normalized or alg.value == normalized:
+                valid_alg = alg
+                break
+        if valid_alg is None:
+            available_algs = [alg.name.lower() for alg in RLAlgorithm]
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid algorithm: {algorithm}. Available: {available_algs}"
             )
-        
-        # Create a mock environment for evaluation
-        env = RLEnvironment(
-            symbol=Symbol(symbol),
-            initial_balance=Decimal(str(initial_balance)),
-            current_balance=Decimal(str(initial_balance)),
-            positions={},
-            current_price=Decimal('100.00'),  # Mock current price
-            time_step=0,
-            done=False,
-            max_steps=1000
-        )
-        
-        # Create and evaluate the agent
-        agent = MockRLAgent(alg_enum)
-        evaluation_results = agent.evaluate(env, episodes)
-        
+
+        evaluation_data = [{"symbol": symbol.upper()}]
+        performance = rl_service.evaluate(evaluation_data)
+
         result = {
             "symbol": symbol,
             "algorithm": algorithm,
-            "evaluation_results": evaluation_results,
+            "evaluation_results": {
+                "accuracy": performance.accuracy,
+                "precision": performance.precision,
+                "recall": performance.recall,
+                "sharpe_ratio": performance.sharpe_ratio,
+                "max_drawdown": performance.max_drawdown,
+                "annual_return": performance.annual_return,
+            },
             "evaluated_at": datetime.now().isoformat()
         }
-        
+
         logger.info(f"RL agent evaluated for symbol {symbol} using {algorithm}")
         return result
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -232,28 +193,33 @@ async def evaluate_rl_agent(
 )
 async def get_ensemble_performance(
     current_user_id: str = Depends(get_current_user),
+    rl_service=Depends(get_rl_agent_service),
 ) -> Dict[str, Any]:
-    """
-    Get performance metrics for the ensemble of RL agents.
-
-    Returns:
-        Performance metrics for all agents in the ensemble
-    """
+    """Get performance metrics for the RL agent."""
     try:
-        # Create an ensemble of agents
-        ensemble = MultiAgentRLEnsemble()
-        
-        performance = ensemble.get_agents_performance()
-        
+        # Evaluate across known symbols
+        symbols = ["AAPL", "MSFT", "GOOGL"]
+        performance_results = {}
+        for sym in symbols:
+            try:
+                perf = rl_service.evaluate([{"symbol": sym}])
+                performance_results[sym] = {
+                    "accuracy": perf.accuracy,
+                    "sharpe_ratio": perf.sharpe_ratio,
+                    "max_drawdown": perf.max_drawdown,
+                }
+            except Exception:
+                performance_results[sym] = {"error": "No trained agent available"}
+
         result = {
-            "ensemble_performance": performance,
-            "agent_types": list(performance.keys()),
+            "ensemble_performance": performance_results,
+            "agent_types": list(performance_results.keys()),
             "retrieved_at": datetime.now().isoformat()
         }
-        
+
         logger.info(f"Ensemble performance retrieved for user {current_user_id}")
         return result
-        
+
     except Exception as e:
         logger.error(f"Error retrieving ensemble performance: {e}")
         raise HTTPException(
@@ -277,85 +243,63 @@ async def get_rl_action(
     algorithm: str = Query("ensemble", description="Algorithm to use (ensemble or specific)"),
     market_regime: str = Query("default", description="Current market regime"),
     current_user_id: str = Depends(get_current_user),
+    portfolio_repo: PortfolioRepository = Depends(get_portfolio_repository),
+    position_repo: PositionRepository = Depends(get_position_repository),
+    rl_service=Depends(get_rl_agent_service),
 ) -> Dict[str, Any]:
-    """
-    Get action recommendation from RL agent for a symbol.
-
-    Args:
-        symbol: Stock symbol to get action for
-        user_id: User ID to personalize the action
-        algorithm: Algorithm to use
-        market_regime: Current market regime
-        current_user_id: Authenticated user ID (for authorization)
-
-    Returns:
-        Action recommendation with position size
-    """
+    """Get action recommendation from RL agent for a symbol."""
     if current_user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to get actions for this user"
         )
-    
+
     try:
-        # Create a mock state for the agent
-        # In a real implementation, this would use actual market data and user portfolio
-        from decimal import Decimal
-        from datetime import datetime
-        from src.domain.value_objects import Symbol
-        from src.domain.services.rl_trading_agents import RLState, TradingAction
-        
-        mock_state = RLState(
-            portfolio_value=Decimal('50000.00'),
-            cash_balance=Decimal('20000.00'),
-            position_quantities=[100, 50],  # Mock position quantities
-            position_prices=[Decimal('150.00'), Decimal('2500.00')],  # Mock position prices
-            market_data=[Decimal('175.00')] * 10,  # Mock market data
-            technical_indicators={
-                'rsi': Decimal('55.00'),
-                'macd': Decimal('1.25'),
-                'bb_position': Decimal('0.45'),
-                'sma_ratio': Decimal('1.02')
-            },
-            volatility=Decimal('0.18'),
-            market_regime=market_regime,
-            time_step=100,
-            user_risk_profile='moderate'
-        )
-        
-        if algorithm.lower() == 'ensemble':
-            # Use the ensemble of agents
-            ensemble = MultiAgentRLEnsemble()
-            action, position_size = ensemble.get_action(mock_state, market_regime)
-        else:
-            # Validate algorithm
-            try:
-                alg_enum = RLAlgorithm(algorithm.lower().replace('-', '_'))
-            except ValueError:
-                available_algs = [alg.value for alg in RLAlgorithm]
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid algorithm: {algorithm}. Available: {available_algs}"
-                )
-            
-            # Create a single agent
-            agent = MockRLAgent(alg_enum)
-            action, position_size = agent.get_action(mock_state, training=False)
-        
+        symbol_obj = Symbol(symbol.upper())
+
+        # Build state from real portfolio data
+        portfolio = portfolio_repo.get_by_user_id(user_id)
+        positions = position_repo.get_by_user_id(user_id)
+
+        portfolio_value = Decimal('0')
+        cash_balance = Decimal('0')
+        cash_percentage = 0.5
+        if portfolio:
+            cash_balance = portfolio.cash_balance.amount
+            full_portfolio = Portfolio(
+                id=portfolio.id,
+                user_id=portfolio.user_id,
+                positions=positions,
+                cash_balance=portfolio.cash_balance,
+                created_at=portfolio.created_at,
+                updated_at=portfolio.updated_at,
+            )
+            portfolio_value = full_portfolio.total_value.amount
+            if portfolio_value > 0:
+                cash_percentage = float(cash_balance / portfolio_value)
+
+        state = {
+            "portfolio_value": float(portfolio_value),
+            "cash_balance": float(cash_balance),
+            "cash_percentage": cash_percentage,
+            "market_regime": market_regime,
+        }
+
+        action, position_size = rl_service.get_action(state, symbol_obj)
+
         result = {
             "symbol": symbol,
             "user_id": user_id,
-            "action": action.value,
-            "action_name": TradingAction(action.value).name,
+            "action": action,
             "position_size": float(position_size),
             "market_regime": market_regime,
             "algorithm_used": algorithm,
             "recommended_at": datetime.now().isoformat()
         }
-        
+
         logger.info(f"RL action recommended for symbol {symbol} and user {user_id}")
         return result
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -364,6 +308,3 @@ async def get_rl_action(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get RL action recommendation"
         )
-
-from datetime import datetime
-from decimal import Decimal

@@ -21,6 +21,7 @@ setup(
 
         # API and validation - using compatible versions
         "pydantic[email]>=2.4.0,<2.6.0",
+        "pydantic-settings>=2.0.0",
         "fastapi>=0.104.0,<0.105.0",
         "typing-extensions>=4.8.0",  # Required by fastapi
         "uvicorn==0.24.0",
@@ -28,6 +29,8 @@ setup(
         # Database
         "sqlalchemy==2.0.23",
         "asyncpg==0.29.0",
+        "alembic==1.13.1",
+        "psycopg2-binary==2.9.9",
 
         # Caching and message queue
         "redis==5.0.1",

@@ -19,29 +19,17 @@ logger = logging.getLogger(__name__)
 
 
 class CacheManager:
-    """DiskCache-based cache manager for application data."""
+    """Redis-based cache manager for application data."""
 
-    def __init__(self, cache_dir: str = "./cache"):
+    def __init__(self, redis_url: str = "redis://localhost:6379/0"):
         """
         Initialize cache manager.
 
         Args:
-            cache_dir: Directory for cache storage
+            redis_url: Redis connection URL
         """
-        self.cache_dir = cache_dir
+        self.redis_url = redis_url
         self.client = None
-        self._connect()
-
-    def _connect(self) -> None:
-        """Connect to DiskCache."""
-        try:
-            from diskcache import FanoutCache
-
-            self.client = FanoutCache(self.cache_dir, statistics=True)
-            logger.info("Connected to DiskCache")
-        except Exception as e:
-            logger.error(f"Failed to initialize DiskCache: {e}")
-            self.client = None
         self._connect()
 
     def _connect(self) -> None:
@@ -313,11 +301,13 @@ def cached(
 _cache_manager: Optional[CacheManager] = None
 
 
-def initialize_cache() -> CacheManager:
+def initialize_cache(redis_url: Optional[str] = None) -> CacheManager:
     """Initialize the global cache manager."""
     global _cache_manager
     if _cache_manager is None:
-        _cache_manager = CacheManager("./cache")
+        import os
+        url = redis_url or os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+        _cache_manager = CacheManager(url)
     return _cache_manager
 
 

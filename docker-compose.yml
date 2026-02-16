@@ -17,6 +17,7 @@ services:
       - TF_SERVING_HOST=ml-model
       - TF_SERVING_PORT=8501
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
+      - JWT_SECRET_KEY=dev_only_secret_key_change_in_production_at_least_32_chars
     depends_on:
       db:
         condition: service_healthy
@@ -25,6 +26,26 @@ services:
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
+    networks:
+      - trading-network
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: trading-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: trading
+      POSTGRES_PASSWORD: trading
+      POSTGRES_DB: traderbot
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading -d traderbot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - trading-network
 

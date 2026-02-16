@@ -133,7 +133,8 @@ async def security_headers_middleware(request: Request, call_next) -> Response:
         )
 
     # Remove server identification header
-    response.headers.pop("server", None)
+    if "server" in response.headers:
+        del response.headers["server"]
 
     return response
 
@@ -280,6 +281,14 @@ async def startup_event():
     logger.info("=" * 80)
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Log Level: {settings.LOG_LEVEL}")
+
+    # Initialize database connection
+    from src.infrastructure.database import initialize_database
+    try:
+        initialize_database()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
 
 
 @app.on_event("shutdown")

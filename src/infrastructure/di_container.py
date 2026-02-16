@@ -41,9 +41,12 @@ from src.infrastructure.data_processing.backtesting_engine import (
 )
 from src.infrastructure.broker_integration import (
     AlpacaBrokerService,
-    BrokerIntegrationService
+    BrokerIntegrationService,
+    BrokerAdapterManager
 )
 from src.domain.services.trading import DefaultTradingDomainService, DefaultRiskManagementDomainService
+from src.domain.services.advanced_risk_management import DefaultAdvancedRiskManagementService
+from src.domain.services.dashboard_analytics import DefaultDashboardAnalyticsService
 
 
 class RepositoryContainer(containers.DeclarativeContainer):
@@ -86,6 +89,8 @@ class ServiceContainer(containers.DeclarativeContainer):
     # Advanced analytics services
     risk_analytics_service = providers.Factory(AdvancedRiskAnalyticsService)
     portfolio_optimization_service = providers.Factory(PortfolioOptimizationService)
+    advanced_risk_management_service = providers.Factory(DefaultAdvancedRiskManagementService)
+    dashboard_analytics_service = providers.Factory(DefaultDashboardAnalyticsService)
 
     # News services
     marketaux_news_service = providers.Factory(
@@ -124,6 +129,9 @@ class AdapterContainer(containers.DeclarativeContainer):
         BrokerIntegrationService,
         alpaca_service=alpaca_broker_service
     )
+
+    # Broker adapter manager
+    broker_adapter_manager = providers.Singleton(BrokerAdapterManager)
 
     # Security and infrastructure
     jwt_authenticator = providers.Singleton(JWTAuthenticator)
@@ -238,3 +246,15 @@ def data_provider_service():
 def broker_integration_service():
     """Get the broker integration service instance."""
     return container.adapters.broker_integration_service()
+
+def advanced_risk_management_service():
+    """Get the advanced risk management service instance."""
+    return container.services.advanced_risk_management_service()
+
+def dashboard_analytics_service():
+    """Get the dashboard analytics service instance."""
+    return container.services.dashboard_analytics_service()
+
+def broker_adapter_manager():
+    """Get the broker adapter manager instance."""
+    return container.adapters.broker_adapter_manager()

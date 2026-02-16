@@ -133,3 +133,23 @@ def get_broker_integration_service():
 def get_data_provider_service():
     """Provide data provider service instance."""
     return container.adapters.data_provider_service()
+
+
+def get_advanced_risk_management_service():
+    """Provide advanced risk management service instance."""
+    return container.services.advanced_risk_management_service()
+
+
+def get_dashboard_analytics_service():
+    """Provide dashboard analytics service instance."""
+    return container.services.dashboard_analytics_service()
+
+
+def get_broker_adapter_manager():
+    """Provide broker adapter manager instance."""
+    return container.adapters.broker_adapter_manager()
+
+
+def get_rl_agent_service():
+    """Provide RL trading agent service instance."""
+    return container.services.rl_agent_service()

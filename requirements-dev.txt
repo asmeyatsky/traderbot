@@ -1,0 +1,16 @@
+# Development/testing dependencies — not included in production image
+-r requirements.txt
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-mock==3.12.0
+pytest-cov==4.1.0
+factory-boy==3.3.0
+httpx>=0.24.0
+
+# Additional dev tools
+Pillow==10.1.0
+spacy==3.7.2
+celery==5.3.4
+kafka-python==2.0.2
