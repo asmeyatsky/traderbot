@@ -1,5 +1,21 @@
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  WARNING: STAGING vs PRODUCTION NETWORKING DIFFERENCES          ║
+# ║                                                                  ║
+# ║  Staging uses cost-optimized networking (~$69/mo):               ║
+# ║    - t4g.nano NAT instance instead of NAT Gateway                ║
+# ║    - No VPC Interface Endpoints (traffic routes via NAT)         ║
+# ║                                                                  ║
+# ║  Production MUST use full networking (~$168/mo):                  ║
+# ║    - Managed NAT Gateway (HA, no patching, auto-scaling)         ║
+# ║    - VPC Endpoints for ECR, Secrets Manager, CloudWatch Logs     ║
+# ║      (keeps traffic off public internet, required for PCI DSS)   ║
+# ║                                                                  ║
+# ║  DO NOT copy staging tfvars/config to production.                ║
+# ║  Always deploy production with: -var="environment=production"    ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
 terraform {
-  required_version = ">= 1.0"
+  required_version = ">= 1.5"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -69,6 +85,17 @@ provider "aws" {
 
   default_tags {
     tags = local.default_tags
+  }
+}
+
+# Production safeguard: ensure NAT Gateway and VPC endpoints exist in production
+check "production_networking" {
+  assert {
+    condition = (
+      var.environment != "production" ||
+      (length(aws_nat_gateway.main) > 0 && length(aws_vpc_endpoint.ecr_dkr) > 0)
+    )
+    error_message = "Production MUST have NAT Gateway and VPC endpoints. Check environment variable."
   }
 }
 
@@ -160,7 +187,8 @@ resource "aws_internet_gateway" "main" {
   tags = { Name = "${local.name_prefix}-igw" }
 }
 
-# NAT Gateway (for ECS in private subnets to reach internet)
+# NAT Gateway (production) — managed HA, auto-scaling, no patching required
+# Production-only: staging uses a t3.nano NAT instance to save ~$31/mo
 resource "aws_eip" "nat" {
   domain = "vpc"
 
@@ -168,22 +196,93 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "main" {
+  count = var.environment == "production" ? 1 : 0
+
   allocation_id = aws_eip.nat.id
   subnet_id     = aws_subnet.public_1.id
 
-  tags = { Name = "${local.name_prefix}-nat" }
+  tags = { Name = "${local.name_prefix}-nat-gw" }
 }
 
-# Private Route Table
+# ---------------------------------------------------------------------------
+# NAT Instance (staging) — t3.nano fck-nat AMI, ~$4/mo vs $35/mo NAT Gateway
+# Staging-only: production uses managed NAT Gateway for HA and compliance
+# ---------------------------------------------------------------------------
+
+data "aws_ami" "fck_nat" {
+  count = var.environment != "production" ? 1 : 0
+
+  most_recent = true
+  owners      = ["568608671756"] # fck-nat project
+
+  filter {
+    name   = "name"
+    values = ["fck-nat-al2023-*-arm64-ebs"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["arm64"]
+  }
+}
+
+resource "aws_security_group" "nat_instance" {
+  count = var.environment != "production" ? 1 : 0
+
+  name        = "${local.name_prefix}-nat-instance"
+  description = "Security group for NAT instance (staging)"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description = "All traffic from VPC"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [var.vpc_cidr]
+  }
+
+  egress {
+    description = "All outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = { Name = "${local.name_prefix}-nat-instance-sg" }
+}
+
+resource "aws_instance" "nat" {
+  count = var.environment != "production" ? 1 : 0
+
+  ami                    = data.aws_ami.fck_nat[0].id
+  instance_type          = "t4g.nano"
+  subnet_id              = aws_subnet.public_1.id
+  vpc_security_group_ids = [aws_security_group.nat_instance[0].id]
+  source_dest_check      = false
+
+  tags = { Name = "${local.name_prefix}-nat-instance" }
+}
+
+resource "aws_eip_association" "nat_instance" {
+  count = var.environment != "production" ? 1 : 0
+
+  instance_id   = aws_instance.nat[0].id
+  allocation_id = aws_eip.nat.id
+}
+
+# Private Route Table — routes to NAT Gateway (production) or NAT instance (staging)
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main.id
-  }
-
   tags = { Name = "${local.name_prefix}-private-rt" }
+}
+
+resource "aws_route" "private_nat" {
+  route_table_id         = aws_route_table.private.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = var.environment == "production" ? aws_nat_gateway.main[0].id : null
+  network_interface_id   = var.environment != "production" ? aws_instance.nat[0].primary_network_interface_id : null
 }
 
 resource "aws_route_table_association" "private_1" {
@@ -201,7 +300,10 @@ resource "aws_route_table_association" "private_2" {
 # =============================================================================
 
 # Security group for VPC Interface Endpoints
+# Production-only: staging routes ECR/Secrets/Logs traffic through NAT instance
 resource "aws_security_group" "vpc_endpoints" {
+  count = var.environment == "production" ? 1 : 0
+
   name        = "${local.name_prefix}-vpc-endpoints"
   description = "Security group for VPC Interface Endpoints"
   vpc_id      = aws_vpc.main.id
@@ -217,49 +319,61 @@ resource "aws_security_group" "vpc_endpoints" {
 }
 
 # ECR Docker endpoint (for pulling images)
+# Production-only: keeps ECR traffic off public internet (PCI DSS requirement)
 resource "aws_vpc_endpoint" "ecr_dkr" {
+  count = var.environment == "production" ? 1 : 0
+
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.${var.aws_region}.ecr.dkr"
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
   subnet_ids          = [aws_subnet.private_1.id, aws_subnet.private_2.id]
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints[0].id]
 
   tags = { Name = "${local.name_prefix}-ecr-dkr-endpoint" }
 }
 
 # ECR API endpoint
+# Production-only: keeps ECR API traffic off public internet (PCI DSS requirement)
 resource "aws_vpc_endpoint" "ecr_api" {
+  count = var.environment == "production" ? 1 : 0
+
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.${var.aws_region}.ecr.api"
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
   subnet_ids          = [aws_subnet.private_1.id, aws_subnet.private_2.id]
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints[0].id]
 
   tags = { Name = "${local.name_prefix}-ecr-api-endpoint" }
 }
 
 # Secrets Manager endpoint
+# Production-only: keeps secrets traffic off public internet (PCI DSS requirement)
 resource "aws_vpc_endpoint" "secretsmanager" {
+  count = var.environment == "production" ? 1 : 0
+
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.${var.aws_region}.secretsmanager"
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
   subnet_ids          = [aws_subnet.private_1.id, aws_subnet.private_2.id]
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints[0].id]
 
   tags = { Name = "${local.name_prefix}-secretsmanager-endpoint" }
 }
 
 # CloudWatch Logs endpoint
+# Production-only: keeps log traffic off public internet (PCI DSS requirement)
 resource "aws_vpc_endpoint" "logs" {
+  count = var.environment == "production" ? 1 : 0
+
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.${var.aws_region}.logs"
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
   subnet_ids          = [aws_subnet.private_1.id, aws_subnet.private_2.id]
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints[0].id]
 
   tags = { Name = "${local.name_prefix}-logs-endpoint" }
 }
