@@ -171,3 +171,6 @@ sa-key.json
 *.pem
 *.crt
 *.cert
+
+# Temporary status/notes files
+status*.md

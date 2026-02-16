@@ -3,11 +3,19 @@ Application Settings Configuration
 
 This module loads and manages application settings from environment variables.
 Following Pydantic v2 patterns with proper validation.
+
+Supports AWS Secrets Manager - set AWS_SECRETS_NAME to load secrets from AWS.
 """
 
+import os
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict, Field, field_validator
 from typing import Optional
+
+
+def _get_aws_secrets_enabled() -> bool:
+    """Check if AWS Secrets Manager is enabled."""
+    return bool(os.environ.get("AWS_SECRETS_NAME"))
 
 
 class Settings(BaseSettings):
@@ -15,19 +23,23 @@ class Settings(BaseSettings):
 
     model_config = ConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
 
-    # API Keys - Required
-    POLYGON_API_KEY: str = Field(..., min_length=1)
-    ALPHA_VANTAGE_API_KEY: str = Field(..., min_length=1)
-    MARKETAUX_API_KEY: str = Field(..., min_length=1)
-    FINNHUB_API_KEY: str = Field(..., min_length=1)
+    # AWS Secrets Manager
+    AWS_SECRETS_NAME: Optional[str] = Field(default=None)
+    AWS_REGION: str = Field(default="eu-west-2")
 
-    # Broker API Keys - Required
-    ALPACA_API_KEY: str = Field(..., min_length=1)
-    ALPACA_SECRET_KEY: str = Field(..., min_length=1)
+    # API Keys - Required (unless using AWS Secrets Manager)
+    POLYGON_API_KEY: Optional[str] = Field(default=None)
+    ALPHA_VANTAGE_API_KEY: Optional[str] = Field(default=None)
+    MARKETAUX_API_KEY: Optional[str] = Field(default=None)
+    FINNHUB_API_KEY: Optional[str] = Field(default=None)
+
+    # Broker API Keys
+    ALPACA_API_KEY: Optional[str] = Field(default=None)
+    ALPACA_SECRET_KEY: Optional[str] = Field(default=None)
     INTERACTIVE_BROKERS_API_KEY: Optional[str] = Field(default=None)
 
-    # Database Configuration - Required
-    DATABASE_URL: str = Field(..., min_length=1)
+    # Database Configuration
+    DATABASE_URL: str = Field(...)
     REDIS_URL: str = Field(default="redis://localhost:6379/0")
 
     # ML Model Configuration

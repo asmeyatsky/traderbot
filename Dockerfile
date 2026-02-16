@@ -1,51 +1,40 @@
 # Multi-stage Dockerfile for AI Trading Platform
 
-# Stage 1: Builder
+# Stage 1: Builder - install all dependencies
 FROM python:3.11-slim as builder
 
 WORKDIR /build
 
-# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     make \
     build-essential \
     cmake \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy essential files for installation
 COPY setup.py requirements.txt README.md ./
 COPY src ./src
 
-RUN pip install --user --no-cache-dir --upgrade pip setuptools wheel
-RUN pip install --user --no-cache-dir -e .
+RUN pip install --user --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --user --no-cache-dir -e .
 
 # Stage 2: Runtime
 FROM python:3.11-slim
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
-
 WORKDIR /app
 
-# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python packages from builder
 COPY --from=builder /root/.local /root/.local
 
-# Add local pip installation to PATH
 ENV PATH=/root/.local/bin:$PATH
 
-# Copy application code
 COPY . .
 
-# Create non-root user for security
 RUN useradd -m -u 1000 trading && \
     chown -R trading:trading /app && \
     mkdir -p /app/logs && \
@@ -53,12 +42,9 @@ RUN useradd -m -u 1000 trading && \
 
 USER trading
 
-# Health check - updated for Cloud Run compatibility with longer start period
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
+    CMD curl -f http://localhost:8000/health || exit 1
 
-# Expose port
 EXPOSE 8000
 
-# Run application - using startup script that respects PORT environment variable
-CMD ["python", "startup.py"]
+CMD ["python", "-c", "import sys; sys.path.insert(0, '/app'); from src.presentation.api.main import app; import uvicorn; uvicorn.run(app, host='0.0.0.0', port=8000)"]

@@ -1,0 +1,40 @@
+# Minimal Dockerfile for testing ECS deployment
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir \
+    fastapi==0.115.0 \
+    uvicorn==0.30.0 \
+    pydantic==2.8.0 \
+    pydantic-settings==2.0.0 \
+    python-dotenv==1.0.0 \
+    requests==2.31.0 \
+    sqlalchemy==2.0.23 \
+    asyncpg==0.29.0 \
+    redis==5.0.1 \
+    pyjwt==2.8.0 \
+    passlib==1.7.4 \
+    bcrypt==4.1.2 \
+    python-multipart==0.0.6 \
+    email-validator==2.0.0 \
+    slowapi==0.1.9 \
+    boto3==1.35.0
+
+COPY src/presentation/api /app/src/presentation/api
+COPY src/domain /app/src/domain
+COPY src/application /app/src/application
+COPY src/infrastructure /app/src/infrastructure
+
+RUN useradd -m -u 1000 trading && \
+    chown -R trading:trading /app
+
+USER trading
+
+EXPOSE 8000
+
+CMD ["python", "-c", "from src.presentation.api.main import app; import uvicorn; uvicorn.run(app, host='0.0.0.0', port=8000)"]
