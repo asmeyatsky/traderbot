@@ -56,6 +56,9 @@ class User:
     email_notifications_enabled: bool = True
     sms_notifications_enabled: bool = False
     approval_mode_enabled: bool = False  # Requires approval for trades
+    terms_accepted_at: Optional[datetime] = None
+    privacy_accepted_at: Optional[datetime] = None
+    marketing_consent: bool = False
     
     def update_risk_tolerance(self, new_risk_tolerance: RiskTolerance) -> 'User':
         """Update user's risk tolerance and return new instance"""

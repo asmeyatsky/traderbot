@@ -225,6 +225,20 @@ async def get_current_user(
                 detail="Token expired",
             )
 
+        # Check JWT blacklist (token revoked on logout)
+        try:
+            from src.infrastructure.cache import get_cache_manager
+            cache = get_cache_manager()
+            if cache.get(f"blacklist:token:{token}"):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token has been revoked",
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass  # Cache unavailable — allow token (fail open for availability)
+
         return token_payload.sub
 
     except HTTPException:

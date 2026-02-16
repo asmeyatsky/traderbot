@@ -5,12 +5,15 @@ This module initializes the FastAPI application with all middleware,
 routers, and configurations following clean architecture principles.
 
 Features:
+- Security headers middleware (HSTS, CSP, X-Frame-Options)
 - CORS middleware with configurable origins
+- Audit logging middleware for compliance
 - Rate limiting on API endpoints
 - Comprehensive API documentation via OpenAPI
 - Structured logging and error handling
-- Security and authentication enforcement
+- AWS Secrets Manager integration
 """
+
 from __future__ import annotations
 
 import os
@@ -19,17 +22,38 @@ import logging
 
 # Load environment variables before importing other modules
 load_dotenv()
-load_dotenv('.env')  # explicitly load .env file in current directory
+load_dotenv(".env")  # explicitly load .env file in current directory
 
-from fastapi import FastAPI
+# Load secrets from AWS Secrets Manager if configured
+from src.infrastructure.config.aws_secrets import load_secrets_to_environment
+
+load_secrets_to_environment()
+
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 
 from src.infrastructure.config.settings import settings
 from src.infrastructure.logging import setup_logging
-from src.presentation.api.routers import orders, portfolio, users, risk, dashboard, market_data, performance, brokers, alternative_data, ml, rl
+from src.infrastructure.middleware.audit_logging import AuditLoggingMiddleware
+from src.presentation.api.routers import (
+    orders,
+    portfolio,
+    users,
+    risk,
+    dashboard,
+    market_data,
+    performance,
+    brokers,
+    alternative_data,
+    ml,
+    rl,
+)
 
 # Setup logging
 logger = setup_logging()
@@ -41,7 +65,7 @@ limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(
     title="AI Trading Platform API",
     description="Autonomous AI-powered trading platform with real-time market data aggregation, "
-                "sentiment analysis, automated trading execution, and advanced risk management.",
+    "sentiment analysis, automated trading execution, and advanced risk management.",
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redocs",
@@ -54,7 +78,26 @@ app.state.limiter = limiter
 # Parse allowed origins from settings
 allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
 
-# Add CORS middleware with proper security configuration
+is_production = settings.ENVIRONMENT == "production"
+
+# ============================================================================
+# Security Middleware Stack (order matters — outermost first)
+# ============================================================================
+
+# 1. HTTPS redirect in production (ALB terminates TLS, but enforce on app level)
+if is_production:
+    app.add_middleware(HTTPSRedirectMiddleware)
+
+# 2. Trusted Host middleware in production
+if is_production:
+    allowed_hosts = [h for h in allowed_origins if "://" not in h]
+    # Also allow ALB health checks (no Host header filtering for those)
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["*"],  # ALB handles host validation; tighten when domain is set
+    )
+
+# 3. CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -64,10 +107,41 @@ app.add_middleware(
     max_age=600,  # 10 minutes
 )
 
+# 4. Audit logging middleware
+app.add_middleware(AuditLoggingMiddleware)
+
+
+# 5. Security headers middleware
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next) -> Response:
+    """Add security headers to all responses per OWASP recommendations."""
+    response = await call_next(request)
+
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "0"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'"
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=(), payment=()"
+    )
+
+    # HSTS only in production (when behind TLS-terminating ALB)
+    if is_production:
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=63072000; includeSubDomains; preload"
+        )
+
+    # Remove server identification header
+    response.headers.pop("server", None)
+
+    return response
+
 
 # ============================================================================
-# Health Check Endpoints
+# Health Check Endpoints (locked down — no internal details exposed)
 # ============================================================================
+
 
 @app.get(
     "/",
@@ -79,7 +153,6 @@ async def root():
     """Welcome endpoint providing basic API information."""
     return {
         "message": "Welcome to the AI Trading Platform API",
-        "version": "1.0.0",
         "docs": "/api/docs",
         "status": "operational",
     }
@@ -94,16 +167,55 @@ async def root():
 async def health_check():
     """
     Health check endpoint for monitoring and orchestration.
-
-    Returns:
-        Service health status
+    Returns OK if the service is running (no dependency checks).
+    No internal details exposed (environment, version, etc.).
     """
-    return {
-        "status": "healthy",
-        "service": "AI Trading Platform API",
-        "version": "1.0.0",
-        "environment": settings.ENVIRONMENT,
-    }
+    return {"status": "healthy"}
+
+
+@app.get(
+    "/ready",
+    tags=["status"],
+    summary="Readiness check",
+    responses={
+        200: {"description": "Service ready"},
+        503: {"description": "Service not ready"},
+    },
+)
+async def readiness_check():
+    """
+    Readiness check endpoint for ALB/ECS.
+    Verifies DB and Redis connectivity before receiving traffic.
+    Returns only 200/503 — no dependency names or internal state exposed.
+    """
+    from src.infrastructure.database import get_database_manager
+    from src.infrastructure.cache import get_cache_manager
+
+    all_ready = True
+
+    try:
+        db_manager = get_database_manager()
+        if not db_manager.health_check():
+            all_ready = False
+    except Exception:
+        all_ready = False
+
+    try:
+        cache_mgr = get_cache_manager()
+        if cache_mgr.client:
+            cache_mgr.client.ping()
+        else:
+            all_ready = False
+    except Exception:
+        all_ready = False
+
+    if all_ready:
+        return {"status": "ready"}
+    else:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready"},
+        )
 
 
 # ============================================================================
@@ -128,30 +240,37 @@ app.include_router(rl.router)
 # Error Handlers
 # ============================================================================
 
+
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request, exc):
     """Handle rate limit exceeded errors."""
-    return {
-        "error": "Too Many Requests",
-        "detail": "Rate limit exceeded. Please try again later.",
-        "retry_after": 60,
-    }
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": "Too Many Requests",
+            "detail": "Rate limit exceeded. Please try again later.",
+            "retry_after": 60,
+        },
+    )
 
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
-    """Handle uncaught exceptions."""
+    """Handle uncaught exceptions — no internal details leaked."""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    return {
-        "error": "Internal Server Error",
-        "detail": "An unexpected error occurred. Please contact support.",
-        "request_id": getattr(request, "id", "unknown"),
-    }
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal Server Error",
+            "detail": "An unexpected error occurred.",
+        },
+    )
 
 
 # ============================================================================
 # Startup and Shutdown Events
 # ============================================================================
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -161,12 +280,6 @@ async def startup_event():
     logger.info("=" * 80)
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Log Level: {settings.LOG_LEVEL}")
-    logger.info(f"Allowed Origins: {allowed_origins}")
-
-    # Initialize infrastructure components here if needed
-    # - Database connections
-    # - Cache connections
-    # - External service connections
 
 
 @app.on_event("shutdown")
@@ -175,11 +288,6 @@ async def shutdown_event():
     logger.info("=" * 80)
     logger.info("AI Trading Platform API Shutting Down")
     logger.info("=" * 80)
-
-    # Cleanup infrastructure here if needed
-    # - Close database connections
-    # - Cleanup cache connections
-    # - Close external service connections
 
 
 # ============================================================================
@@ -190,7 +298,6 @@ if __name__ == "__main__":
     import uvicorn
     import os
 
-    # Use PORT environment variable from Cloud Run, default to 8000 for local dev
     port = int(os.environ.get("PORT", 8000))
 
     uvicorn.run(

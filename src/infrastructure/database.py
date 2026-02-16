@@ -8,6 +8,8 @@ Following clean architecture principles for data persistence.
 """
 from __future__ import annotations
 
+import os
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
@@ -61,6 +63,12 @@ class DatabaseManager:
 
     def _initialize_sync(self) -> None:
         """Initialize synchronous database engine and session factory."""
+        # Enforce SSL for non-development environments
+        connect_args = {}
+        environment = os.getenv("ENVIRONMENT", "development")
+        if environment != "development" and "postgresql" in self.database_url:
+            connect_args["sslmode"] = "require"
+
         self.engine = create_engine(
             self.database_url,
             poolclass=QueuePool,
@@ -69,6 +77,7 @@ class DatabaseManager:
             pool_recycle=3600,  # Recycle connections after 1 hour
             pool_pre_ping=True,  # Test connections before using them
             echo=self.echo,
+            connect_args=connect_args,
         )
 
         self._session_factory = sessionmaker(

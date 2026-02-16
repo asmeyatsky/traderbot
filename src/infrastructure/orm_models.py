@@ -53,6 +53,11 @@ class UserORM(Base):
     sms_notifications_enabled = Column(Boolean, nullable=False, default=False)
     approval_mode_enabled = Column(Boolean, nullable=False, default=False)
 
+    # GDPR Consent Tracking
+    terms_accepted_at = Column(DateTime, nullable=True)
+    privacy_accepted_at = Column(DateTime, nullable=True)
+    marketing_consent = Column(Boolean, nullable=False, default=False)
+
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
