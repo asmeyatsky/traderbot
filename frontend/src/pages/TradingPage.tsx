@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { useOrders } from '../hooks/use-orders';
+import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 import OrderEntryForm from '../components/trading/OrderEntryForm';
 import OrdersTable from '../components/trading/OrdersTable';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorAlert from '../components/common/ErrorAlert';
+import EmptyState from '../components/common/EmptyState';
 import { ORDER_STATUSES } from '../lib/constants';
 
 export default function TradingPage() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const { data, isLoading, error, refetch } = useOrders(statusFilter);
+
+  const orders = data?.orders ?? [];
 
   return (
     <div className="space-y-6">
@@ -45,8 +49,14 @@ export default function TradingPage() {
               <div className="p-4">
                 <ErrorAlert message="Failed to load orders" onRetry={() => refetch()} />
               </div>
+            ) : orders.length === 0 ? (
+              <EmptyState
+                icon={ClipboardDocumentListIcon}
+                title="No orders yet"
+                description="Use the order form to place your first trade."
+              />
             ) : (
-              <OrdersTable orders={data?.orders ?? []} />
+              <OrdersTable orders={orders} />
             )}
           </div>
         </div>

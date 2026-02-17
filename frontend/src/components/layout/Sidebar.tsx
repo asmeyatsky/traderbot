@@ -9,7 +9,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const navigation = [
-  { name: 'Dashboard', to: '/', icon: HomeIcon },
+  { name: 'Dashboard', to: '/dashboard', icon: HomeIcon },
   { name: 'Trading', to: '/trading', icon: ArrowTrendingUpIcon },
   { name: 'Portfolio', to: '/portfolio', icon: BanknotesIcon },
   { name: 'Market Data', to: '/market-data', icon: ChartBarSquareIcon },
@@ -28,7 +28,6 @@ export default function Sidebar() {
           <NavLink
             key={item.name}
             to={item.to}
-            end={item.to === '/'}
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                 isActive

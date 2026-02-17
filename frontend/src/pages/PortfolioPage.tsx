@@ -1,7 +1,9 @@
 import { usePortfolio, usePortfolioAllocation } from '../hooks/use-portfolio';
+import { ArrowTrendingUpIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorAlert from '../components/common/ErrorAlert';
 import StatCard from '../components/common/StatCard';
+import EmptyState from '../components/common/EmptyState';
 import PositionsTable from '../components/portfolio/PositionsTable';
 import AllocationChart from '../components/portfolio/AllocationChart';
 import CashManagement from '../components/portfolio/CashManagement';
@@ -14,6 +16,23 @@ export default function PortfolioPage() {
   if (isLoading) return <LoadingSpinner className="py-20" />;
   if (error) return <ErrorAlert message="Failed to load portfolio" onRetry={() => refetch()} />;
   if (!portfolio) return null;
+
+  const isEmpty = !portfolio.positions?.length && portfolio.cash_balance === 0;
+
+  if (isEmpty) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">Portfolio</h1>
+        <EmptyState
+          icon={ArrowTrendingUpIcon}
+          title="No positions yet"
+          description="Fund your account and start trading to build your portfolio."
+          ctaLabel="Go to Trading"
+          ctaTo="/trading"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

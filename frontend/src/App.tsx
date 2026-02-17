@@ -1,9 +1,12 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useAuthStore } from './stores/auth-store';
 import AppShell from './components/layout/AppShell';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import OnboardingPage from './pages/OnboardingPage';
 import DashboardPage from './pages/DashboardPage';
 import TradingPage from './pages/TradingPage';
 import PortfolioPage from './pages/PortfolioPage';
@@ -22,16 +25,23 @@ const queryClient = new QueryClient({
   },
 });
 
+function RootRedirect() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route element={<ProtectedRoute />}>
+            <Route path="/onboarding" element={<OnboardingPage />} />
             <Route element={<AppShell />}>
-              <Route path="/" element={<DashboardPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/trading" element={<TradingPage />} />
               <Route path="/portfolio" element={<PortfolioPage />} />
               <Route path="/market-data" element={<MarketDataPage />} />

@@ -25,11 +25,11 @@ describe('LoginPage', () => {
 
   it('renders login form', () => {
     renderWithProviders(<LoginPage />);
-    expect(screen.getByText('TraderBot')).toBeInTheDocument();
+    expect(screen.getAllByText('TraderBot').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Sign in to your account')).toBeInTheDocument();
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
-    expect(screen.getByText('Sign in')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
   });
 
   it('has link to register page', () => {
