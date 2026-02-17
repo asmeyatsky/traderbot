@@ -50,8 +50,9 @@ export default function RegisterPage() {
           )}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">First Name</label>
+              <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">First Name</label>
               <input
+                id="first_name"
                 value={form.first_name}
                 onChange={(e) => update('first_name', e.target.value)}
                 required
@@ -59,8 +60,9 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Last Name</label>
+              <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">Last Name</label>
               <input
+                id="last_name"
                 value={form.last_name}
                 onChange={(e) => update('last_name', e.target.value)}
                 required
@@ -69,8 +71,9 @@ export default function RegisterPage() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
             <input
+              id="email"
               type="email"
               value={form.email}
               onChange={(e) => update('email', e.target.value)}
@@ -79,8 +82,9 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
             <input
+              id="password"
               type="password"
               value={form.password}
               onChange={(e) => update('password', e.target.value)}
@@ -90,8 +94,9 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Risk Tolerance</label>
+            <label htmlFor="risk_tolerance" className="block text-sm font-medium text-gray-700">Risk Tolerance</label>
             <select
+              id="risk_tolerance"
               value={form.risk_tolerance}
               onChange={(e) => update('risk_tolerance', e.target.value)}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
@@ -102,8 +107,9 @@ export default function RegisterPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Investment Goal</label>
+            <label htmlFor="investment_goal" className="block text-sm font-medium text-gray-700">Investment Goal</label>
             <select
+              id="investment_goal"
               value={form.investment_goal}
               onChange={(e) => update('investment_goal', e.target.value)}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
