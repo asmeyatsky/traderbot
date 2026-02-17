@@ -81,6 +81,11 @@ class Settings(BaseSettings):
     CIRCUIT_BREAKER_VOLATILITY_THRESHOLD: float = Field(default=5.0, ge=0)
     CIRCUIT_BREAKER_RESET_MINUTES: int = Field(default=30, ge=1)
 
+    # Autonomous Trading Configuration
+    AUTO_TRADING_ENABLED: bool = Field(default=False)
+    AUTO_TRADING_CONFIDENCE_THRESHOLD: float = Field(default=0.6, ge=0, le=1)
+    AUTO_TRADING_CYCLE_MINUTES: int = Field(default=15, ge=1)
+
     @field_validator("DATABASE_URL")
     @classmethod
     def validate_db_url(cls, v: str) -> str:

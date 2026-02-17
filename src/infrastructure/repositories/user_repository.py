@@ -61,6 +61,9 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             terms_accepted_at=orm_obj.terms_accepted_at,
             privacy_accepted_at=orm_obj.privacy_accepted_at,
             marketing_consent=orm_obj.marketing_consent,
+            auto_trading_enabled=orm_obj.auto_trading_enabled,
+            watchlist=orm_obj.watchlist or [],
+            trading_budget=Money(orm_obj.trading_budget, "USD") if orm_obj.trading_budget else None,
         )
 
     def _to_orm_model(self, entity: User, password_hash: str = "") -> UserORM:
@@ -88,6 +91,9 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             terms_accepted_at=entity.terms_accepted_at,
             privacy_accepted_at=entity.privacy_accepted_at,
             marketing_consent=entity.marketing_consent,
+            auto_trading_enabled=entity.auto_trading_enabled,
+            watchlist=entity.watchlist,
+            trading_budget=entity.trading_budget.amount if entity.trading_budget else None,
         )
 
     def save(self, entity: User, password_hash: str = "") -> User:
@@ -198,6 +204,22 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
         finally:
             session.close()
 
+    def get_auto_trading_users(self) -> list[User]:
+        """Retrieve all active users with auto-trading enabled."""
+        db_manager = get_database_manager()
+        session = db_manager._session_factory()
+        try:
+            orm_objs = session.query(UserORM).filter(
+                UserORM.is_active == True,
+                UserORM.auto_trading_enabled == True,
+            ).all()
+            return [self._to_domain_entity(orm_obj) for orm_obj in orm_objs]
+        except Exception as e:
+            logger.error(f"Failed to get auto-trading users: {e}")
+            return []
+        finally:
+            session.close()
+
     def update(self, entity: User) -> User:
         """Update an existing user."""
         db_manager = get_database_manager()
@@ -229,6 +251,9 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             orm_obj.terms_accepted_at = entity.terms_accepted_at
             orm_obj.privacy_accepted_at = entity.privacy_accepted_at
             orm_obj.marketing_consent = entity.marketing_consent
+            orm_obj.auto_trading_enabled = entity.auto_trading_enabled
+            orm_obj.watchlist = entity.watchlist
+            orm_obj.trading_budget = entity.trading_budget.amount if entity.trading_budget else None
             orm_obj.updated_at = datetime.utcnow()
 
             session.commit()

@@ -52,3 +52,6 @@ cryptography==41.0.7
 
 # Rate Limiting
 slowapi==0.1.8
+
+# Scheduling
+apscheduler>=3.10.0,<4.0.0

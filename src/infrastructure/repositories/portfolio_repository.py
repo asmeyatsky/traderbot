@@ -10,6 +10,8 @@ from typing import Optional
 from decimal import Decimal
 import logging
 
+from dataclasses import replace
+
 from src.domain.entities.trading import Portfolio
 from src.domain.value_objects import Money
 from src.domain.ports import PortfolioRepositoryPort
@@ -96,13 +98,13 @@ class PortfolioRepository(BaseRepository[Portfolio, PortfolioORM], PortfolioRepo
 
     def get_by_user_id(self, user_id: str) -> Optional[Portfolio]:
         """
-        Retrieve a portfolio by user ID.
+        Retrieve a portfolio by user ID, hydrated with positions.
 
         Args:
             user_id: User ID
 
         Returns:
-            Portfolio domain entity or None if not found
+            Portfolio domain entity with positions loaded, or None if not found
         """
         db_manager = get_database_manager()
         session = db_manager._session_factory()
@@ -110,7 +112,19 @@ class PortfolioRepository(BaseRepository[Portfolio, PortfolioORM], PortfolioRepo
             orm_obj = session.query(PortfolioORM).filter(
                 PortfolioORM.user_id == user_id
             ).first()
-            return self._to_domain_entity(orm_obj) if orm_obj else None
+            if not orm_obj:
+                return None
+
+            portfolio = self._to_domain_entity(orm_obj)
+
+            # Hydrate positions from PositionRepository
+            from src.infrastructure.repositories.position_repository import PositionRepository
+            position_repo = PositionRepository()
+            positions = position_repo.get_by_user_id(user_id)
+            if positions:
+                portfolio = replace(portfolio, positions=positions)
+
+            return portfolio
         except Exception as e:
             logger.error(f"Failed to get portfolio for user {user_id}: {e}")
             return None

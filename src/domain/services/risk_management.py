@@ -42,6 +42,11 @@ class RiskManager(RiskManagementDomainService):
         This allows risk parameters to be configured via environment variables
         rather than being hardcoded.
         """
+        # Track account states for real-time monitoring
+        self.account_states = {}  # user_id -> AccountState
+        self.running = False
+        self.monitoring_thread = None
+
         return {
             RiskTolerance.CONSERVATIVE: {
                 'max_drawdown': Decimal(str(settings.RISK_CONSERVATIVE_MAX_DRAWDOWN)),
@@ -59,11 +64,6 @@ class RiskManager(RiskManagementDomainService):
                 'volatility_threshold': Decimal(str(settings.RISK_AGGRESSIVE_VOLATILITY_THRESHOLD))
             }
         }
-        
-        # Track account states for real-time monitoring
-        self.account_states = {}  # user_id -> AccountState
-        self.running = False
-        self.monitoring_thread = None
     
     def start_monitoring(self):
         """

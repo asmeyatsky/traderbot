@@ -59,6 +59,9 @@ class User:
     terms_accepted_at: Optional[datetime] = None
     privacy_accepted_at: Optional[datetime] = None
     marketing_consent: bool = False
+    auto_trading_enabled: bool = False
+    watchlist: List[str] = field(default_factory=list)
+    trading_budget: Optional[Money] = None
     
     def update_risk_tolerance(self, new_risk_tolerance: RiskTolerance) -> 'User':
         """Update user's risk tolerance and return new instance"""

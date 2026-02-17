@@ -59,6 +59,7 @@ class Order:
     filled_quantity: int = 0
     commission: Optional[Money] = None
     notes: Optional[str] = None
+    broker_order_id: Optional[str] = None
     
     def execute(self, execution_price: Money, executed_at: datetime, filled_qty: int) -> 'Order':
         """Execute the order and return a new instance"""

@@ -47,6 +47,9 @@ from src.infrastructure.broker_integration import (
 from src.domain.services.trading import DefaultTradingDomainService, DefaultRiskManagementDomainService
 from src.domain.services.advanced_risk_management import DefaultAdvancedRiskManagementService
 from src.domain.services.dashboard_analytics import DefaultDashboardAnalyticsService
+from src.domain.services.risk_management import RiskManager, CircuitBreakerService
+from src.infrastructure.adapters.notification import LoggingNotificationAdapter
+from src.infrastructure.repositories.activity_log_repository import ActivityLogRepository
 
 
 class RepositoryContainer(containers.DeclarativeContainer):
@@ -61,6 +64,7 @@ class RepositoryContainer(containers.DeclarativeContainer):
     order_repository = providers.Factory(OrderRepository)
     position_repository = providers.Factory(PositionRepository)
     portfolio_repository = providers.Factory(PortfolioRepository)
+    activity_log_repository = providers.Factory(ActivityLogRepository)
 
 
 class ServiceContainer(containers.DeclarativeContainer):
@@ -114,6 +118,9 @@ class ServiceContainer(containers.DeclarativeContainer):
 class AdapterContainer(containers.DeclarativeContainer):
     """Container for external adapter dependencies."""
 
+    # Notification adapter (replaces object() placeholder)
+    notification_service = providers.Singleton(LoggingNotificationAdapter)
+
     # Data provider for backtesting and market data
     data_provider_service = providers.Factory(YahooFinanceDataProvider)
 
@@ -132,6 +139,16 @@ class AdapterContainer(containers.DeclarativeContainer):
 
     # Broker adapter manager
     broker_adapter_manager = providers.Singleton(BrokerAdapterManager)
+
+    # Risk services (singletons so monitoring threads are shared)
+    risk_manager = providers.Singleton(
+        RiskManager,
+        notification_service=notification_service,
+    )
+    circuit_breaker_service = providers.Singleton(
+        CircuitBreakerService,
+        notification_service=notification_service,
+    )
 
     # Security and infrastructure
     jwt_authenticator = providers.Singleton(JWTAuthenticator)
@@ -173,7 +190,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         risk_service=services.risk_analytics_service,
         market_data_service=services.news_aggregation_service,
         trading_execution_service=adapters.broker_integration_service,
-        notification_service=providers.Singleton(object),  # Placeholder for notification service
+        notification_service=adapters.notification_service,
         ai_model_service=services.ml_model_service,
     )
 

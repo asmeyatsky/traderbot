@@ -58,6 +58,11 @@ class UserORM(Base):
     privacy_accepted_at = Column(DateTime, nullable=True)
     marketing_consent = Column(Boolean, nullable=False, default=False)
 
+    # Auto-trading
+    auto_trading_enabled = Column(Boolean, nullable=False, default=False)
+    watchlist = Column(JSON, nullable=False, default=[])
+    trading_budget = Column(Numeric(15, 2), nullable=True)
+
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -134,6 +139,9 @@ class OrderORM(Base):
     placed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     executed_at = Column(DateTime, nullable=True)
 
+    # Broker integration
+    broker_order_id = Column(String(255), nullable=True)
+
     # Additional info
     notes = Column(String(500), nullable=True)
 
@@ -182,6 +190,34 @@ class PositionORM(Base):
         Index('idx_position_symbol', 'symbol'),
         Index('idx_position_user_symbol', 'user_id', 'symbol'),
         Index('idx_position_opened_at', 'opened_at'),
+    )
+
+
+class TradingActivityLogORM(Base):
+    """ORM model for autonomous trading activity log."""
+    __tablename__ = "trading_activity_log"
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    event_type = Column(String(50), nullable=False, index=True)
+    symbol = Column(String(10), nullable=True)
+    signal = Column(String(20), nullable=True)
+    confidence = Column(Numeric(5, 4), nullable=True)
+    order_id = Column(String(36), ForeignKey('orders.id'), nullable=True)
+    broker_order_id = Column(String(255), nullable=True)
+    quantity = Column(Numeric(12, 2), nullable=True)
+    price = Column(Numeric(12, 4), nullable=True)
+    message = Column(String(1000), nullable=True)
+    metadata_json = Column("metadata", JSON, nullable=True)
+
+    occurred_at = Column(DateTime, nullable=False)
+    recorded_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index('idx_activity_user_id', 'user_id'),
+        Index('idx_activity_event_type', 'event_type'),
+        Index('idx_activity_occurred_at', 'occurred_at'),
+        Index('idx_activity_user_event', 'user_id', 'event_type'),
     )
 
 

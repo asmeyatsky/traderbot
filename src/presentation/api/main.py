@@ -53,6 +53,7 @@ from src.presentation.api.routers import (
     alternative_data,
     ml,
     rl,
+    trading_activity,
 )
 
 # Setup logging
@@ -235,6 +236,7 @@ app.include_router(brokers.router)
 app.include_router(alternative_data.router)
 app.include_router(ml.router)
 app.include_router(rl.router)
+app.include_router(trading_activity.router)
 
 
 # ============================================================================
@@ -290,6 +292,44 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
 
+    # Start risk monitoring services
+    from src.infrastructure.di_container import container
+    try:
+        risk_manager = container.adapters.risk_manager()
+        risk_manager.start_monitoring()
+        circuit_breaker = container.adapters.circuit_breaker_service()
+        circuit_breaker.start_monitoring()
+        logger.info("Risk monitoring services started")
+    except Exception as e:
+        logger.error(f"Failed to start risk monitoring: {e}")
+
+    # Start autonomous trading scheduler if enabled
+    if settings.AUTO_TRADING_ENABLED:
+        try:
+            from src.infrastructure.scheduler import start_scheduler
+            from src.application.services.autonomous_trading_service import AutonomousTradingService
+            from src.infrastructure.api_clients.market_data import MarketDataService
+
+            trading_service = AutonomousTradingService(
+                user_repository=container.repositories.user_repository(),
+                portfolio_repository=container.repositories.portfolio_repository(),
+                position_repository=container.repositories.position_repository(),
+                order_repository=container.repositories.order_repository(),
+                activity_log_repository=container.repositories.activity_log_repository(),
+                ml_model_service=container.services.ml_model_service(),
+                broker_service=container.adapters.alpaca_broker_service(),
+                risk_manager=container.adapters.risk_manager(),
+                circuit_breaker=container.adapters.circuit_breaker_service(),
+                market_data_service=MarketDataService(),
+                confidence_threshold=settings.AUTO_TRADING_CONFIDENCE_THRESHOLD,
+            )
+            start_scheduler(trading_service, cycle_minutes=settings.AUTO_TRADING_CYCLE_MINUTES)
+            logger.info("Autonomous trading scheduler started")
+        except Exception as e:
+            logger.error(f"Failed to start autonomous trading: {e}")
+    else:
+        logger.info("Autonomous trading is disabled (AUTO_TRADING_ENABLED=false)")
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -297,6 +337,21 @@ async def shutdown_event():
     logger.info("=" * 80)
     logger.info("AI Trading Platform API Shutting Down")
     logger.info("=" * 80)
+
+    # Stop scheduler
+    try:
+        from src.infrastructure.scheduler import stop_scheduler
+        stop_scheduler()
+    except Exception as e:
+        logger.error(f"Error stopping scheduler: {e}")
+
+    # Stop risk monitoring
+    from src.infrastructure.di_container import container
+    try:
+        container.adapters.risk_manager().stop_monitoring()
+        container.adapters.circuit_breaker_service().stop_monitoring()
+    except Exception as e:
+        logger.error(f"Error stopping risk monitoring: {e}")
 
 
 # ============================================================================

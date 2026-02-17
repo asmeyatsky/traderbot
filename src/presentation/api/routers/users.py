@@ -390,6 +390,91 @@ async def update_sector_preferences(
         )
 
 
+@router.get(
+    "/me/auto-trading",
+    summary="Get auto-trading settings",
+    responses={
+        200: {"description": "Auto-trading settings retrieved"},
+        401: {"description": "Unauthorized"},
+    }
+)
+async def get_auto_trading_settings(
+    user_id: str = Depends(get_current_user),
+    user_repository: UserRepository = Depends(get_user_repository),
+):
+    """Get current auto-trading configuration for the authenticated user."""
+    try:
+        user = user_repository.get_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+        return {
+            "enabled": user.auto_trading_enabled,
+            "watchlist": user.watchlist,
+            "trading_budget": float(user.trading_budget.amount) if user.trading_budget else None,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching auto-trading settings: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to fetch settings")
+
+
+@router.patch(
+    "/me/auto-trading",
+    summary="Update auto-trading settings",
+    responses={
+        200: {"description": "Auto-trading settings updated"},
+        401: {"description": "Unauthorized"},
+    }
+)
+async def update_auto_trading_settings(
+    body: dict,
+    user_id: str = Depends(get_current_user),
+    user_repository: UserRepository = Depends(get_user_repository),
+):
+    """
+    Update auto-trading configuration.
+
+    Body fields (all optional):
+    - enabled: bool
+    - watchlist: list[str]
+    - trading_budget: float | null
+    """
+    try:
+        user = user_repository.get_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+        from dataclasses import replace as dc_replace
+        updates = {"updated_at": datetime.utcnow()}
+
+        if "enabled" in body:
+            updates["auto_trading_enabled"] = bool(body["enabled"])
+        if "watchlist" in body:
+            wl = body["watchlist"]
+            if not isinstance(wl, list) or not all(isinstance(s, str) for s in wl):
+                raise HTTPException(status_code=400, detail="watchlist must be a list of strings")
+            updates["watchlist"] = [s.upper() for s in wl]
+        if "trading_budget" in body:
+            val = body["trading_budget"]
+            updates["trading_budget"] = Money(Decimal(str(val)), "USD") if val is not None else None
+
+        updated_user = dc_replace(user, **updates)
+        saved = user_repository.update(updated_user)
+
+        return {
+            "enabled": saved.auto_trading_enabled,
+            "watchlist": saved.watchlist,
+            "trading_budget": float(saved.trading_budget.amount) if saved.trading_budget else None,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating auto-trading settings: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update settings")
+
+
 @router.post(
     "/me/change-password",
     status_code=status.HTTP_204_NO_CONTENT,

@@ -65,6 +65,7 @@ class OrderRepository(BaseRepository[Order, OrderORM], OrderRepositoryPort):
             filled_quantity=orm_obj.filled_quantity,
             commission=Money(quantize_money(orm_obj.commission) or Decimal('0'), "USD"),
             notes=orm_obj.notes,
+            broker_order_id=orm_obj.broker_order_id,
         )
 
     def _to_orm_model(self, entity: Order) -> OrderORM:
@@ -93,6 +94,7 @@ class OrderRepository(BaseRepository[Order, OrderORM], OrderRepositoryPort):
             filled_quantity=entity.filled_quantity,
             commission=entity.commission.amount if entity.commission else Decimal('0'),
             notes=entity.notes,
+            broker_order_id=entity.broker_order_id,
         )
 
     def get_by_user_id(self, user_id: str) -> List[Order]:
@@ -189,6 +191,51 @@ class OrderRepository(BaseRepository[Order, OrderORM], OrderRepositoryPort):
         except Exception as e:
             logger.error(f"Failed to get orders with status {status}: {e}")
             return []
+        finally:
+            session.close()
+
+    def get_pending_with_broker_id(self) -> List[Order]:
+        """Retrieve all pending orders that have a broker_order_id (submitted to broker)."""
+        db_manager = get_database_manager()
+        session = db_manager._session_factory()
+        try:
+            orm_objs = session.query(OrderORM).filter(
+                OrderORM.status == OrderStatus.PENDING,
+                OrderORM.broker_order_id != None,
+            ).all()
+            return [self._to_domain_entity(orm_obj) for orm_obj in orm_objs]
+        except Exception as e:
+            logger.error(f"Failed to get pending orders with broker IDs: {e}")
+            return []
+        finally:
+            session.close()
+
+    def update_order(self, order: Order) -> Optional[Order]:
+        """Update an order with all field changes."""
+        db_manager = get_database_manager()
+        session = db_manager._session_factory()
+        try:
+            orm_obj = session.query(OrderORM).filter(
+                OrderORM.id == order.id
+            ).first()
+            if not orm_obj:
+                return None
+
+            orm_obj.status = order.status
+            orm_obj.filled_quantity = order.filled_quantity
+            orm_obj.price = order.price.amount if order.price else None
+            orm_obj.broker_order_id = order.broker_order_id
+            orm_obj.notes = order.notes
+            if order.status == OrderStatus.EXECUTED:
+                orm_obj.executed_at = order.executed_at or datetime.utcnow()
+
+            session.commit()
+            session.refresh(orm_obj)
+            return self._to_domain_entity(orm_obj)
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to update order: {e}")
+            raise
         finally:
             session.close()
 
