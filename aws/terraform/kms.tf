@@ -87,6 +87,26 @@ resource "aws_kms_key" "main" {
         ]
         Resource = "*"
       },
+      {
+        Sid    = "AllowCloudTrailUsage"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudtrail.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey",
+        ]
+        Resource = "*"
+        Condition = {
+          StringLike = {
+            "kms:EncryptionContext:aws:cloudtrail:arn" = "arn:aws:cloudtrail:${var.aws_region}:${local.aws_account_id}:trail/*"
+          }
+        }
+      },
     ]
   })
 
