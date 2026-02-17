@@ -15,8 +15,8 @@ export function useMe() {
 export function useLogin() {
   const login = useAuthStore((s) => s.login);
   return useMutation({
-    mutationFn: ({ username, password }: { username: string; password: string }) =>
-      authApi.login(username, password),
+    mutationFn: ({ email, password }: { email: string; password: string }) =>
+      authApi.login(email, password),
     onSuccess: (data) => {
       login(data.access_token, data.user);
     },

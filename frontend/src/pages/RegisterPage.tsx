@@ -1,9 +1,17 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useRegister, useLogin } from '../hooks/use-auth';
+import { RISK_TOLERANCES, INVESTMENT_GOALS } from '../lib/constants';
 
 export default function RegisterPage() {
-  const [form, setForm] = useState({ email: '', username: '', password: '', full_name: '' });
+  const [form, setForm] = useState({
+    email: '',
+    first_name: '',
+    last_name: '',
+    password: '',
+    risk_tolerance: 'MODERATE',
+    investment_goal: 'BALANCED_GROWTH',
+  });
   const navigate = useNavigate();
   const registerMutation = useRegister();
   const loginMutation = useLogin();
@@ -16,7 +24,7 @@ export default function RegisterPage() {
     registerMutation.mutate(form, {
       onSuccess: () => {
         loginMutation.mutate(
-          { username: form.username, password: form.password },
+          { email: form.email, password: form.password },
           { onSuccess: () => navigate('/') },
         );
       },
@@ -40,14 +48,25 @@ export default function RegisterPage() {
               {(error as Error).message || 'Registration failed'}
             </p>
           )}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Full Name</label>
-            <input
-              value={form.full_name}
-              onChange={(e) => update('full_name', e.target.value)}
-              required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">First Name</label>
+              <input
+                value={form.first_name}
+                onChange={(e) => update('first_name', e.target.value)}
+                required
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Last Name</label>
+              <input
+                value={form.last_name}
+                onChange={(e) => update('last_name', e.target.value)}
+                required
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Email</label>
@@ -55,15 +74,6 @@ export default function RegisterPage() {
               type="email"
               value={form.email}
               onChange={(e) => update('email', e.target.value)}
-              required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Username</label>
-            <input
-              value={form.username}
-              onChange={(e) => update('username', e.target.value)}
               required
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
             />
@@ -78,6 +88,30 @@ export default function RegisterPage() {
               minLength={8}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Risk Tolerance</label>
+            <select
+              value={form.risk_tolerance}
+              onChange={(e) => update('risk_tolerance', e.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+            >
+              {RISK_TOLERANCES.map((r) => (
+                <option key={r} value={r}>{r.replace('_', ' ')}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Investment Goal</label>
+            <select
+              value={form.investment_goal}
+              onChange={(e) => update('investment_goal', e.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+            >
+              {INVESTMENT_GOALS.map((g) => (
+                <option key={g} value={g}>{g.replace(/_/g, ' ')}</option>
+              ))}
+            </select>
           </div>
           <button
             type="submit"

@@ -3,14 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useLogin } from '../hooks/use-auth';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
   const { mutate, isPending, error } = useLogin();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    mutate({ username, password }, { onSuccess: () => navigate('/') });
+    mutate({ email, password }, { onSuccess: () => navigate('/') });
   }
 
   return (
@@ -23,17 +23,18 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-              Invalid username or password
+              Invalid email or password
             </p>
           )}
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-              Username
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Email
             </label>
             <input
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
             />

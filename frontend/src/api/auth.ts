@@ -1,13 +1,8 @@
 import apiClient from './client';
 import type { LoginResponse, RegisterRequest, UpdateUserRequest, User } from '../types/user';
 
-export async function login(username: string, password: string): Promise<LoginResponse> {
-  const params = new URLSearchParams();
-  params.append('username', username);
-  params.append('password', password);
-  const { data } = await apiClient.post<LoginResponse>('/users/login', params, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  });
+export async function login(email: string, password: string): Promise<LoginResponse> {
+  const { data } = await apiClient.post<LoginResponse>('/users/login', { email, password });
   return data;
 }
 

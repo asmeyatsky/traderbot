@@ -12,7 +12,7 @@ export default function Header() {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 text-sm text-gray-700">
           <UserCircleIcon className="h-6 w-6 text-gray-400" />
-          <span>{user?.full_name ?? user?.username}</span>
+          <span>{user ? `${user.first_name} ${user.last_name}` : ''}</span>
         </div>
         <button
           onClick={() => doLogout()}
