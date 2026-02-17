@@ -14,6 +14,11 @@ from src.infrastructure.repositories.activity_log_repository import ActivityLogR
 
 logger = logging.getLogger(__name__)
 
+VALID_EVENT_TYPES = {
+    "SIGNAL_GENERATED", "ORDER_PLACED", "ORDER_FILLED",
+    "ORDER_FAILED", "RISK_BLOCKED", "CIRCUIT_BREAKER",
+}
+
 router = APIRouter(prefix="/api/v1/trading-activity", tags=["trading-activity"])
 
 
@@ -39,6 +44,11 @@ async def get_trading_activity(
 ):
     """Paginated list of trading activity events for the current user."""
     try:
+        if event_type and event_type not in VALID_EVENT_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid event_type. Must be one of: {', '.join(sorted(VALID_EVENT_TYPES))}",
+            )
         entries = repo.get_recent_activity(
             user_id=user_id, limit=limit, skip=skip, event_type=event_type
         )

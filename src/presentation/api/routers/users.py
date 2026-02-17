@@ -27,7 +27,8 @@ from src.infrastructure.security import (
 from src.application.dtos.user_dtos import (
     CreateUserRequest, UpdateUserRequest, UserResponse,
     UpdateRiskSettingsRequest, UpdateSectorPreferencesRequest,
-    LoginRequest, LoginResponse, ChangePasswordRequest
+    LoginRequest, LoginResponse, ChangePasswordRequest,
+    UpdateAutoTradingRequest,
 )
 from src.presentation.api.dependencies import (
     get_user_repository,
@@ -429,18 +430,11 @@ async def get_auto_trading_settings(
     }
 )
 async def update_auto_trading_settings(
-    body: dict,
+    body: UpdateAutoTradingRequest,
     user_id: str = Depends(get_current_user),
     user_repository: UserRepository = Depends(get_user_repository),
 ):
-    """
-    Update auto-trading configuration.
-
-    Body fields (all optional):
-    - enabled: bool
-    - watchlist: list[str]
-    - trading_budget: float | null
-    """
+    """Update auto-trading configuration."""
     try:
         user = user_repository.get_by_id(user_id)
         if not user:
@@ -449,16 +443,12 @@ async def update_auto_trading_settings(
         from dataclasses import replace as dc_replace
         updates = {"updated_at": datetime.utcnow()}
 
-        if "enabled" in body:
-            updates["auto_trading_enabled"] = bool(body["enabled"])
-        if "watchlist" in body:
-            wl = body["watchlist"]
-            if not isinstance(wl, list) or not all(isinstance(s, str) for s in wl):
-                raise HTTPException(status_code=400, detail="watchlist must be a list of strings")
-            updates["watchlist"] = [s.upper() for s in wl]
-        if "trading_budget" in body:
-            val = body["trading_budget"]
-            updates["trading_budget"] = Money(Decimal(str(val)), "USD") if val is not None else None
+        if body.enabled is not None:
+            updates["auto_trading_enabled"] = body.enabled
+        if body.watchlist is not None:
+            updates["watchlist"] = body.watchlist
+        if body.trading_budget is not None:
+            updates["trading_budget"] = Money(Decimal(str(body.trading_budget)), "USD")
 
         updated_user = dc_replace(user, **updates)
         saved = user_repository.update(updated_user)
@@ -470,6 +460,8 @@ async def update_auto_trading_settings(
         }
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
     except Exception as e:
         logger.error(f"Error updating auto-trading settings: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update settings")

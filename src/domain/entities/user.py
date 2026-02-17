@@ -65,123 +65,44 @@ class User:
     
     def update_risk_tolerance(self, new_risk_tolerance: RiskTolerance) -> 'User':
         """Update user's risk tolerance and return new instance"""
-        return User(
-            id=self.id,
-            email=self.email,
-            first_name=self.first_name,
-            last_name=self.last_name,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            risk_tolerance=new_risk_tolerance,
-            investment_goal=self.investment_goal,
-            max_position_size_percentage=self.max_position_size_percentage,
-            daily_loss_limit=self.daily_loss_limit,
-            weekly_loss_limit=self.weekly_loss_limit,
-            monthly_loss_limit=self.monthly_loss_limit,
-            sector_preferences=self.sector_preferences,
-            sector_exclusions=self.sector_exclusions,
-            is_active=self.is_active,
-            email_notifications_enabled=self.email_notifications_enabled,
-            sms_notifications_enabled=self.sms_notifications_enabled,
-            approval_mode_enabled=self.approval_mode_enabled
-        )
+        from dataclasses import replace
+        return replace(self, risk_tolerance=new_risk_tolerance, updated_at=datetime.now())
     
     def update_investment_goal(self, new_investment_goal: InvestmentGoal) -> 'User':
         """Update user's investment goal and return new instance"""
-        return User(
-            id=self.id,
-            email=self.email,
-            first_name=self.first_name,
-            last_name=self.last_name,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            risk_tolerance=self.risk_tolerance,
-            investment_goal=new_investment_goal,
-            max_position_size_percentage=self.max_position_size_percentage,
-            daily_loss_limit=self.daily_loss_limit,
-            weekly_loss_limit=self.weekly_loss_limit,
-            monthly_loss_limit=self.monthly_loss_limit,
-            sector_preferences=self.sector_preferences,
-            sector_exclusions=self.sector_exclusions,
-            is_active=self.is_active,
-            email_notifications_enabled=self.email_notifications_enabled,
-            sms_notifications_enabled=self.sms_notifications_enabled,
-            approval_mode_enabled=self.approval_mode_enabled
-        )
+        from dataclasses import replace
+        return replace(self, investment_goal=new_investment_goal, updated_at=datetime.now())
     
     def update_loss_limits(
-        self, 
+        self,
         daily_limit: Optional[Money] = None,
         weekly_limit: Optional[Money] = None,
         monthly_limit: Optional[Money] = None
     ) -> 'User':
         """Update user's loss limits and return new instance"""
-        return User(
-            id=self.id,
-            email=self.email,
-            first_name=self.first_name,
-            last_name=self.last_name,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            risk_tolerance=self.risk_tolerance,
-            investment_goal=self.investment_goal,
-            max_position_size_percentage=self.max_position_size_percentage,
+        from dataclasses import replace
+        return replace(
+            self,
             daily_loss_limit=daily_limit or self.daily_loss_limit,
             weekly_loss_limit=weekly_limit or self.weekly_loss_limit,
             monthly_loss_limit=monthly_limit or self.monthly_loss_limit,
-            sector_preferences=self.sector_preferences,
-            sector_exclusions=self.sector_exclusions,
-            is_active=self.is_active,
-            email_notifications_enabled=self.email_notifications_enabled,
-            sms_notifications_enabled=self.sms_notifications_enabled,
-            approval_mode_enabled=self.approval_mode_enabled
+            updated_at=datetime.now(),
         )
     
     def update_sector_preferences(self, preferred_sectors: List[str], excluded_sectors: List[str]) -> 'User':
         """Update user's sector preferences and return new instance"""
-        return User(
-            id=self.id,
-            email=self.email,
-            first_name=self.first_name,
-            last_name=self.last_name,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            risk_tolerance=self.risk_tolerance,
-            investment_goal=self.investment_goal,
-            max_position_size_percentage=self.max_position_size_percentage,
-            daily_loss_limit=self.daily_loss_limit,
-            weekly_loss_limit=self.weekly_loss_limit,
-            monthly_loss_limit=self.monthly_loss_limit,
+        from dataclasses import replace
+        return replace(
+            self,
             sector_preferences=preferred_sectors,
             sector_exclusions=excluded_sectors,
-            is_active=self.is_active,
-            email_notifications_enabled=self.email_notifications_enabled,
-            sms_notifications_enabled=self.sms_notifications_enabled,
-            approval_mode_enabled=self.approval_mode_enabled
+            updated_at=datetime.now(),
         )
     
     def toggle_approval_mode(self, enabled: bool) -> 'User':
         """Toggle approval mode and return new instance"""
-        return User(
-            id=self.id,
-            email=self.email,
-            first_name=self.first_name,
-            last_name=self.last_name,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            risk_tolerance=self.risk_tolerance,
-            investment_goal=self.investment_goal,
-            max_position_size_percentage=self.max_position_size_percentage,
-            daily_loss_limit=self.daily_loss_limit,
-            weekly_loss_limit=self.weekly_loss_limit,
-            monthly_loss_limit=self.monthly_loss_limit,
-            sector_preferences=self.sector_preferences,
-            sector_exclusions=self.sector_exclusions,
-            is_active=self.is_active,
-            email_notifications_enabled=self.email_notifications_enabled,
-            sms_notifications_enabled=self.sms_notifications_enabled,
-            approval_mode_enabled=enabled
-        )
+        from dataclasses import replace
+        return replace(self, approval_mode_enabled=enabled, updated_at=datetime.now())
     
     def validate(self) -> List[str]:
         """Validate the user and return a list of validation errors"""

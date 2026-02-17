@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from src.infrastructure.data_processing.ml_model_service import EnsembleModelService
     from src.infrastructure.broker_integration import AlpacaBrokerService
     from src.domain.services.risk_management import RiskManager, CircuitBreakerService
+    from src.infrastructure.api_clients.market_data import MarketDataService
 
 logger = logging.getLogger(__name__)
 
@@ -268,7 +269,7 @@ class AutonomousTradingService:
                 user_id=user.id,
                 event_type=ORDER_FAILED,
                 symbol=str(order.symbol),
-                message=f"Broker error: {e}",
+                message="Order submission failed",
             )
             logger.error(f"Failed to submit order for {order.symbol}: {e}")
 

@@ -63,41 +63,19 @@ class Order:
     
     def execute(self, execution_price: Money, executed_at: datetime, filled_qty: int) -> 'Order':
         """Execute the order and return a new instance"""
-        return Order(
-            id=self.id,
-            user_id=self.user_id,
-            symbol=self.symbol,
-            order_type=self.order_type,
-            position_type=self.position_type,
-            quantity=self.quantity,
+        from dataclasses import replace
+        return replace(
+            self,
             status=OrderStatus.EXECUTED,
-            placed_at=self.placed_at,
             executed_at=executed_at,
             price=execution_price,
-            stop_price=self.stop_price,
             filled_quantity=filled_qty,
-            commission=self.commission,
-            notes=self.notes
         )
     
     def cancel(self) -> 'Order':
         """Cancel the order and return a new instance"""
-        return Order(
-            id=self.id,
-            user_id=self.user_id,
-            symbol=self.symbol,
-            order_type=self.order_type,
-            position_type=self.position_type,
-            quantity=self.quantity,
-            status=OrderStatus.CANCELLED,
-            placed_at=self.placed_at,
-            executed_at=self.executed_at,
-            price=self.price,
-            stop_price=self.stop_price,
-            filled_quantity=self.filled_quantity,
-            commission=self.commission,
-            notes=self.notes
-        )
+        from dataclasses import replace
+        return replace(self, status=OrderStatus.CANCELLED)
     
     @property
     def is_filled(self) -> bool:

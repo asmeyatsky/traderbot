@@ -3,7 +3,7 @@ User Data Transfer Objects
 
 DTOs for user management and API responses.
 """
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -101,6 +101,31 @@ class UserPreferencesResponse(BaseModel):
     email_notifications_enabled: bool
     sms_notifications_enabled: bool
     approval_mode_enabled: bool
+
+
+class UpdateAutoTradingRequest(BaseModel):
+    """Request DTO for updating auto-trading settings."""
+
+    enabled: Optional[bool] = None
+    watchlist: Optional[List[str]] = Field(
+        None, max_length=50, description="List of ticker symbols (max 50)"
+    )
+    trading_budget: Optional[float] = Field(None, gt=0, description="Trading budget in USD (must be positive)")
+
+    @field_validator("watchlist")
+    @classmethod
+    def validate_watchlist_symbols(cls, v):
+        if v is not None:
+            import re
+            pattern = re.compile(r"^[A-Z]{1,5}$")
+            validated = []
+            for symbol in v:
+                upper = symbol.upper()
+                if not pattern.match(upper):
+                    raise ValueError(f"Invalid ticker symbol: {symbol}. Must be 1-5 uppercase letters.")
+                validated.append(upper)
+            return validated
+        return v
 
 
 class ChangePasswordRequest(BaseModel):
