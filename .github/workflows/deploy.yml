@@ -38,7 +38,7 @@ jobs:
           ENVIRONMENT: development
         run: pytest tests/ -v --tb=short
 
-  deploy:
+  deploy-api:
     needs: test
     runs-on: ubuntu-latest
     permissions:
@@ -60,14 +60,14 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push image to Amazon ECR
+      - name: Build, tag, and push API image
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
@@ -87,7 +87,7 @@ jobs:
           container-name: traderbot-api
           image: ${{ steps.build-image.outputs.image }}
 
-      - name: Deploy to Amazon ECS
+      - name: Deploy API to Amazon ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
@@ -95,3 +95,64 @@ jobs:
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
           wait-for-minutes: 10
+
+  deploy-frontend:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push frontend image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            --build-arg VITE_API_URL=/api/v1 \
+            -t $ECR_REGISTRY/traderbot-web:$IMAGE_TAG \
+            frontend/
+          docker tag $ECR_REGISTRY/traderbot-web:$IMAGE_TAG $ECR_REGISTRY/traderbot-web:latest
+          docker push $ECR_REGISTRY/traderbot-web:$IMAGE_TAG
+          docker push $ECR_REGISTRY/traderbot-web:latest
+          echo "image=$ECR_REGISTRY/traderbot-web:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Download current frontend task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition traderbot-web \
+            --query taskDefinition \
+            > frontend-task-definition.json
+
+      - name: Update frontend task definition with new image
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: frontend-task-definition.json
+          container-name: trading-web
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy frontend to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ secrets.ECS_CLUSTER }}-web
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+          wait-for-minutes: 5

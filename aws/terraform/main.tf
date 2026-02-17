@@ -517,9 +517,17 @@ resource "aws_security_group" "ecs" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description     = "ALB to ECS"
+    description     = "ALB to ECS API"
     from_port       = 8000
     to_port         = 8000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  ingress {
+    description     = "ALB to ECS Frontend"
+    from_port       = 80
+    to_port         = 80
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
   }
@@ -674,7 +682,25 @@ resource "aws_lb_listener" "https" {
 
   default_action {
     type             = "forward"
+    target_group_arn = aws_lb_target_group.frontend.arn
+  }
+}
+
+# HTTPS Listener Rule: /api/* → API backend
+resource "aws_lb_listener_rule" "api" {
+  count        = var.domain_name != "" ? 1 : 0
+  listener_arn = aws_lb_listener.https[0].arn
+  priority     = 10
+
+  action {
+    type             = "forward"
     target_group_arn = aws_lb_target_group.main.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/*", "/health", "/docs", "/openapi.json"]
+    }
   }
 }
 
@@ -698,7 +724,25 @@ resource "aws_lb_listener" "http" {
     }
 
     # Forward config (used when no domain/cert)
-    target_group_arn = var.domain_name == "" ? aws_lb_target_group.main.arn : null
+    target_group_arn = var.domain_name == "" ? aws_lb_target_group.frontend.arn : null
+  }
+}
+
+# HTTP Listener Rule: /api/* → API backend (no-domain case only)
+resource "aws_lb_listener_rule" "api_http" {
+  count        = var.domain_name == "" ? 1 : 0
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.main.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/*", "/health", "/docs", "/openapi.json"]
+    }
   }
 }
 
@@ -885,6 +929,98 @@ resource "aws_ecs_task_definition" "main" {
 }
 
 # =============================================================================
+# Frontend: Target Group, ECS Service, Task Definition
+# =============================================================================
+
+resource "aws_lb_target_group" "frontend" {
+  name        = "${local.name_prefix}-web"
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 5
+    interval            = 30
+    path                = "/health"
+    matcher             = "200"
+  }
+}
+
+resource "aws_ecs_service" "frontend" {
+  name            = "${local.name_prefix}-web"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.frontend.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = [aws_subnet.private_1.id, aws_subnet.private_2.id]
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = false
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.frontend.arn
+    container_name   = "trading-web"
+    container_port   = 80
+  }
+
+  depends_on = [aws_lb_listener.http]
+
+  deployment_controller {
+    type = "ECS"
+  }
+}
+
+resource "aws_ecs_task_definition" "frontend" {
+  family                   = "traderbot-web"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "trading-web"
+      image     = "${local.aws_account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/traderbot-web:latest"
+      essential = true
+      portMappings = [{
+        containerPort = 80
+        protocol      = "tcp"
+      }]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/${local.name_prefix}-web"
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
+      healthCheck = {
+        command     = ["CMD-SHELL", "wget -qO- http://localhost/health || exit 1"]
+        interval    = 30
+        timeout     = 5
+        retries     = 3
+        startPeriod = 10
+      }
+    }
+  ])
+}
+
+resource "aws_cloudwatch_log_group" "frontend" {
+  name              = "/ecs/${local.name_prefix}-web"
+  retention_in_days = var.environment == "production" ? 90 : 14
+  kms_key_id        = aws_kms_key.main.arn
+
+  tags = { Name = "${local.name_prefix}-web-logs" }
+}
+
+# =============================================================================
 # ECR Repository (with scanning and lifecycle)
 # =============================================================================
 
@@ -907,6 +1043,44 @@ resource "aws_ecr_repository" "main" {
 
 resource "aws_ecr_lifecycle_policy" "main" {
   repository = aws_ecr_repository.main.name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 10 images"
+        selection = {
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = 10
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_ecr_repository" "frontend" {
+  name                 = "traderbot-web"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "KMS"
+    kms_key         = aws_kms_key.main.arn
+  }
+
+  tags = { Name = "${local.name_prefix}-ecr-web" }
+}
+
+resource "aws_ecr_lifecycle_policy" "frontend" {
+  repository = aws_ecr_repository.frontend.name
 
   policy = jsonencode({
     rules = [
