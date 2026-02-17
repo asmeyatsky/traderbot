@@ -3,7 +3,7 @@ import type { DashboardOverview, TechnicalIndicators } from '../types/dashboard'
 
 export async function getDashboardOverview(userId: string, days = 30): Promise<DashboardOverview> {
   const { data } = await apiClient.get<DashboardOverview>(`/dashboard/overview/${userId}`, {
-    params: { include_technical: true, days },
+    params: { include_technical: false, days },
   });
   return data;
 }

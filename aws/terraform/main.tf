@@ -596,6 +596,7 @@ resource "aws_lb" "main" {
   subnets            = [aws_subnet.public_1.id, aws_subnet.public_2.id]
 
   enable_deletion_protection = var.environment == "production"
+  idle_timeout               = 120
 
   access_logs {
     bucket  = aws_s3_bucket.alb_logs.id
