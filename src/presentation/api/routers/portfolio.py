@@ -314,12 +314,10 @@ async def deposit_cash(
         # Update portfolio with new cash balance
         from dataclasses import replace
         new_cash = portfolio.cash_balance.amount + Decimal(str(request.amount))
-        new_total = portfolio.total_value.amount + Decimal(str(request.amount))
 
         updated_portfolio = replace(
             portfolio,
             cash_balance=Money(new_cash, "USD"),
-            total_value=Money(new_total, "USD"),
             updated_at=datetime.utcnow(),
         )
 
@@ -394,12 +392,10 @@ async def withdraw_cash(
         # Update portfolio with new cash balance
         from dataclasses import replace
         new_cash = portfolio.cash_balance.amount - withdrawal_amount
-        new_total = portfolio.total_value.amount - withdrawal_amount
 
         updated_portfolio = replace(
             portfolio,
             cash_balance=Money(new_cash, "USD"),
-            total_value=Money(new_total, "USD"),
             updated_at=datetime.utcnow(),
         )
 
