@@ -14,6 +14,7 @@ import MarketDataPage from './pages/MarketDataPage';
 import MLPredictionsPage from './pages/MLPredictionsPage';
 import RiskPage from './pages/RiskPage';
 import SettingsPage from './pages/SettingsPage';
+import TradingActivityPage from './pages/TradingActivityPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +48,7 @@ export default function App() {
               <Route path="/market-data" element={<MarketDataPage />} />
               <Route path="/analytics" element={<RiskPage />} />
               <Route path="/predictions" element={<MLPredictionsPage />} />
+              <Route path="/activity" element={<TradingActivityPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
           </Route>

@@ -4,16 +4,17 @@ import WelcomeStep from './WelcomeStep';
 import FundAccountStep from './FundAccountStep';
 import ExploreStep from './ExploreStep';
 import FirstTradeStep from './FirstTradeStep';
+import AutoTradeStep from './AutoTradeStep';
 import CompletionStep from './CompletionStep';
 
-const stepLabels = ['Welcome', 'Fund', 'Explore', 'Trade', 'Done'];
+const stepLabels = ['Welcome', 'Fund', 'Explore', 'Trade', 'Auto-Trade', 'Done'];
 
 export default function OnboardingWizard() {
   const [step, setStep] = useState(0);
   const [tradeSymbol, setTradeSymbol] = useState('AAPL');
 
   function next() {
-    setStep((s) => Math.min(s + 1, 4));
+    setStep((s) => Math.min(s + 1, 5));
   }
 
   function handleExploreNext(symbol: string) {
@@ -31,7 +32,8 @@ export default function OnboardingWizard() {
       {step === 1 && <FundAccountStep onNext={next} />}
       {step === 2 && <ExploreStep onNext={handleExploreNext} />}
       {step === 3 && <FirstTradeStep symbol={tradeSymbol} onNext={next} />}
-      {step === 4 && <CompletionStep />}
+      {step === 4 && <AutoTradeStep symbol={tradeSymbol} onNext={next} />}
+      {step === 5 && <CompletionStep />}
     </div>
   );
 }

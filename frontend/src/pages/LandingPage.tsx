@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
-  SparklesIcon,
+  BoltIcon,
   ShieldCheckIcon,
   ChartBarSquareIcon,
   PresentationChartLineIcon,
@@ -11,16 +11,16 @@ import {
 import FeatureCard from '../components/landing/FeatureCard';
 
 const features = [
-  { icon: SparklesIcon, title: 'AI Predictions', description: 'Machine learning models analyze market patterns and sentiment to generate actionable trading signals.' },
-  { icon: ShieldCheckIcon, title: 'Risk Management', description: 'Automated position sizing, stop-losses, and portfolio-level risk controls to protect your capital.' },
+  { icon: BoltIcon, title: 'Autonomous Trading', description: 'Set your goals and risk tolerance. TraderBot\'s AI finds opportunities, executes trades, and manages positions automatically.' },
+  { icon: ShieldCheckIcon, title: 'Built-In Risk Controls', description: 'Automated position sizing, drawdown limits, and a circuit breaker that halts trading during extreme volatility.' },
   { icon: ChartBarSquareIcon, title: 'Market Intelligence', description: 'Real-time market data, technical indicators, and news sentiment analysis in one unified view.' },
   { icon: PresentationChartLineIcon, title: 'Portfolio Analytics', description: 'Track performance, allocation, and risk metrics with professional-grade analytics dashboards.' },
 ];
 
 const steps = [
-  { num: '1', title: 'Create Account', description: 'Sign up in under a minute with your risk profile and investment goals.' },
-  { num: '2', title: 'Fund & Explore', description: 'Add funds to your account and explore AI-powered market predictions.' },
-  { num: '3', title: 'Trade with Confidence', description: 'Place trades backed by data-driven insights and automated risk controls.' },
+  { num: '1', title: 'Set Your Goals', description: 'Choose your risk tolerance, investment goals, and a watchlist of stocks.' },
+  { num: '2', title: 'Fund Your Account', description: 'Deposit funds and set a trading budget for the AI.' },
+  { num: '3', title: 'Let TraderBot Trade', description: 'TraderBot autonomously trades your portfolio. Review activity anytime.' },
 ];
 
 const trust = [
@@ -51,11 +51,11 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="mx-auto max-w-4xl px-6 py-20 text-center lg:py-32">
         <h1 className="animate-fade-in text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-          Trade Smarter with AI-Powered Intelligence
+          Stop Watching Charts. Start Making Money.
         </h1>
         <p className="animate-fade-in-delay-1 mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-indigo-200">
-          Harness machine learning, real-time market data, and automated risk management to make
-          confident, data-driven trading decisions.
+          TraderBot's AI autonomously trades your portfolio — finding opportunities,
+          executing trades, and managing risk so you don't have to.
         </p>
         <div className="animate-fade-in-delay-2 mt-10 flex items-center justify-center gap-4">
           <Link
@@ -114,8 +114,8 @@ export default function LandingPage() {
 
       {/* Footer CTA */}
       <section className="bg-indigo-600/20 py-16 text-center">
-        <h2 className="text-2xl font-bold text-white">Ready to start trading smarter?</h2>
-        <p className="mt-3 text-indigo-200">Join TraderBot and let AI work for your portfolio.</p>
+        <h2 className="text-2xl font-bold text-white">Ready to put your portfolio on autopilot?</h2>
+        <p className="mt-3 text-indigo-200">Join TraderBot and let AI trade for you.</p>
         <Link
           to="/register"
           className="mt-8 inline-block rounded-md bg-indigo-500 px-8 py-3 text-sm font-semibold text-white shadow-md hover:bg-indigo-400"

@@ -8,6 +8,8 @@ import PortfolioSummaryCard from '../components/dashboard/PortfolioSummaryCard';
 import PnLChart from '../components/dashboard/PnLChart';
 import AllocationPieChart from '../components/dashboard/AllocationPieChart';
 import TopMovers from '../components/dashboard/TopMovers';
+import AutoTradingStatusCard from '../components/dashboard/AutoTradingStatusCard';
+import RecentActivityFeed from '../components/dashboard/RecentActivityFeed';
 
 export default function DashboardPage() {
   const userId = useAuthStore((s) => s.user?.id);
@@ -22,6 +24,11 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <AutoTradingStatusCard />
+        <RecentActivityFeed />
+      </div>
+
       {isEmpty ? (
         <EmptyState
           icon={BanknotesIcon}
