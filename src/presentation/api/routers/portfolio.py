@@ -305,23 +305,30 @@ async def deposit_cash(
         logger.info(f"Processing cash deposit for user {user_id}: ${request.amount}")
 
         portfolio = portfolio_repository.get_by_user_id(user_id)
-        if not portfolio:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Portfolio not found"
-            )
 
-        # Update portfolio with new cash balance
         from dataclasses import replace
-        new_cash = portfolio.cash_balance.amount + Decimal(str(request.amount))
+        import uuid
 
-        updated_portfolio = replace(
-            portfolio,
-            cash_balance=Money(new_cash, "USD"),
-            updated_at=datetime.utcnow(),
-        )
-
-        saved_portfolio = portfolio_repository.update(updated_portfolio)
+        if not portfolio:
+            # Auto-create portfolio for new users on first deposit
+            from src.domain.entities.trading import Portfolio as PortfolioEntity
+            portfolio = PortfolioEntity(
+                id=str(uuid.uuid4()),
+                user_id=user_id,
+                positions=[],
+                cash_balance=Money(Decimal(str(request.amount)), "USD"),
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            saved_portfolio = portfolio_repository.save(portfolio)
+        else:
+            new_cash = portfolio.cash_balance.amount + Decimal(str(request.amount))
+            updated_portfolio = replace(
+                portfolio,
+                cash_balance=Money(new_cash, "USD"),
+                updated_at=datetime.utcnow(),
+            )
+            saved_portfolio = portfolio_repository.update(updated_portfolio)
 
         # Get positions for response
         positions = position_repository.get_by_user_id(user_id)
