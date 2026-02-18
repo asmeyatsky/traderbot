@@ -36,7 +36,7 @@ nltk==3.8.1
 
 # Financial Data
 yfinance==0.2.18
-alpha-vantage==2.1.3
+alpha-vantage>=2.3.0,<4.0.0  # 2.1.3 has import issues with newer aiohttp
 polygon-api-client==1.13.0
 finnhub-python==2.4.14
 
