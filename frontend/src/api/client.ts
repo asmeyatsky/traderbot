@@ -15,12 +15,20 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+let isRedirecting = false;
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      useAuthStore.getState().logout();
-      window.location.href = '/login';
+      const url = error.config?.url ?? '';
+      // Don't redirect on auth endpoints — let the form handle the error
+      const isAuthEndpoint = url.includes('/users/login') || url.includes('/users/register') || url.includes('/users/logout');
+      if (!isAuthEndpoint && !isRedirecting) {
+        isRedirecting = true;
+        useAuthStore.getState().logout();
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   },

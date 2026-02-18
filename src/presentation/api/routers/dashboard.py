@@ -33,14 +33,11 @@ def _load_portfolio_with_positions(
     user_id: str,
     portfolio_repo: PortfolioRepository,
     position_repo: PositionRepository,
-) -> Portfolio:
-    """Fetch portfolio and its positions from repositories."""
+) -> Portfolio | None:
+    """Fetch portfolio and its positions from repositories. Returns None if no portfolio."""
     portfolio = portfolio_repo.get_by_user_id(user_id)
     if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Portfolio not found"
-        )
+        return None
     positions = position_repo.get_by_user_id(user_id)
     return Portfolio(
         id=portfolio.id,
@@ -82,6 +79,23 @@ async def get_dashboard_overview(
     try:
         portfolio = _load_portfolio_with_positions(user_id, portfolio_repo, position_repo)
 
+        # Return empty dashboard for new users with no portfolio yet
+        if not portfolio:
+            return {
+                "user_id": user_id,
+                "calculated_at": datetime.now().isoformat(),
+                "portfolio_value": 0.0,
+                "daily_pnl": 0.0,
+                "daily_pnl_percent": 0.0,
+                "total_pnl": 0.0,
+                "total_pnl_percent": 0.0,
+                "positions_count": 0,
+                "top_performers": [],
+                "worst_performers": [],
+                "allocation": [],
+                "performance_history": [],
+            }
+
         user = user_repo.get_by_id(user_id)
         if not user:
             raise HTTPException(
@@ -94,72 +108,29 @@ async def get_dashboard_overview(
         result = {
             "user_id": user_id,
             "calculated_at": datetime.now().isoformat(),
-            "total_value": {
-                "amount": float(dashboard_metrics.total_value.amount),
-                "currency": dashboard_metrics.total_value.currency
-            },
-            "daily_pnl": {
-                "amount": float(dashboard_metrics.daily_pnl.amount),
-                "currency": dashboard_metrics.daily_pnl.currency
-            },
-            "daily_pnl_percentage": float(dashboard_metrics.daily_pnl_percentage),
+            "portfolio_value": float(dashboard_metrics.total_value.amount),
+            "daily_pnl": float(dashboard_metrics.daily_pnl.amount),
+            "daily_pnl_percent": float(dashboard_metrics.daily_pnl_percentage),
+            "total_pnl": float(dashboard_metrics.realized_pnl.amount) + float(dashboard_metrics.unrealized_pnl.amount),
+            "total_pnl_percent": 0.0,
             "positions_count": dashboard_metrics.positions_count,
-            "active_orders_count": dashboard_metrics.active_orders_count,
-            "unrealized_pnl": {
-                "amount": float(dashboard_metrics.unrealized_pnl.amount),
-                "currency": dashboard_metrics.unrealized_pnl.currency
-            },
-            "realized_pnl": {
-                "amount": float(dashboard_metrics.realized_pnl.amount),
-                "currency": dashboard_metrics.realized_pnl.currency
-            },
-            "top_gainers": [
-                {"symbol": str(symbol), "percentage": float(pct)}
+            "top_performers": [
+                {"symbol": str(symbol), "change_percent": float(pct), "current_price": 0.0}
                 for symbol, pct in dashboard_metrics.top_gainers
             ],
-            "top_losers": [
-                {"symbol": str(symbol), "percentage": float(pct)}
+            "worst_performers": [
+                {"symbol": str(symbol), "change_percent": float(pct), "current_price": 0.0}
                 for symbol, pct in dashboard_metrics.top_losers
             ],
-            "allocation_by_sector": {
-                sector: float(pct)
-                for sector, pct in dashboard_metrics.allocation_by_sector.items()
-            },
-            "allocation_by_asset": {
-                str(symbol): float(pct)
+            "allocation": [
+                {"name": str(symbol), "value": 0.0, "percentage": float(pct)}
                 for symbol, pct in dashboard_metrics.allocation_by_asset.items()
-            },
-            "risk_metrics": {
-                metric: float(value)
-                for metric, value in dashboard_metrics.risk_metrics.items()
-            },
-            "performance_chart_data": [
-                {
-                    "date": item["date"],
-                    "value": float(item["value"])
-                }
+            ],
+            "performance_history": [
+                {"date": item["date"], "value": float(item["value"])}
                 for item in dashboard_metrics.performance_chart_data
-            ]
+            ],
         }
-
-        if include_technical:
-            result["technical_indicators"] = [
-                {
-                    "symbol": str(indicator.symbol),
-                    "sma_20": float(indicator.sma_20) if indicator.sma_20 else None,
-                    "sma_50": float(indicator.sma_50) if indicator.sma_50 else None,
-                    "ema_12": float(indicator.ema_12) if indicator.ema_12 else None,
-                    "ema_26": float(indicator.ema_26) if indicator.ema_26 else None,
-                    "rsi": float(indicator.rsi) if indicator.rsi else None,
-                    "macd": float(indicator.macd) if indicator.macd else None,
-                    "macd_signal": float(indicator.macd_signal) if indicator.macd_signal else None,
-                    "bollinger_upper": float(indicator.bollinger_upper) if indicator.bollinger_upper else None,
-                    "bollinger_lower": float(indicator.bollinger_lower) if indicator.bollinger_lower else None,
-                    "atr": float(indicator.atr) if indicator.atr else None,
-                    "calculated_at": indicator.calculated_at.isoformat() if indicator.calculated_at else None
-                }
-                for indicator in dashboard_metrics.technical_indicators
-            ]
 
         logger.info(f"Dashboard overview retrieved for user {user_id}")
         return result
@@ -201,6 +172,15 @@ async def get_allocation_breakdown(
 
     try:
         portfolio = _load_portfolio_with_positions(user_id, portfolio_repo, position_repo)
+
+        if not portfolio:
+            return {
+                "user_id": user_id,
+                "breakdown_type": breakdown_type,
+                "calculated_at": datetime.now().isoformat(),
+                "allocation_by_asset": {},
+                "allocation_by_sector": {},
+            }
 
         user = user_repo.get_by_id(user_id)
         if not user:

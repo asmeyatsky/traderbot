@@ -44,7 +44,14 @@ export function useUpdateMe() {
 export function useLogout() {
   const logout = useAuthStore((s) => s.logout);
   return useMutation({
-    mutationFn: authApi.logout,
-    onSettled: () => logout(),
+    mutationFn: async () => {
+      // Clear local state first so the user isn't stuck waiting
+      logout();
+      try {
+        await authApi.logout();
+      } catch {
+        // Ignore — token may already be expired, but we've already cleared local state
+      }
+    },
   });
 }
