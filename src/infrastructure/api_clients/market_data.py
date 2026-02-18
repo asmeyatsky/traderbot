@@ -7,7 +7,10 @@ market data providers, news APIs, and fundamental data services.
 import asyncio
 import requests
 import yfinance as yf
-from alpha_vantage.timeseries import TimeSeries
+try:
+    from alpha_vantage.timeseries import TimeSeries
+except ImportError:
+    TimeSeries = None  # Graceful degradation; AlphaVantageAdapter will fail at init
 from polygon import RESTClient
 import finnhub
 from typing import List, Dict, Any, Optional
