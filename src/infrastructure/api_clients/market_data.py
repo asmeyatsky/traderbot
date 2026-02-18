@@ -6,13 +6,28 @@ market data providers, news APIs, and fundamental data services.
 """
 import asyncio
 import requests
-import yfinance as yf
+
+# External financial API clients — wrapped in try/except for environments
+# where these packages may not install cleanly (e.g. CI namespace conflicts)
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
+
 try:
     from alpha_vantage.timeseries import TimeSeries
 except ImportError:
-    TimeSeries = None  # Graceful degradation; AlphaVantageAdapter will fail at init
-from polygon import RESTClient
-import finnhub
+    TimeSeries = None
+
+try:
+    from polygon import RESTClient
+except ImportError:
+    RESTClient = None
+
+try:
+    import finnhub
+except ImportError:
+    finnhub = None
 from typing import List, Dict, Any, Optional
 from datetime import datetime, date, timedelta
 from decimal import Decimal
