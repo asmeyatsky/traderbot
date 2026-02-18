@@ -189,16 +189,15 @@ class TestGetDashboardOverview:
         assert response.status_code == 200
         data = response.json()
         assert data["user_id"] == auth_user_id
-        assert data["total_value"]["amount"] == 22500.0
-        assert data["daily_pnl"]["amount"] == 350.0
+        assert data["portfolio_value"] == 22500.0
+        assert data["daily_pnl"] == 350.0
         assert data["positions_count"] == 1
-        assert "technical_indicators" in data
 
     def test_forbidden_when_user_id_mismatch(self, client, override_auth, mock_repos, mock_dashboard_service):
         response = client.get("/api/v1/dashboard/overview/other-user-999")
         assert response.status_code == 403
 
-    def test_not_found_when_no_portfolio(self, client, override_auth, mock_dashboard_service, sample_user):
+    def test_empty_dashboard_when_no_portfolio(self, client, override_auth, mock_dashboard_service, sample_user):
         portfolio_repo = Mock()
         portfolio_repo.get_by_user_id.return_value = None
         position_repo = Mock()
@@ -210,7 +209,10 @@ class TestGetDashboardOverview:
         app.dependency_overrides[get_user_repository] = lambda: user_repo
 
         response = client.get("/api/v1/dashboard/overview/test-user-1")
-        assert response.status_code == 404
+        assert response.status_code == 200
+        data = response.json()
+        assert data["portfolio_value"] == 0.0
+        assert data["positions_count"] == 0
 
     def test_not_found_when_no_user(self, client, override_auth, mock_dashboard_service, sample_portfolio, sample_positions):
         portfolio_repo = Mock()
@@ -226,14 +228,13 @@ class TestGetDashboardOverview:
         response = client.get("/api/v1/dashboard/overview/test-user-1")
         assert response.status_code == 404
 
-    def test_exclude_technical_indicators(self, client, override_auth, mock_repos, mock_dashboard_service, auth_user_id):
-        response = client.get(
-            f"/api/v1/dashboard/overview/{auth_user_id}",
-            params={"include_technical": False},
-        )
+    def test_response_has_expected_fields(self, client, override_auth, mock_repos, mock_dashboard_service, auth_user_id):
+        response = client.get(f"/api/v1/dashboard/overview/{auth_user_id}")
         assert response.status_code == 200
         data = response.json()
-        assert "technical_indicators" not in data
+        assert "portfolio_value" in data
+        assert "top_performers" in data
+        assert "performance_history" in data
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +277,7 @@ class TestGetAllocationBreakdown:
         response = client.get("/api/v1/dashboard/allocation/other-user-999")
         assert response.status_code == 403
 
-    def test_not_found_when_no_portfolio(self, client, override_auth, mock_dashboard_service, sample_user):
+    def test_empty_allocation_when_no_portfolio(self, client, override_auth, mock_dashboard_service, sample_user):
         portfolio_repo = Mock()
         portfolio_repo.get_by_user_id.return_value = None
         position_repo = Mock()
@@ -288,7 +289,10 @@ class TestGetAllocationBreakdown:
         app.dependency_overrides[get_user_repository] = lambda: user_repo
 
         response = client.get("/api/v1/dashboard/allocation/test-user-1")
-        assert response.status_code == 404
+        assert response.status_code == 200
+        data = response.json()
+        assert data["allocation_by_asset"] == {}
+        assert data["allocation_by_sector"] == {}
 
 
 # ---------------------------------------------------------------------------
