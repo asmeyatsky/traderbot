@@ -13,6 +13,32 @@ from unittest.mock import Mock, MagicMock
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# ---------------------------------------------------------------------------
+# Ensure financial API packages are available as mockable modules.
+# In CI these sometimes install as broken namespace packages (missing their
+# real classes).  Injecting stubs into sys.modules guarantees @patch()
+# decorators can resolve attribute paths like ``finnhub.Client``.
+# ---------------------------------------------------------------------------
+from types import ModuleType
+
+
+def _ensure_module(name: str, attrs: dict | None = None) -> None:
+    mod = sys.modules.get(name)
+    if mod is not None and attrs and all(hasattr(mod, a) for a in attrs):
+        return  # real package works fine
+    stub = ModuleType(name)
+    stub.__path__ = []
+    for attr, value in (attrs or {}).items():
+        setattr(stub, attr, value)
+    sys.modules[name] = stub
+
+
+_ensure_module("finnhub", {"Client": MagicMock})
+_ensure_module("yfinance", {"Ticker": MagicMock})
+_ensure_module("alpha_vantage", {})
+_ensure_module("alpha_vantage.timeseries", {"TimeSeries": MagicMock})
+_ensure_module("polygon", {"RESTClient": MagicMock})
+
 from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
 from src.domain.entities.trading import Order, Portfolio, Position, OrderType, PositionType, OrderStatus
 from src.domain.value_objects import Money, Symbol, Price
