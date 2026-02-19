@@ -37,7 +37,12 @@ class CacheManager:
         try:
             from redis import Redis
 
-            self.client = Redis.from_url(self.redis_url, decode_responses=True)
+            self.client = Redis.from_url(
+                self.redis_url,
+                decode_responses=True,
+                socket_timeout=3,
+                socket_connect_timeout=3,
+            )
             self.client.ping()
             logger.info("Connected to Redis cache")
         except Exception as e:
