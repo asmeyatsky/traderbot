@@ -107,9 +107,16 @@ async def get_portfolio(
 
         portfolio = portfolio_repository.get_by_user_id(user_id)
         if not portfolio:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Portfolio not found"
+            return PortfolioResponse(
+                id="",
+                user_id=user_id,
+                total_value=0.0,
+                cash_balance=0.0,
+                positions_value=0.0,
+                position_count=0,
+                positions=[],
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
             )
 
         # Get positions for this portfolio
@@ -117,8 +124,6 @@ async def get_portfolio(
 
         return _portfolio_to_response(portfolio, positions)
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error fetching portfolio: {e}")
         raise HTTPException(
@@ -153,9 +158,17 @@ async def get_portfolio_performance(
 
         portfolio = portfolio_repository.get_by_user_id(user_id)
         if not portfolio:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Portfolio not found"
+            return PortfolioPerformanceResponse(
+                total_value=0.0,
+                cash_balance=0.0,
+                positions_value=0.0,
+                position_count=0,
+                total_return_percentage=0.0,
+                daily_return_percentage=None,
+                weekly_return_percentage=None,
+                monthly_return_percentage=None,
+                positions=[],
+                timestamp=datetime.utcnow(),
             )
 
         # Get positions
@@ -215,9 +228,12 @@ async def get_portfolio_allocation(
 
         portfolio = portfolio_repository.get_by_user_id(user_id)
         if not portfolio:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Portfolio not found"
+            return PortfolioAllocationResponse(
+                cash_percentage=100.0,
+                stocks_percentage=0.0,
+                by_sector={},
+                by_symbol={},
+                timestamp=datetime.utcnow(),
             )
 
         # Get positions
