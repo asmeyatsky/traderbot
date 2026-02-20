@@ -700,7 +700,7 @@ resource "aws_lb_listener_rule" "api" {
 
   condition {
     path_pattern {
-      values = ["/api/*", "/health", "/docs", "/openapi.json"]
+      values = ["/api/*", "/health"]
     }
   }
 }
@@ -742,7 +742,7 @@ resource "aws_lb_listener_rule" "api_http" {
 
   condition {
     path_pattern {
-      values = ["/api/*", "/health", "/docs", "/openapi.json"]
+      values = ["/api/*", "/health"]
     }
   }
 }
@@ -1027,7 +1027,7 @@ resource "aws_cloudwatch_log_group" "frontend" {
 
 resource "aws_ecr_repository" "main" {
   name                 = "traderbot"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = "IMMUTABLE"
   force_delete         = true
 
   image_scanning_configuration {
@@ -1065,7 +1065,7 @@ resource "aws_ecr_lifecycle_policy" "main" {
 
 resource "aws_ecr_repository" "frontend" {
   name                 = "traderbot-web"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = "IMMUTABLE"
   force_delete         = true
 
   image_scanning_configuration {

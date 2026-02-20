@@ -384,3 +384,59 @@ resource "aws_guardduty_detector" "main" {
     Name = "${local.name_prefix}-guardduty"
   }
 }
+
+# GuardDuty findings → SNS alarm via EventBridge
+# Triggers on MEDIUM and HIGH severity findings (severity >= 4.0)
+resource "aws_cloudwatch_event_rule" "guardduty_findings" {
+  name        = "${local.name_prefix}-guardduty-findings"
+  description = "Alert on GuardDuty MEDIUM/HIGH/CRITICAL findings"
+
+  event_pattern = jsonencode({
+    source      = ["aws.guardduty"]
+    detail-type = ["GuardDuty Finding"]
+    detail = {
+      severity = [{ numeric = [">=", 4.0] }]
+    }
+  })
+
+  tags = {
+    Name = "${local.name_prefix}-guardduty-findings-rule"
+  }
+}
+
+resource "aws_cloudwatch_event_target" "guardduty_sns" {
+  rule      = aws_cloudwatch_event_rule.guardduty_findings.name
+  target_id = "guardduty-to-sns"
+  arn       = aws_sns_topic.alarms.arn
+
+  input_transformer {
+    input_paths = {
+      severity    = "$.detail.severity"
+      title       = "$.detail.title"
+      description = "$.detail.description"
+      region      = "$.detail.region"
+      account     = "$.detail.accountId"
+      type        = "$.detail.type"
+    }
+    input_template = "\"GuardDuty Finding [Severity: <severity>] in <region>: <title>. Type: <type>. <description>\""
+  }
+}
+
+resource "aws_sns_topic_policy" "guardduty_publish" {
+  arn = aws_sns_topic.alarms.arn
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowEventBridgePublish"
+        Effect = "Allow"
+        Principal = {
+          Service = "events.amazonaws.com"
+        }
+        Action   = "SNS:Publish"
+        Resource = aws_sns_topic.alarms.arn
+      }
+    ]
+  })
+}

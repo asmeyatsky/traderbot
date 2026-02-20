@@ -81,6 +81,12 @@ allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split("
 
 is_production = settings.ENVIRONMENT == "production"
 
+# Disable API docs in production (prevents leaking endpoint schemas publicly)
+if is_production:
+    app.docs_url = None
+    app.redoc_url = None
+    app.openapi_url = None
+
 # ============================================================================
 # Security Middleware Stack (order matters — outermost first)
 # ============================================================================

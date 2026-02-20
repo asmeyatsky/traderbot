@@ -87,10 +87,37 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Wait for ECR scan and check for critical vulnerabilities
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "Waiting for ECR image scan to complete..."
+          aws ecr wait image-scan-complete \
+            --repository-name $ECR_REPOSITORY \
+            --image-id imageTag=$IMAGE_TAG \
+            --region $AWS_REGION || true
+
+          CRITICAL=$(aws ecr describe-image-scan-findings \
+            --repository-name $ECR_REPOSITORY \
+            --image-id imageTag=$IMAGE_TAG \
+            --region $AWS_REGION \
+            --query 'imageScanFindings.findingSeverityCounts.CRITICAL' \
+            --output text 2>/dev/null || echo "0")
+
+          if [ "$CRITICAL" != "None" ] && [ "$CRITICAL" != "0" ] && [ -n "$CRITICAL" ]; then
+            echo "::error::ECR scan found $CRITICAL CRITICAL vulnerabilities. Failing deployment."
+            aws ecr describe-image-scan-findings \
+              --repository-name $ECR_REPOSITORY \
+              --image-id imageTag=$IMAGE_TAG \
+              --region $AWS_REGION \
+              --query 'imageScanFindings.findings[?severity==`CRITICAL`].[name,description]' \
+              --output table
+            exit 1
+          fi
+          echo "ECR scan passed — no CRITICAL vulnerabilities found."
 
       - name: Download current task definition
         run: |
@@ -148,10 +175,31 @@ jobs:
             --build-arg VITE_API_URL=/api/v1 \
             -t $ECR_REGISTRY/traderbot-web:$IMAGE_TAG \
             frontend/
-          docker tag $ECR_REGISTRY/traderbot-web:$IMAGE_TAG $ECR_REGISTRY/traderbot-web:latest
           docker push $ECR_REGISTRY/traderbot-web:$IMAGE_TAG
-          docker push $ECR_REGISTRY/traderbot-web:latest
           echo "image=$ECR_REGISTRY/traderbot-web:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Wait for ECR scan and check for critical vulnerabilities
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "Waiting for ECR image scan to complete..."
+          aws ecr wait image-scan-complete \
+            --repository-name traderbot-web \
+            --image-id imageTag=$IMAGE_TAG \
+            --region $AWS_REGION || true
+
+          CRITICAL=$(aws ecr describe-image-scan-findings \
+            --repository-name traderbot-web \
+            --image-id imageTag=$IMAGE_TAG \
+            --region $AWS_REGION \
+            --query 'imageScanFindings.findingSeverityCounts.CRITICAL' \
+            --output text 2>/dev/null || echo "0")
+
+          if [ "$CRITICAL" != "None" ] && [ "$CRITICAL" != "0" ] && [ -n "$CRITICAL" ]; then
+            echo "::error::ECR scan found $CRITICAL CRITICAL vulnerabilities in frontend image. Failing deployment."
+            exit 1
+          fi
+          echo "ECR scan passed — no CRITICAL vulnerabilities found."
 
       - name: Download current frontend task definition
         run: |
