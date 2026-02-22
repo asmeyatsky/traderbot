@@ -88,9 +88,11 @@ class DatabaseManager:
         # Add event listeners for connection pool
         @event.listens_for(self.engine, "connect")
         def receive_connect(dbapi_conn, connection_record):
-            # Set connection timeouts
+            # Set statement timeout to prevent long-running queries (30s)
             if "postgresql" in self.database_url:
-                dbapi_conn.set_isolation_level(0)
+                cursor = dbapi_conn.cursor()
+                cursor.execute("SET statement_timeout = '30s'")
+                cursor.close()
 
     def _initialize_async(self) -> None:
         """Initialize asynchronous database engine and session factory."""

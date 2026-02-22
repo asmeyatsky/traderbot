@@ -9,12 +9,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional, Dict, Any
 import logging
+from datetime import datetime
 from decimal import Decimal
 
 from src.infrastructure.security import get_current_user
 from src.domain.services.market_data_enhancement import (
     DefaultMarketDataEnhancementService, MarketDataSource, EnhancedMarketData
 )
+from src.domain.value_objects import Symbol
 from src.infrastructure.di_container import container
 
 logger = logging.getLogger(__name__)
@@ -48,36 +50,41 @@ async def get_enhanced_market_data(
     """
     try:
         # Get the market data enhancement service from DI container
-        market_data_service = container.market_data_enhancement_service()
+        market_data_service = container.services.market_data_enhancement_service()
         
         # Get enhanced market data
         enhanced_data = market_data_service.get_enhanced_market_data(
             symbol=Symbol(symbol)
         )
         
-        # Convert to JSON-serializable format
+        # Get the latest data point for top-level fields
+        latest_point = enhanced_data.market_data_points[-1] if enhanced_data.market_data_points else None
+        current_price = float(enhanced_data.current_price.amount)
+
+        # Convert to JSON-serializable format matching frontend MarketData type
         result = {
             "symbol": str(enhanced_data.symbol),
-            "current_price": {
-                "amount": float(enhanced_data.current_price.amount),
-                "currency": enhanced_data.current_price.currency
-            },
+            "current_price": current_price,
+            "price_change": float(latest_point.change) if latest_point and latest_point.change else 0.0,
+            "price_change_percent": float(latest_point.change_percent) if latest_point and latest_point.change_percent else 0.0,
+            "volume": latest_point.volume if latest_point else 0,
+            "high": float(latest_point.high.amount) if latest_point and latest_point.high else current_price,
+            "low": float(latest_point.low.amount) if latest_point and latest_point.low else current_price,
+            "open": float(latest_point.open.amount) if latest_point and latest_point.open else current_price,
+            "previous_close": float(enhanced_data.market_data_points[-2].close.amount) if len(enhanced_data.market_data_points) >= 2 and enhanced_data.market_data_points[-2].close else current_price,
             "volatility_forecast": float(enhanced_data.volatility_forecast) if enhanced_data.volatility_forecast else None,
             "calculated_at": datetime.now().isoformat()
         }
-        
-        # Include market data points if needed
+
+        # Include historical data points
         result["historical_data"] = [
             {
-                "price": float(point.price.amount),
+                "date": point.timestamp.strftime("%Y-%m-%d"),
+                "open": float(point.open.amount) if point.open else float(point.price.amount),
+                "high": float(point.high.amount) if point.high else float(point.price.amount),
+                "low": float(point.low.amount) if point.low else float(point.price.amount),
+                "close": float(point.close.amount) if point.close else float(point.price.amount),
                 "volume": point.volume,
-                "timestamp": point.timestamp.isoformat(),
-                "high": float(point.high.amount) if point.high else None,
-                "low": float(point.low.amount) if point.low else None,
-                "open": float(point.open.amount) if point.open else None,
-                "close": float(point.close.amount) if point.close else None,
-                "change": float(point.change) if point.change else None,
-                "change_percent": float(point.change_percent) if point.change_percent else None
             }
             for point in enhanced_data.market_data_points[-days:]
         ]
@@ -156,7 +163,7 @@ async def get_news_sentiment(
         News articles with sentiment analysis
     """
     try:
-        market_data_service = container.market_data_enhancement_service()
+        market_data_service = container.services.market_data_enhancement_service()
         
         # Get all news sentiment for the symbol
         all_news = market_data_service.get_news_sentiment(Symbol(symbol), days)
@@ -237,7 +244,7 @@ async def get_economic_calendar(
         Economic events with details and impact levels
     """
     try:
-        market_data_service = container.market_data_enhancement_service()
+        market_data_service = container.services.market_data_enhancement_service()
         
         # Get economic events
         events = market_data_service.get_economic_calendar(days_ahead)
@@ -301,7 +308,7 @@ async def get_volatility_forecast(
         Volatility forecast with confidence intervals
     """
     try:
-        market_data_service = container.market_data_enhancement_service()
+        market_data_service = container.services.market_data_enhancement_service()
         
         # Calculate volatility forecast
         volatility = market_data_service.calculate_volatility_forecast(
@@ -335,5 +342,3 @@ async def get_volatility_forecast(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve volatility forecast"
         )
-
-from datetime import datetime

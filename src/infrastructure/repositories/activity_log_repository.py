@@ -128,6 +128,6 @@ class ActivityLogRepository:
             "price": float(orm_obj.price) if orm_obj.price else None,
             "message": orm_obj.message,
             "metadata": orm_obj.metadata_json,
+            "created_at": orm_obj.occurred_at.isoformat() if orm_obj.occurred_at else None,
             "occurred_at": orm_obj.occurred_at.isoformat() if orm_obj.occurred_at else None,
-            "recorded_at": orm_obj.recorded_at.isoformat() if orm_obj.recorded_at else None,
         }

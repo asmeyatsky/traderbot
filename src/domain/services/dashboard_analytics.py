@@ -126,12 +126,15 @@ class DefaultDashboardAnalyticsService(DashboardAnalyticsService):
         total_value = portfolio.total_value
         
         # Calculate daily P&L (mock - would use previous day's value in production)
-        daily_pnl = Money(Decimal(str(round(np.random.uniform(-1000, 2000), 2))), 'USD')
+        # Use deterministic value based on positions count to avoid random changes per request
+        pnl_seed = hash(str(total_value.amount)) % (2**31)
+        daily_rng = np.random.RandomState(pnl_seed)
+        daily_pnl = Money(Decimal(str(round(daily_rng.uniform(-1000, 2000), 2))), 'USD')
         daily_pnl_percentage = (daily_pnl.amount / total_value.amount) * 100 if total_value.amount > 0 else Decimal('0')
         
-        # Count positions and active orders (mock values)
+        # Count positions and active orders
         positions_count = len(portfolio.positions)
-        active_orders_count = np.random.randint(0, 5)  # Mock count of active orders
+        active_orders_count = 0  # Actual count requires OrderRepository; updated by caller if available
         
         # Calculate P&L metrics
         unrealized_pnl = Money(Decimal('0'), 'USD')

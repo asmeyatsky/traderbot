@@ -63,7 +63,7 @@ class UpdateCashBalanceRequest(BaseModel):
     """Request DTO for updating cash balance."""
 
     amount: float = Field(..., description="Amount to add/remove (negative for withdrawal)")
-    reason: str = Field(..., max_length=200, description="Reason for the transaction")
+    reason: str = Field(default="Manual deposit", max_length=200, description="Reason for the transaction")
 
 
 class PortfolioAllocationResponse(BaseModel):

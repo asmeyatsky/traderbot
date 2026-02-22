@@ -1,4 +1,6 @@
 import type { Signal } from '../../types/ml';
+import { ML_HELP } from '../../lib/help-text';
+import InfoTooltip from '../common/InfoTooltip';
 
 const signalColors: Record<string, string> = {
   STRONG_BUY: 'text-green-700 bg-green-100',
@@ -12,14 +14,21 @@ export default function SignalGauge({ data }: { data: Signal }) {
   const color = signalColors[data.signal] ?? 'text-gray-700 bg-gray-100';
   return (
     <div className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
-      <h3 className="text-sm font-medium text-gray-500">{data.symbol} Signal</h3>
+      <h3 className="flex items-center gap-1 text-sm font-medium text-gray-500">
+        {data.symbol} Signal
+        <InfoTooltip text={ML_HELP.signal} />
+      </h3>
       <div className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-bold ${color}`}>
         {data.signal}
       </div>
-      <p className="mt-2 text-sm text-gray-600">
+      <p className="mt-2 flex items-center gap-1 text-sm text-gray-600">
         Confidence: {(data.confidence * 100).toFixed(0)}%
+        <InfoTooltip text={ML_HELP.confidence} />
       </p>
-      <p className="mt-1 text-xs text-gray-500">News impact: {data.news_impact}</p>
+      <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+        News impact: {data.news_impact}
+        <InfoTooltip text={ML_HELP.news_impact} />
+      </p>
     </div>
   );
 }

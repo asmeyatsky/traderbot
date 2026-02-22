@@ -13,7 +13,7 @@ export default function FirstTradeStep({ symbol, onNext }: FirstTradeStepProps) 
 
   function handleTrade() {
     mutate(
-      { symbol, side: 'BUY', order_type: 'MARKET', quantity },
+      { symbol, position_type: 'LONG', order_type: 'MARKET', quantity },
       { onSuccess: () => setSuccess(true) },
     );
   }

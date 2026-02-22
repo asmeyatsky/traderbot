@@ -31,6 +31,7 @@ from src.infrastructure.data_processing.ml_model_service import (
     AdvancedRiskAnalyticsService,
     PortfolioOptimizationService
 )
+from src.infrastructure.performance_optimization import DefaultPerformanceOptimizerService
 from src.infrastructure.data_processing.news_aggregation_service import (
     MarketauxNewsService,
     EnhancedNewsAggregationService,
@@ -47,6 +48,7 @@ from src.infrastructure.broker_integration import (
 from src.domain.services.trading import DefaultTradingDomainService, DefaultRiskManagementDomainService
 from src.domain.services.advanced_risk_management import DefaultAdvancedRiskManagementService
 from src.domain.services.dashboard_analytics import DefaultDashboardAnalyticsService
+from src.domain.services.market_data_enhancement import DefaultMarketDataEnhancementService
 from src.domain.services.risk_management import RiskManager, CircuitBreakerService
 from src.infrastructure.adapters.notification import LoggingNotificationAdapter
 from src.infrastructure.repositories.activity_log_repository import ActivityLogRepository
@@ -95,6 +97,12 @@ class ServiceContainer(containers.DeclarativeContainer):
     portfolio_optimization_service = providers.Factory(PortfolioOptimizationService)
     advanced_risk_management_service = providers.Factory(DefaultAdvancedRiskManagementService)
     dashboard_analytics_service = providers.Factory(DefaultDashboardAnalyticsService)
+
+    # Market data enhancement
+    market_data_enhancement_service = providers.Factory(DefaultMarketDataEnhancementService)
+
+    # Performance optimization
+    performance_optimizer_service = providers.Factory(DefaultPerformanceOptimizerService)
 
     # News services
     marketaux_news_service = providers.Factory(

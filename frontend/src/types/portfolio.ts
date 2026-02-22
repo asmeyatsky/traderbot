@@ -1,11 +1,15 @@
 export interface Position {
+  id: string;
   symbol: string;
+  position_type: string;
   quantity: number;
-  average_cost: number;
+  average_buy_price: number;
   current_price: number;
   market_value: number;
   unrealized_pnl: number;
-  unrealized_pnl_percent: number;
+  pnl_percentage: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Portfolio {
@@ -19,13 +23,11 @@ export interface Portfolio {
 
 export interface AllocationItem {
   symbol: string;
-  value: number;
   percentage: number;
-  sector?: string;
 }
 
 export interface PortfolioAllocation {
   allocations: AllocationItem[];
-  total_value: number;
   cash_percentage: number;
+  stocks_percentage: number;
 }

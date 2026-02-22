@@ -75,7 +75,7 @@ async def get_price_prediction(
             )
 
         # Get ML service from container
-        ml_service = container.ml_model_service()
+        ml_service = container.services.ml_model_service()
         if not ml_service:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -93,10 +93,32 @@ async def get_price_prediction(
             lstm_service = LSTMPricePredictionService()
             prediction = lstm_service.predict_price_direction(symbol_obj, lookback_days)
 
+        # Map signal to direction for frontend Prediction type
+        signal_upper = prediction.signal.upper()
+        if signal_upper in ("BUY", "STRONG_BUY"):
+            predicted_direction = "UP"
+        elif signal_upper in ("SELL", "STRONG_SELL"):
+            predicted_direction = "DOWN"
+        else:
+            predicted_direction = "NEUTRAL"
+
+        # Fetch current price from market data service for frontend display
+        try:
+            market_service = container.services.market_data_enhancement_service()
+            enhanced = market_service.get_enhanced_market_data(symbol_obj)
+            current_price = float(enhanced.current_price.amount)
+        except Exception:
+            current_price = 0.0
+
+        # Estimate predicted price from score and current price
+        predicted_price = current_price * (1 + prediction.score * 0.05) if current_price > 0 else 0.0
+
         return {
             "symbol": symbol,
-            "prediction": prediction.signal,
+            "predicted_direction": predicted_direction,
             "confidence": prediction.confidence,
+            "predicted_price": round(predicted_price, 2),
+            "current_price": current_price,
             "score": prediction.score,
             "explanation": prediction.explanation,
             "timestamp": datetime.utcnow(),
@@ -128,6 +150,7 @@ async def get_trading_signal(
     user_id: str,
     risk_level: str = Query("MODERATE", description="User risk tolerance level"),
     investment_goal: str = Query("BALANCED_GROWTH", description="User investment goal"),
+    current_user_id: str = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
     Get personalized trading signal based on symbol and user profile.
@@ -168,8 +191,8 @@ async def get_trading_signal(
             )
 
         # Get services
-        ml_service = container.ml_model_service()
-        news_analyzer = container.news_impact_analyzer_service()
+        ml_service = container.services.ml_model_service()
+        news_analyzer = container.services.news_impact_analyzer_service()
         
         if not ml_service or not news_analyzer:
             raise HTTPException(
@@ -205,12 +228,25 @@ async def get_trading_signal(
         if abs(news_impact) > 0.5:  # Strong news impact
             adjusted_confidence = min(1.0, adjusted_confidence + 0.1)
 
+        # Format news_impact as human-readable string for frontend
+        if news_impact > 0.3:
+            news_impact_label = "Strongly Positive"
+        elif news_impact > 0.1:
+            news_impact_label = "Positive"
+        elif news_impact > -0.1:
+            news_impact_label = "Neutral"
+        elif news_impact > -0.3:
+            news_impact_label = "Negative"
+        else:
+            news_impact_label = "Strongly Negative"
+
         return {
             "symbol": symbol,
             "signal": adjusted_signal,
             "confidence": adjusted_confidence,
+            "news_impact": news_impact_label,
             "original_signal": prediction.signal,
-            "news_impact": news_impact,
+            "news_impact_score": news_impact,
             "user_risk_profile": risk_level,
             "investment_goal": investment_goal,
             "explanation": f"Signal adjusted for {risk_level} risk profile and news impact score of {news_impact:.2f}",
@@ -259,7 +295,7 @@ async def get_model_performance(
                 detail=f"Invalid model type. Valid values: {valid_model_types}"
             )
 
-        ml_service = container.ml_model_service()
+        ml_service = container.services.ml_model_service()
         if not ml_service:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -330,6 +366,7 @@ async def optimize_portfolio(
     risk_tolerance: Optional[str] = Query(None, description="Risk tolerance (CONSERVATIVE, MODERATE, AGGRESSIVE)"),
     investment_goal: Optional[str] = Query(None, description="Investment goal"),
     symbols: List[str] = Query([], description="List of symbols to consider for allocation"),
+    current_user_id: str = Depends(get_current_user),
     user_repo: UserRepository = Depends(get_user_repository),
     portfolio_repo: PortfolioRepository = Depends(get_portfolio_repository),
     position_repo: PositionRepository = Depends(get_position_repository),
@@ -372,7 +409,7 @@ async def optimize_portfolio(
                 )
 
         # Get services
-        portfolio_optimizer = container.portfolio_optimization_service()
+        portfolio_optimizer = container.services.portfolio_optimization_service()
         if not portfolio_optimizer:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -502,8 +539,8 @@ async def run_backtest(
             )
 
         # Get services
-        data_provider = container.data_provider_service()
-        ml_service = container.ml_model_service()
+        data_provider = container.adapters.data_provider_service()
+        ml_service = container.services.ml_model_service()
         
         if not data_provider:
             raise HTTPException(
@@ -594,6 +631,7 @@ async def run_backtest(
 async def get_risk_analysis(
     user_id: str,
     symbols: List[str] = Query([], description="Portfolio symbols for VaR calculation"),
+    current_user_id: str = Depends(get_current_user),
     portfolio_repo: PortfolioRepository = Depends(get_portfolio_repository),
     position_repo: PositionRepository = Depends(get_position_repository),
 ) -> Dict[str, Any]:
@@ -620,7 +658,7 @@ async def get_risk_analysis(
                 )
 
         # Get risk analytics service
-        risk_service = container.risk_analytics_service()
+        risk_service = container.services.risk_analytics_service()
         if not risk_service:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -728,7 +766,7 @@ async def retrain_model(
             )
 
         # Get ML service
-        ml_service = container.ml_model_service()
+        ml_service = container.services.ml_model_service()
         if not ml_service:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

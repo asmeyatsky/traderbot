@@ -8,6 +8,8 @@ import StatCard from '../components/common/StatCard';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorAlert from '../components/common/ErrorAlert';
 import { formatCurrency, formatPercent, formatNumber } from '../lib/format';
+import PageHeader from '../components/common/PageHeader';
+import { PAGE_DESCRIPTIONS } from '../lib/help-text';
 
 export default function MarketDataPage() {
   const [symbol, setSymbol] = useState('');
@@ -16,7 +18,7 @@ export default function MarketDataPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Market Data</h1>
+      <PageHeader title="Market Data" description={PAGE_DESCRIPTIONS.market_data} />
       <SymbolSearch onSearch={setSymbol} currentSymbol={symbol} />
 
       {!symbol && (

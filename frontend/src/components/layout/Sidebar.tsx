@@ -7,6 +7,7 @@ import {
   ChartBarSquareIcon,
   ClockIcon,
   Cog6ToothIcon,
+  CpuChipIcon,
 } from '@heroicons/react/24/outline';
 
 const navigation = [
@@ -14,7 +15,8 @@ const navigation = [
   { name: 'Trading', to: '/trading', icon: ArrowTrendingUpIcon },
   { name: 'Portfolio', to: '/portfolio', icon: BanknotesIcon },
   { name: 'Market Data', to: '/market-data', icon: ChartBarSquareIcon },
-  { name: 'Analytics', to: '/analytics', icon: ChartBarIcon },
+  { name: 'ML Predictions', to: '/predictions', icon: CpuChipIcon },
+  { name: 'Risk Analytics', to: '/analytics', icon: ChartBarIcon },
   { name: 'Activity', to: '/activity', icon: ClockIcon },
   { name: 'Settings', to: '/settings', icon: Cog6ToothIcon },
 ];

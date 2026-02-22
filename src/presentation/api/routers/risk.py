@@ -33,14 +33,11 @@ def _load_portfolio_with_positions(
     user_id: str,
     portfolio_repo: PortfolioRepository,
     position_repo: PositionRepository,
-) -> Portfolio:
-    """Fetch portfolio and its positions from repositories."""
+) -> Portfolio | None:
+    """Fetch portfolio and its positions from repositories. Returns None if not found."""
     portfolio = portfolio_repo.get_by_user_id(user_id)
     if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Portfolio not found"
-        )
+        return None
     positions = position_repo.get_by_user_id(user_id)
     return Portfolio(
         id=portfolio.id,
@@ -50,6 +47,20 @@ def _load_portfolio_with_positions(
         created_at=portfolio.created_at,
         updated_at=portfolio.updated_at,
     )
+
+
+_EMPTY_RISK_RESPONSE = {
+    "var_95": 0.0,
+    "var_99": 0.0,
+    "expected_shortfall": 0.0,
+    "max_drawdown": 0.0,
+    "volatility": 0.0,
+    "beta": 0.0,
+    "sharpe_ratio": 0.0,
+    "sortino_ratio": 0.0,
+    "correlation_matrix": {},
+    "stress_results": [],
+}
 
 
 @router.get(
@@ -79,42 +90,58 @@ async def get_portfolio_risk_metrics(
 
     try:
         portfolio = _load_portfolio_with_positions(user_id, portfolio_repo, position_repo)
+        if not portfolio or not portfolio.positions:
+            return _EMPTY_RISK_RESPONSE
 
         risk_metrics = risk_service.calculate_portfolio_metrics(
             portfolio=portfolio,
             lookback_days=lookback_days
         )
 
+        # Normalize response for frontend RiskMetrics type.
+        # Frontend multiplies these values by 100 and formats as percentage,
+        # so all values must be fractions (e.g., 0.05 for 5%).
+        portfolio_value = float(portfolio.total_value.amount) if portfolio.total_value.amount > 0 else 1.0
+
+        # VaR and ES are absolute dollar amounts — convert to fraction of portfolio value
+        var_95_abs = float(risk_metrics.value_at_risk.amount) if risk_metrics.value_at_risk else 0.0
+        var_95_frac = var_95_abs / portfolio_value
+        var_99_frac = var_95_frac * 1.3  # Approximate VaR 99% from VaR 95%
+        es_abs = float(risk_metrics.expected_shortfall.amount) if risk_metrics.expected_shortfall else 0.0
+        es_frac = es_abs / portfolio_value
+
+        # max_drawdown and volatility are already in percent (e.g. 12.7 for 12.7%)
+        # — convert to fraction so frontend can multiply by 100
+        max_drawdown_frac = float(risk_metrics.max_drawdown) / 100.0 if risk_metrics.max_drawdown else 0.0
+        volatility_frac = float(risk_metrics.volatility) / 100.0 if risk_metrics.volatility else 0.0
+
+        # Stress results: convert absolute dollar impact to fraction of portfolio
+        stress_scenario_probs = {"2008 Financial Crisis": 0.005, "COVID-19 Crash": 0.03, "Dot-com Bubble": 0.02}
+        stress_results = []
+        for scenario, stress_result in (risk_metrics.stress_test_results or {}).items():
+            impact_abs = float(stress_result.amount) if stress_result else 0.0
+            impact_frac = impact_abs / portfolio_value
+            # Stress impacts are negative losses — ensure sign is negative
+            if impact_frac > 0:
+                impact_frac = -impact_frac
+            stress_results.append({
+                "scenario": scenario,
+                "portfolio_impact": impact_frac,
+                "probability": stress_scenario_probs.get(scenario, 0.05),
+                "description": f"Impact under {scenario} scenario",
+            })
+
         result = {
-            "user_id": user_id,
-            "calculated_at": datetime.now().isoformat(),
-            "lookback_days": lookback_days,
-            "confidence_level": confidence_level,
-            "value_at_risk": {
-                "amount": float(risk_metrics.value_at_risk.amount),
-                "currency": risk_metrics.value_at_risk.currency
-            } if risk_metrics.value_at_risk else None,
-            "expected_shortfall": {
-                "amount": float(risk_metrics.expected_shortfall.amount),
-                "currency": risk_metrics.expected_shortfall.currency
-            } if risk_metrics.expected_shortfall else None,
-            "max_drawdown": float(risk_metrics.max_drawdown) if risk_metrics.max_drawdown else None,
-            "volatility": float(risk_metrics.volatility) if risk_metrics.volatility else None,
-            "beta": float(risk_metrics.beta) if risk_metrics.beta else None,
-            "sharpe_ratio": float(risk_metrics.sharpe_ratio) if risk_metrics.sharpe_ratio else None,
-            "sortino_ratio": float(risk_metrics.sortino_ratio) if risk_metrics.sortino_ratio else None,
-            "correlation_matrix": risk_metrics.correlation_matrix,
-            "stress_test_results": {
-                scenario: {
-                    "amount": float(result.amount) if result else 0,
-                    "currency": result.currency if result else "USD"
-                }
-                for scenario, result in risk_metrics.stress_test_results.items()
-            } if risk_metrics.stress_test_results else None,
-            "risk_contribution": {
-                asset: float(weight)
-                for asset, weight in risk_metrics.portfolio_at_risk.items()
-            } if risk_metrics.portfolio_at_risk else None
+            "var_95": var_95_frac,
+            "var_99": var_99_frac,
+            "expected_shortfall": es_frac,
+            "max_drawdown": max_drawdown_frac,
+            "volatility": volatility_frac,
+            "beta": float(risk_metrics.beta) if risk_metrics.beta else 0.0,
+            "sharpe_ratio": float(risk_metrics.sharpe_ratio) if risk_metrics.sharpe_ratio else 0.0,
+            "sortino_ratio": float(risk_metrics.sortino_ratio) if risk_metrics.sortino_ratio else 0.0,
+            "correlation_matrix": risk_metrics.correlation_matrix or {},
+            "stress_results": stress_results,
         }
 
         logger.info(f"Risk metrics retrieved for user {user_id}")
@@ -199,6 +226,8 @@ async def perform_stress_test(
             )
 
         portfolio = _load_portfolio_with_positions(user_id, portfolio_repo, position_repo)
+        if not portfolio:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio not found")
 
         scenario = scenarios[scenario_name]
         stress_result = risk_service.perform_stress_test(portfolio, scenario)
@@ -254,6 +283,8 @@ async def get_correlation_matrix(
 
     try:
         portfolio = _load_portfolio_with_positions(user_id, portfolio_repo, position_repo)
+        if not portfolio:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio not found")
         correlation_matrix = risk_service.calculate_correlation_matrix(portfolio)
 
         result = {

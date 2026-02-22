@@ -3,6 +3,7 @@ import OrderStatusBadge from './OrderStatusBadge';
 import { formatCurrency, formatDateTime } from '../../lib/format';
 import { useCancelOrder } from '../../hooks/use-orders';
 import type { Order } from '../../types/order';
+import { sideLabel } from '../../types/order';
 
 export default function OrdersTable({ orders }: { orders: Order[] }) {
   const { mutate: cancel } = useCancelOrder();
@@ -17,15 +18,16 @@ export default function OrdersTable({ orders }: { orders: Order[] }) {
         {
           key: 'side',
           header: 'Side',
-          render: (o) => (
-            <span className={o.side === 'BUY' ? 'text-green-600' : 'text-red-600'}>{o.side}</span>
-          ),
+          render: (o) => {
+            const label = sideLabel(o.position_type);
+            return <span className={label === 'BUY' ? 'text-green-600' : 'text-red-600'}>{label}</span>;
+          },
         },
         { key: 'type', header: 'Type', render: (o) => o.order_type },
         { key: 'qty', header: 'Qty', render: (o) => o.quantity },
         { key: 'price', header: 'Price', render: (o) => (o.price ? formatCurrency(o.price) : 'MKT') },
         { key: 'status', header: 'Status', render: (o) => <OrderStatusBadge status={o.status} /> },
-        { key: 'created', header: 'Created', render: (o) => formatDateTime(o.created_at) },
+        { key: 'created', header: 'Created', render: (o) => formatDateTime(o.placed_at) },
         {
           key: 'actions',
           header: '',

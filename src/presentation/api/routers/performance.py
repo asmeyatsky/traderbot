@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any
+from datetime import datetime
 import logging
 
 from src.infrastructure.security import get_current_user
@@ -40,7 +41,7 @@ async def get_performance_metrics(
     """
     try:
         # Get the performance optimizer service from DI container
-        perf_service = container.performance_optimizer_service()
+        perf_service = container.services.performance_optimizer_service()
         
         # Calculate performance metrics
         metrics = perf_service.calculate_performance_metrics()
@@ -80,7 +81,7 @@ async def get_cache_stats(
         Cache statistics and performance metrics
     """
     try:
-        perf_service = container.performance_optimizer_service()
+        perf_service = container.services.performance_optimizer_service()
         
         # Get cache statistics
         stats = perf_service.get_cache_stats()
@@ -141,7 +142,7 @@ async def warm_cache(
         )
     
     try:
-        perf_service = container.performance_optimizer_service()
+        perf_service = container.services.performance_optimizer_service()
         
         # Warm up the cache
         success = perf_service.warm_cache(user_id)
@@ -161,5 +162,3 @@ async def warm_cache(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to warm up cache"
         )
-
-from datetime import datetime

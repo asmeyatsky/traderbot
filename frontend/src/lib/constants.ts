@@ -3,7 +3,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1';
 export const ORDER_SIDES = ['BUY', 'SELL'] as const;
 export type OrderSide = (typeof ORDER_SIDES)[number];
 
-export const ORDER_TYPES = ['MARKET', 'LIMIT', 'STOP', 'STOP_LIMIT'] as const;
+export const ORDER_TYPES = ['MARKET', 'LIMIT', 'STOP_LOSS', 'TRAILING_STOP'] as const;
 export type OrderType = (typeof ORDER_TYPES)[number];
 
 export const ORDER_STATUSES = ['PENDING', 'FILLED', 'PARTIALLY_FILLED', 'CANCELLED', 'REJECTED'] as const;

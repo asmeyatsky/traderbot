@@ -2,30 +2,35 @@ export interface Order {
   id: string;
   user_id: string;
   symbol: string;
-  side: string;
+  position_type: string;
   order_type: string;
   quantity: number;
   price: number | null;
   stop_price: number | null;
   status: string;
   filled_quantity: number;
-  filled_price: number | null;
-  created_at: string;
-  updated_at: string;
+  placed_at: string;
+  executed_at: string | null;
+  commission: number | null;
+  notes: string | null;
+}
+
+/** Helper: maps position_type to user-friendly label */
+export function sideLabel(positionType: string): string {
+  return positionType === 'SHORT' ? 'SELL' : 'BUY';
 }
 
 export interface CreateOrderRequest {
   symbol: string;
-  side: string;
+  position_type: string;
   order_type: string;
   quantity: number;
-  price?: number;
+  limit_price?: number;
   stop_price?: number;
+  notes?: string;
 }
 
 export interface OrderListResponse {
   orders: Order[];
   total: number;
-  skip: number;
-  limit: number;
 }

@@ -9,6 +9,8 @@ import {
 import { useTradingActivity } from '../hooks/use-auto-trading';
 import { formatCurrency, formatDateTime } from '../lib/format';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import PageHeader from '../components/common/PageHeader';
+import { PAGE_DESCRIPTIONS } from '../lib/help-text';
 
 const FILTERS = [
   { label: 'All', value: '' },
@@ -46,7 +48,7 @@ export default function TradingActivityPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Trading Activity</h1>
+      <PageHeader title="Trading Activity" description={PAGE_DESCRIPTIONS.activity} />
 
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (

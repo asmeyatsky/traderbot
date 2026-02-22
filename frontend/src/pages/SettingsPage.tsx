@@ -1,12 +1,24 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMe, useUpdateMe } from '../hooks/use-auth';
 import { useAutoTradingSettings, useUpdateAutoTrading } from '../hooks/use-auto-trading';
+import { useOnboardingStore } from '../stores/onboarding-store';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import PageHeader from '../components/common/PageHeader';
+import InfoTooltip from '../components/common/InfoTooltip';
 import { RISK_TOLERANCES, INVESTMENT_GOALS } from '../lib/constants';
+import {
+  PAGE_DESCRIPTIONS,
+  RISK_TOLERANCE_HELP,
+  INVESTMENT_GOAL_HELP,
+  AUTO_TRADING_HELP,
+} from '../lib/help-text';
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
   const { data: user, isLoading } = useMe();
   const { mutate: update, isPending, isSuccess } = useUpdateMe();
+  const resetOnboarding = useOnboardingStore((s) => s.reset);
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
@@ -32,9 +44,14 @@ export default function SettingsPage() {
     update(form);
   }
 
+  function handleRestartOnboarding() {
+    resetOnboarding();
+    navigate('/onboarding');
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+      <PageHeader title="Settings" description={PAGE_DESCRIPTIONS.settings} />
       <form onSubmit={handleSubmit} className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
         {isSuccess && (
           <p className="mb-4 rounded-md bg-green-50 p-3 text-sm text-green-700">Settings saved</p>
@@ -78,6 +95,9 @@ export default function SettingsPage() {
                 <option key={r} value={r}>{r.replace('_', ' ')}</option>
               ))}
             </select>
+            {form.risk_tolerance && RISK_TOLERANCE_HELP[form.risk_tolerance] && (
+              <p className="mt-1 text-xs text-gray-500">{RISK_TOLERANCE_HELP[form.risk_tolerance]}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Investment Goal</label>
@@ -90,15 +110,27 @@ export default function SettingsPage() {
                 <option key={g} value={g}>{g.replace(/_/g, ' ')}</option>
               ))}
             </select>
+            {form.investment_goal && INVESTMENT_GOAL_HELP[form.investment_goal] && (
+              <p className="mt-1 text-xs text-gray-500">{INVESTMENT_GOAL_HELP[form.investment_goal]}</p>
+            )}
           </div>
         </div>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="mt-6 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {isPending ? 'Saving...' : 'Save Changes'}
-        </button>
+        <div className="mt-6 flex items-center justify-between">
+          <button
+            type="submit"
+            disabled={isPending}
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {isPending ? 'Saving...' : 'Save Changes'}
+          </button>
+          <button
+            type="button"
+            onClick={handleRestartOnboarding}
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+          >
+            Restart Onboarding
+          </button>
+        </div>
       </form>
 
       <AutoTradingSection />
@@ -154,7 +186,10 @@ function AutoTradingSection() {
   return (
     <div className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Auto-Trading</h2>
+        <h2 className="flex items-center gap-1 text-lg font-semibold text-gray-900">
+          Auto-Trading
+          <InfoTooltip text={AUTO_TRADING_HELP} />
+        </h2>
         <span
           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
             enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
@@ -163,6 +198,9 @@ function AutoTradingSection() {
           {enabled ? 'Active' : 'Inactive'}
         </span>
       </div>
+      <p className="mt-1 text-xs text-gray-500">
+        Automatically monitor your watchlist and execute trades based on ML signals and your risk settings.
+      </p>
 
       {isSuccess && (
         <p className="mt-3 rounded-md bg-green-50 p-3 text-sm text-green-700">Auto-trading settings saved</p>

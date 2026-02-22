@@ -4,6 +4,8 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorAlert from '../components/common/ErrorAlert';
 import RiskMetricsCard from '../components/risk/RiskMetricsCard';
 import StressTestPanel from '../components/risk/StressTestPanel';
+import PageHeader from '../components/common/PageHeader';
+import { PAGE_DESCRIPTIONS } from '../lib/help-text';
 
 export default function RiskPage() {
   const userId = useAuthStore((s) => s.user?.id);
@@ -15,7 +17,7 @@ export default function RiskPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Risk Analytics</h1>
+      <PageHeader title="Risk Analytics" description={PAGE_DESCRIPTIONS.risk} />
       <RiskMetricsCard data={data} />
       <StressTestPanel results={data.stress_results ?? []} />
     </div>

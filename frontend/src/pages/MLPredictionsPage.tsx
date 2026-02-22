@@ -6,6 +6,8 @@ import PredictionCard from '../components/ml/PredictionCard';
 import SignalGauge from '../components/ml/SignalGauge';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorAlert from '../components/common/ErrorAlert';
+import PageHeader from '../components/common/PageHeader';
+import { PAGE_DESCRIPTIONS } from '../lib/help-text';
 
 export default function MLPredictionsPage() {
   const [symbol, setSymbol] = useState('');
@@ -15,7 +17,7 @@ export default function MLPredictionsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">ML Predictions</h1>
+      <PageHeader title="ML Predictions" description={PAGE_DESCRIPTIONS.predictions} />
       <SymbolSearch onSearch={setSymbol} currentSymbol={symbol} />
 
       {!symbol && <p className="py-10 text-center text-gray-500">Enter a symbol to get predictions</p>}

@@ -3,11 +3,12 @@ import { ArrowTrendingUpIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorAlert from '../components/common/ErrorAlert';
 import StatCard from '../components/common/StatCard';
-import EmptyState from '../components/common/EmptyState';
 import PositionsTable from '../components/portfolio/PositionsTable';
 import AllocationChart from '../components/portfolio/AllocationChart';
 import CashManagement from '../components/portfolio/CashManagement';
 import { formatCurrency } from '../lib/format';
+import PageHeader from '../components/common/PageHeader';
+import { PAGE_DESCRIPTIONS } from '../lib/help-text';
 
 export default function PortfolioPage() {
   const { data: portfolio, isLoading, error, refetch } = usePortfolio();
@@ -22,21 +23,24 @@ export default function PortfolioPage() {
   if (isEmpty) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Portfolio</h1>
-        <EmptyState
-          icon={ArrowTrendingUpIcon}
-          title="No positions yet"
-          description="Fund your account and start trading to build your portfolio."
-          ctaLabel="Go to Trading"
-          ctaTo="/trading"
-        />
+        <PageHeader title="Portfolio" description={PAGE_DESCRIPTIONS.portfolio} />
+        <div className="mx-auto max-w-sm">
+          <div className="flex flex-col items-center py-8 text-center">
+            <ArrowTrendingUpIcon className="h-12 w-12 text-gray-300" />
+            <h3 className="mt-4 text-lg font-semibold text-gray-900">Get started with paper trading</h3>
+            <p className="mt-2 text-sm text-gray-500">
+              Deposit virtual funds below to start practicing trades risk-free. No real money involved.
+            </p>
+          </div>
+          <CashManagement cashBalance={portfolio.cash_balance} totalValue={portfolio.total_value} />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Portfolio</h1>
+      <PageHeader title="Portfolio" description={PAGE_DESCRIPTIONS.portfolio} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard title="Total Value" value={formatCurrency(portfolio.total_value)} />
         <StatCard title="Cash Balance" value={formatCurrency(portfolio.cash_balance)} />

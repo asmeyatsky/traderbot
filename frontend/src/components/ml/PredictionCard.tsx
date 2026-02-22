@@ -1,5 +1,7 @@
 import type { Prediction } from '../../types/ml';
 import { formatCurrency, formatPercent } from '../../lib/format';
+import { ML_HELP } from '../../lib/help-text';
+import InfoTooltip from '../common/InfoTooltip';
 
 export default function PredictionCard({ data }: { data: Prediction }) {
   const isUp = data.predicted_direction === 'UP';
@@ -21,11 +23,17 @@ export default function PredictionCard({ data }: { data: Prediction }) {
           <p className="font-medium">{formatCurrency(data.predicted_price)}</p>
         </div>
         <div>
-          <span className="text-gray-500">Confidence</span>
+          <span className="flex items-center gap-1 text-gray-500">
+            Confidence
+            <InfoTooltip text={ML_HELP.confidence} />
+          </span>
           <p className="font-medium">{formatPercent(data.confidence * 100)}</p>
         </div>
         <div>
-          <span className="text-gray-500">Score</span>
+          <span className="flex items-center gap-1 text-gray-500">
+            Score
+            <InfoTooltip text={ML_HELP.score} />
+          </span>
           <p className="font-medium">{data.score.toFixed(2)}</p>
         </div>
       </div>

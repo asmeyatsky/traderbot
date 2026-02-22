@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 import logging
 
 from src.infrastructure.security import get_current_user
@@ -386,5 +387,3 @@ async def get_alternative_data_insights(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate alternative data insights"
         )
-
-from datetime import datetime

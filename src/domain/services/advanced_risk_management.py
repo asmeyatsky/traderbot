@@ -100,20 +100,20 @@ class DefaultAdvancedRiskManagementService(AdvancedRiskManagementService):
     
     def __init__(self):
         self._historical_returns_cache = {}
+        self._rng = np.random.RandomState(42)  # Dedicated RNG for deterministic results
         self._market_data = self._get_mock_market_data()
     
     def _get_mock_market_data(self) -> Dict:
         """Mock market data for demonstration purposes"""
         # Simulated historical returns for various assets
-        np.random.seed(42)  # For reproducible mock results
-        
         # Mock historical returns (daily) for different assets
         assets = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'SPY', 'QQQ']
         returns_data = {}
-        
+
+        rng = np.random.RandomState(42)  # Separate seed for market data generation
         for asset in assets:
             # Generate correlated returns with some realistic volatility
-            base_returns = np.random.normal(0.0005, 0.02, 252)  # Daily returns ~0.05% avg, 2% std
+            base_returns = rng.normal(0.0005, 0.02, 252)  # Daily returns ~0.05% avg, 2% std
             returns_data[asset] = base_returns
         
         return returns_data
@@ -158,6 +158,9 @@ class DefaultAdvancedRiskManagementService(AdvancedRiskManagementService):
         """
         Calculate comprehensive risk metrics for the portfolio
         """
+        # Reset RNG so results are deterministic across requests for the same portfolio
+        self._rng = np.random.RandomState(42)
+
         # Calculate individual metrics
         var = self.calculate_var(portfolio)
         es = self.calculate_expected_shortfall(portfolio)
@@ -233,8 +236,11 @@ class DefaultAdvancedRiskManagementService(AdvancedRiskManagementService):
                 if i == j:
                     correlation_matrix[sym1][sym2] = Decimal('1.0')  # Perfect correlation with self
                 else:
-                    # Generate correlated value between 0.1 and 0.8
-                    correlation_matrix[sym1][sym2] = Decimal(str(round(np.random.uniform(0.1, 0.8), 3)))
+                    # Generate deterministic correlated value between 0.1 and 0.8
+                    # Use hash of symbol pair for deterministic results across requests
+                    pair_seed = hash((sym1, sym2)) % (2**31)
+                    pair_rng = np.random.RandomState(pair_seed)
+                    correlation_matrix[sym1][sym2] = Decimal(str(round(pair_rng.uniform(0.1, 0.8), 3)))
         
         return correlation_matrix
     
@@ -254,7 +260,7 @@ class DefaultAdvancedRiskManagementService(AdvancedRiskManagementService):
             weight = position_value / total_value if total_value > 0 else Decimal('0')
             
             # Assign a risk factor (mock - would be calculated based on volatility and correlation)
-            risk_factor = Decimal(str(round(np.random.uniform(0.8, 1.2), 3)))
+            risk_factor = Decimal(str(round(self._rng.uniform(0.8, 1.2), 3)))
             
             risk_contribution = weight * risk_factor
             contributions[str(position.symbol)] = risk_contribution
@@ -292,7 +298,7 @@ class DefaultAdvancedRiskManagementService(AdvancedRiskManagementService):
         total_vol = Decimal('0.0')
         for symbol, weight in weights.items():
             # Assign each asset a mock volatility
-            asset_vol = Decimal(str(round(np.random.uniform(0.12, 0.40), 3)))  # 12-40% volatility
+            asset_vol = Decimal(str(round(self._rng.uniform(0.12, 0.40), 3)))  # 12-40% volatility
             total_vol += weight * asset_vol
         
         return total_vol
@@ -301,24 +307,24 @@ class DefaultAdvancedRiskManagementService(AdvancedRiskManagementService):
         """Mock calculation of maximum drawdown"""
         # In reality, this would require historical portfolio values
         # For mock, generate a reasonable value
-        return Decimal(str(round(np.random.uniform(5, 25), 2)))  # 5-25% drawdown
+        return Decimal(str(round(self._rng.uniform(5, 25), 2)))  # 5-25% drawdown
 
     def _calculate_mock_volatility(self, portfolio: Portfolio) -> Decimal:
         """Mock calculation of portfolio volatility"""
         # Simulated annualized volatility
-        return Decimal(str(round(np.random.uniform(12, 30), 2)))  # 12-30% volatility
+        return Decimal(str(round(self._rng.uniform(12, 30), 2)))  # 12-30% volatility
 
     def _calculate_mock_beta(self, portfolio: Portfolio) -> Decimal:
         """Mock calculation of portfolio beta"""
         # Simulated beta relative to market (SPY)
-        return Decimal(str(round(np.random.uniform(0.8, 1.5), 3)))  # 0.8-1.5 beta
+        return Decimal(str(round(self._rng.uniform(0.8, 1.5), 3)))  # 0.8-1.5 beta
 
     def _calculate_mock_sharpe_ratio(self, portfolio: Portfolio) -> Decimal:
         """Mock calculation of Sharpe ratio"""
         # Simulated Sharpe ratio (risk-adjusted return)
-        return Decimal(str(round(np.random.uniform(0.5, 2.0), 3)))  # 0.5-2.0 Sharpe
+        return Decimal(str(round(self._rng.uniform(0.5, 2.0), 3)))  # 0.5-2.0 Sharpe
 
     def _calculate_mock_sortino_ratio(self, portfolio: Portfolio) -> Decimal:
         """Mock calculation of Sortino ratio"""
         # Simulated Sortino ratio (downside risk-adjusted return)
-        return Decimal(str(round(np.random.uniform(0.7, 2.5), 3)))  # 0.7-2.5 Sortino
+        return Decimal(str(round(self._rng.uniform(0.7, 2.5), 3)))  # 0.7-2.5 Sortino

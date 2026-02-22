@@ -7,6 +7,8 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorAlert from '../components/common/ErrorAlert';
 import EmptyState from '../components/common/EmptyState';
 import { ORDER_STATUSES } from '../lib/constants';
+import PageHeader from '../components/common/PageHeader';
+import { PAGE_DESCRIPTIONS } from '../lib/help-text';
 
 export default function TradingPage() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
@@ -16,7 +18,7 @@ export default function TradingPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Trading</h1>
+      <PageHeader title="Trading" description={PAGE_DESCRIPTIONS.trading} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div>
           <OrderEntryForm />

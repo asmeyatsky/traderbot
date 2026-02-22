@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { useAutoTradingSettings, useTradingActivitySummary } from '../../hooks/use-auto-trading';
 import { formatCurrency } from '../../lib/format';
+import { AUTO_TRADING_HELP } from '../../lib/help-text';
+import InfoTooltip from '../common/InfoTooltip';
 
 export default function AutoTradingStatusCard() {
   const { data: settings } = useAutoTradingSettings();
@@ -14,7 +16,10 @@ export default function AutoTradingStatusCard() {
   return (
     <div className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900">Auto-Trading</h2>
+        <h2 className="flex items-center gap-1 text-sm font-semibold text-gray-900">
+          Auto-Trading
+          <InfoTooltip text={AUTO_TRADING_HELP} />
+        </h2>
         <div className="flex items-center gap-3">
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -40,7 +45,9 @@ export default function AutoTradingStatusCard() {
             </span>
           ))
         ) : (
-          <span className="text-xs text-gray-400">No watchlist configured</span>
+          <span className="text-xs text-gray-400">
+            No watchlist configured. <Link to="/settings" className="text-indigo-600 hover:text-indigo-500">Add stocks in Settings</Link> to start.
+          </span>
         )}
       </div>
 

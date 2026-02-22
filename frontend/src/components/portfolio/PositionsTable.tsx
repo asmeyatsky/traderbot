@@ -11,7 +11,7 @@ export default function PositionsTable({ positions }: { positions: Position[] })
       columns={[
         { key: 'symbol', header: 'Symbol', render: (p) => <span className="font-medium">{p.symbol}</span> },
         { key: 'qty', header: 'Qty', render: (p) => p.quantity },
-        { key: 'avgCost', header: 'Avg Cost', render: (p) => formatCurrency(p.average_cost) },
+        { key: 'avgCost', header: 'Avg Cost', render: (p) => formatCurrency(p.average_buy_price) },
         { key: 'price', header: 'Price', render: (p) => formatCurrency(p.current_price) },
         { key: 'value', header: 'Market Value', render: (p) => formatCurrency(p.market_value) },
         {
@@ -19,7 +19,7 @@ export default function PositionsTable({ positions }: { positions: Position[] })
           header: 'P&L',
           render: (p) => (
             <span className={p.unrealized_pnl >= 0 ? 'text-green-600' : 'text-red-600'}>
-              {formatCurrency(p.unrealized_pnl)} ({formatPercent(p.unrealized_pnl_percent)})
+              {formatCurrency(p.unrealized_pnl)} ({formatPercent(p.pnl_percentage)})
             </span>
           ),
         },

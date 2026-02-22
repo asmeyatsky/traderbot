@@ -7,8 +7,23 @@ export async function getPortfolio(): Promise<Portfolio> {
 }
 
 export async function getPortfolioAllocation(): Promise<PortfolioAllocation> {
-  const { data } = await apiClient.get<PortfolioAllocation>('/portfolio/allocation');
-  return data;
+  const { data } = await apiClient.get<{
+    cash_percentage: number;
+    stocks_percentage: number;
+    by_symbol: Record<string, number>;
+    by_sector: Record<string, number>;
+    timestamp: string;
+  }>('/portfolio/allocation');
+  // Transform backend by_symbol dict into AllocationItem array for the chart
+  const allocations = Object.entries(data.by_symbol ?? {}).map(([symbol, percentage]) => ({
+    symbol,
+    percentage,
+  }));
+  return {
+    allocations,
+    cash_percentage: data.cash_percentage,
+    stocks_percentage: data.stocks_percentage,
+  };
 }
 
 export async function depositCash(amount: number): Promise<Portfolio> {

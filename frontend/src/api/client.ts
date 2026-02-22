@@ -28,6 +28,8 @@ apiClient.interceptors.response.use(
         isRedirecting = true;
         useAuthStore.getState().logout();
         window.location.href = '/login';
+        // Reset flag after navigation so future 401s (after re-login) still work
+        setTimeout(() => { isRedirecting = false; }, 2000);
       }
     }
     return Promise.reject(error);

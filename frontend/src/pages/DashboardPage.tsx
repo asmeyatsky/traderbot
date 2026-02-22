@@ -4,6 +4,8 @@ import { BanknotesIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorAlert from '../components/common/ErrorAlert';
 import EmptyState from '../components/common/EmptyState';
+import PageHeader from '../components/common/PageHeader';
+import { PAGE_DESCRIPTIONS } from '../lib/help-text';
 import PortfolioSummaryCard from '../components/dashboard/PortfolioSummaryCard';
 import PnLChart from '../components/dashboard/PnLChart';
 import AllocationPieChart from '../components/dashboard/AllocationPieChart';
@@ -23,7 +25,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+      <PageHeader title="Dashboard" description={PAGE_DESCRIPTIONS.dashboard} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <AutoTradingStatusCard />
         <RecentActivityFeed />
@@ -33,8 +35,8 @@ export default function DashboardPage() {
         <EmptyState
           icon={BanknotesIcon}
           title="Your dashboard is waiting"
-          description="Fund your account and place your first trade to see portfolio performance, allocation, and market movers."
-          ctaLabel="Fund Your Account"
+          description="Deposit virtual funds in your Portfolio, then place your first trade to see performance charts and allocation breakdowns."
+          ctaLabel="Deposit Funds"
           ctaTo="/portfolio"
         />
       ) : (

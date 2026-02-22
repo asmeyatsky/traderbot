@@ -36,8 +36,6 @@ from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
-
 from src.infrastructure.config.settings import settings
 from src.infrastructure.logging import setup_logging
 from src.infrastructure.middleware.audit_logging import AuditLoggingMiddleware
@@ -62,15 +60,17 @@ logger = setup_logging()
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
 
+is_production = settings.ENVIRONMENT == "production"
+
 # Initialize the FastAPI application
 app = FastAPI(
     title="AI Trading Platform API",
     description="Autonomous AI-powered trading platform with real-time market data aggregation, "
     "sentiment analysis, automated trading execution, and advanced risk management.",
     version="1.0.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redocs",
-    openapi_url="/api/openapi.json",
+    docs_url=None if is_production else "/api/docs",
+    redoc_url=None if is_production else "/api/redocs",
+    openapi_url=None if is_production else "/api/openapi.json",
 )
 
 # Add rate limiter to app state
@@ -79,21 +79,12 @@ app.state.limiter = limiter
 # Parse allowed origins from settings
 allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
 
-is_production = settings.ENVIRONMENT == "production"
-
-# Disable API docs in production (prevents leaking endpoint schemas publicly)
-if is_production:
-    app.docs_url = None
-    app.redoc_url = None
-    app.openapi_url = None
-
 # ============================================================================
 # Security Middleware Stack (order matters — outermost first)
 # ============================================================================
 
-# 1. HTTPS redirect in production (ALB terminates TLS, but enforce on app level)
-if is_production:
-    app.add_middleware(HTTPSRedirectMiddleware)
+# 1. HTTPS redirect: NOT needed — ALB terminates TLS and forwards HTTP internally.
+# HTTPSRedirectMiddleware would cause infinite redirects behind ALB.
 
 # 2. Trusted Host middleware in production
 if is_production:
@@ -109,7 +100,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
     max_age=600,  # 10 minutes
 )
