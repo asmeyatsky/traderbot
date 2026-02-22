@@ -191,7 +191,7 @@ class AutonomousTradingService:
         if shares <= 0:
             return
 
-        price_money = Money(current_price.amount, "USD")
+        price_money = Money(current_price.amount.quantize(Decimal("0.01")), "USD")
         order = Order(
             id=str(uuid.uuid4()),
             user_id=user.id,
@@ -226,7 +226,7 @@ class AutonomousTradingService:
 
         current_price = self.market_data.get_current_price(symbol)
         price_money = (
-            Money(current_price.amount, "USD")
+            Money(current_price.amount.quantize(Decimal("0.01")), "USD")
             if current_price
             else position.current_price
         )

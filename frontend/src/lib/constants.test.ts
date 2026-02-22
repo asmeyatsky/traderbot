@@ -13,10 +13,12 @@ describe('constants', () => {
     expect(ORDER_TYPES).toContain('TRAILING_STOP');
   });
 
-  it('defines order statuses', () => {
+  it('defines order statuses matching backend enum', () => {
     expect(ORDER_STATUSES).toContain('PENDING');
-    expect(ORDER_STATUSES).toContain('FILLED');
+    expect(ORDER_STATUSES).toContain('EXECUTED');
+    expect(ORDER_STATUSES).toContain('PARTIALLY_FILLED');
     expect(ORDER_STATUSES).toContain('CANCELLED');
+    expect(ORDER_STATUSES).toContain('FAILED');
   });
 
   it('defines risk tolerances matching backend enum', () => {

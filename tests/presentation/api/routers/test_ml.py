@@ -226,6 +226,7 @@ class TestGetTradingSignal:
         assert data["symbol"] == "AAPL"
         assert data["original_signal"] == "BUY"
         assert "confidence" in data
+        assert "risk_adjusted" in data
         assert data["user_risk_profile"] == "MODERATE"
 
     @patch("src.presentation.api.routers.ml.container")
@@ -274,6 +275,11 @@ class TestGetTradingSignal:
         response = client.get("/api/v1/ml/signal/AAPL/test-user-1")
         assert response.status_code == 500
 
+    def test_unauthorized_user_returns_403(self, client, override_auth):
+        """Users cannot access signals for other users."""
+        response = client.get("/api/v1/ml/signal/AAPL/other-user-id")
+        assert response.status_code == 403
+
 
 # ---------------------------------------------------------------------------
 # GET /api/v1/ml/model-performance/{model_type}
@@ -315,6 +321,11 @@ class TestGetModelPerformance:
 # ---------------------------------------------------------------------------
 
 class TestOptimizePortfolio:
+
+    def test_unauthorized_user_returns_403(self, client, override_auth):
+        """Users cannot optimize another user's portfolio."""
+        response = client.post("/api/v1/ml/optimize-portfolio/other-user-id")
+        assert response.status_code == 403
 
     @patch("src.presentation.api.routers.ml.container")
     def test_success(self, mock_container, client, override_auth, mock_repos, mock_portfolio_optimization_service):
@@ -472,6 +483,11 @@ class TestRunBacktest:
 # ---------------------------------------------------------------------------
 
 class TestGetRiskAnalysis:
+
+    def test_unauthorized_user_returns_403(self, client, override_auth):
+        """Users cannot view another user's risk analysis."""
+        response = client.get("/api/v1/ml/risk-analysis/other-user-id")
+        assert response.status_code == 403
 
     @patch("src.presentation.api.routers.ml.container")
     def test_success(self, mock_container, client, override_auth, mock_repos, mock_risk_analytics_service):

@@ -17,6 +17,7 @@ from src.domain.value_objects import Money, Symbol, TradingVolume
 class OrderStatus(Enum):
     PENDING = "PENDING"
     EXECUTED = "EXECUTED"
+    PARTIALLY_FILLED = "PARTIALLY_FILLED"
     CANCELLED = "CANCELLED"
     FAILED = "FAILED"
 

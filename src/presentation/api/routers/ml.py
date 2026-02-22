@@ -107,7 +107,8 @@ async def get_price_prediction(
             market_service = container.adapters.market_data_service()
             price = market_service.get_current_price(symbol_obj)
             current_price = float(price.amount) if price else 0.0
-        except Exception:
+        except Exception as price_err:
+            logger.warning(f"Failed to fetch current price for {symbol}: {price_err}")
             current_price = 0.0
 
         # Estimate predicted price from score and current price
@@ -164,6 +165,13 @@ async def get_trading_signal(
     Returns:
         Dictionary containing trading signal with user context
     """
+    # Authorization check: users can only access their own signals
+    if current_user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access signals for another user"
+        )
+
     try:
         # Validate symbol
         try:
@@ -245,6 +253,7 @@ async def get_trading_signal(
             "signal": adjusted_signal,
             "confidence": adjusted_confidence,
             "news_impact": news_impact_label,
+            "risk_adjusted": adjusted_signal != prediction.signal,
             "original_signal": prediction.signal,
             "news_impact_score": news_impact,
             "user_risk_profile": risk_level,
@@ -383,6 +392,13 @@ async def optimize_portfolio(
     Returns:
         Dictionary containing optimized allocation recommendations
     """
+    # Authorization check: users can only optimize their own portfolio
+    if current_user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to optimize another user's portfolio"
+        )
+
     try:
         # Validate inputs
         if risk_tolerance and risk_tolerance not in ["CONSERVATIVE", "MODERATE", "AGGRESSIVE"]:
@@ -645,6 +661,13 @@ async def get_risk_analysis(
     Returns:
         Dictionary containing risk analysis results
     """
+    # Authorization check: users can only view their own risk analysis
+    if current_user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view another user's risk analysis"
+        )
+
     try:
         # Convert symbols to Symbol objects
         symbol_objects = []

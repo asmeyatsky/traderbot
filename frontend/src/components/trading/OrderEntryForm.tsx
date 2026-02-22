@@ -26,7 +26,8 @@ export default function OrderEntryForm() {
         position_type: side === 'SELL' ? 'SHORT' : 'LONG',
         order_type: orderType,
         quantity: Number(quantity),
-        ...(orderType !== 'MARKET' && price ? { limit_price: Number(price) } : {}),
+        ...(orderType === 'LIMIT' && price ? { limit_price: Number(price) } : {}),
+      ...((['STOP_LOSS', 'TRAILING_STOP'].includes(orderType)) && price ? { stop_price: Number(price) } : {}),
       },
       {
         onSuccess: () => {

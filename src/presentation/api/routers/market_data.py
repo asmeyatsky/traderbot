@@ -89,8 +89,35 @@ async def get_enhanced_market_data(
             for point in enhanced_data.market_data_points[-days:]
         ]
         
-        # Include news sentiment if requested
+        # Include news sentiment if requested — keyed as "sentiment" to match frontend MarketData type
         if include_news and enhanced_data.news_sentiment:
+            articles = enhanced_data.news_sentiment
+            sentiment_scores = [float(a.sentiment.score) for a in articles]
+            avg_score = sum(sentiment_scores) / len(sentiment_scores) if sentiment_scores else 0.0
+            if avg_score > 0.1:
+                sentiment_label = "Bullish"
+            elif avg_score < -0.1:
+                sentiment_label = "Bearish"
+            else:
+                sentiment_label = "Neutral"
+
+            result["sentiment"] = {
+                "overall_sentiment": avg_score,
+                "sentiment_label": sentiment_label,
+                "news_count": len(articles),
+                "articles": [
+                    {
+                        "title": article.title,
+                        "source": article.source,
+                        "published_at": article.published_at.isoformat(),
+                        "sentiment_score": float(article.sentiment.score),
+                        "url": getattr(article, "url", ""),
+                    }
+                    for article in articles
+                ],
+            }
+
+            # Also include raw news_sentiment for clients that use it
             result["news_sentiment"] = [
                 {
                     "id": article.id,
@@ -106,12 +133,28 @@ async def get_enhanced_market_data(
                     },
                     "relevance_score": float(article.relevance_score)
                 }
-                for article in enhanced_data.news_sentiment
+                for article in articles
             ]
-        
-        # Include technical signals if requested
+
+        # Include technical signals if requested — keyed as "signals" to match frontend MarketData type
         if include_technical and enhanced_data.technical_signals:
-            result["technical_signals"] = enhanced_data.technical_signals
+            raw_signals = enhanced_data.technical_signals
+            # Convert dict-based signals to array format matching frontend TradingSignal[]
+            if isinstance(raw_signals, dict):
+                result["signals"] = [
+                    {
+                        "indicator": indicator,
+                        "signal": data.get("signal", "NEUTRAL") if isinstance(data, dict) else str(data),
+                        "value": data.get("value", 0) if isinstance(data, dict) else 0,
+                        "description": data.get("description", "") if isinstance(data, dict) else "",
+                    }
+                    for indicator, data in raw_signals.items()
+                ]
+            else:
+                result["signals"] = raw_signals
+
+            # Also keep raw technical_signals for backwards compatibility
+            result["technical_signals"] = raw_signals
         
         # Include economic events if requested
         if include_economic and enhanced_data.economic_events:

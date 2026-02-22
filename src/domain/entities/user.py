@@ -16,7 +16,7 @@ from src.domain.value_objects import Money
 
 class RiskTolerance(Enum):
     CONSERVATIVE = "CONSERVATIVE"  # max 10% drawdown
-    MODERATE = "MODERATIVE"        # max 15% drawdown  
+    MODERATE = "MODERATE"           # max 15% drawdown
     AGGRESSIVE = "AGGRESSIVE"      # max 25% drawdown
 
 

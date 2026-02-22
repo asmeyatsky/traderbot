@@ -6,7 +6,7 @@ export type OrderSide = (typeof ORDER_SIDES)[number];
 export const ORDER_TYPES = ['MARKET', 'LIMIT', 'STOP_LOSS', 'TRAILING_STOP'] as const;
 export type OrderType = (typeof ORDER_TYPES)[number];
 
-export const ORDER_STATUSES = ['PENDING', 'FILLED', 'PARTIALLY_FILLED', 'CANCELLED', 'REJECTED'] as const;
+export const ORDER_STATUSES = ['PENDING', 'EXECUTED', 'PARTIALLY_FILLED', 'CANCELLED', 'FAILED'] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const RISK_TOLERANCES = ['CONSERVATIVE', 'MODERATE', 'AGGRESSIVE'] as const;

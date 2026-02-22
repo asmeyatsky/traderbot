@@ -8,6 +8,7 @@ Following clean architecture principles and DDD patterns.
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import List, Optional
 import uuid
 
@@ -52,7 +53,8 @@ class CreateOrderUseCase:
         order_type: str,  # This would be an enum in real implementation
         position_type: str,  # This would be an enum
         quantity: int,
-        limit_price: Optional[float] = None
+        limit_price: Optional[float] = None,
+        stop_price: Optional[float] = None
     ) -> Optional[Order]:
         """
         Execute the create order use case.
@@ -88,8 +90,8 @@ class CreateOrderUseCase:
             quantity=quantity,
             status=OrderStatus.PENDING,
             placed_at=datetime.now(),
-            price=Price(limit_price, 'USD') if limit_price else current_price,
-            stop_price=None,
+            price=Price(Decimal(str(limit_price)), 'USD') if limit_price else current_price,
+            stop_price=Price(Decimal(str(stop_price)), 'USD') if stop_price else None,
             filled_quantity=0,
             commission=None,
             notes=None

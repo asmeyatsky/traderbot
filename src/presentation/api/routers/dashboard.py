@@ -17,6 +17,7 @@ from src.domain.services.dashboard_analytics import DefaultDashboardAnalyticsSer
 from src.domain.entities.trading import Portfolio
 from src.domain.value_objects import Symbol
 from src.infrastructure.repositories import PortfolioRepository, PositionRepository, UserRepository
+from src.infrastructure.di_container import container
 from src.presentation.api.dependencies import (
     get_portfolio_repository,
     get_position_repository,
@@ -105,21 +106,41 @@ async def get_dashboard_overview(
 
         dashboard_metrics = dashboard_service.get_dashboard_metrics(portfolio, user)
 
+        # Fetch real current prices for performers
+        market_data_service = None
+        try:
+            market_data_service = container.adapters.market_data_service()
+        except Exception:
+            logger.warning("Market data service unavailable for dashboard prices")
+
+        def _get_price(sym_str: str) -> float:
+            if not market_data_service:
+                return 0.0
+            try:
+                price = market_data_service.get_current_price(Symbol(sym_str))
+                return float(price.amount) if price else 0.0
+            except Exception:
+                return 0.0
+
+        total_pnl = float(dashboard_metrics.realized_pnl.amount) + float(dashboard_metrics.unrealized_pnl.amount)
+        total_value = float(dashboard_metrics.total_value.amount)
+        total_pnl_percent = (total_pnl / total_value * 100) if total_value > 0 else 0.0
+
         result = {
             "user_id": user_id,
             "calculated_at": datetime.now().isoformat(),
-            "portfolio_value": float(dashboard_metrics.total_value.amount),
+            "portfolio_value": total_value,
             "daily_pnl": float(dashboard_metrics.daily_pnl.amount),
             "daily_pnl_percent": float(dashboard_metrics.daily_pnl_percentage),
-            "total_pnl": float(dashboard_metrics.realized_pnl.amount) + float(dashboard_metrics.unrealized_pnl.amount),
-            "total_pnl_percent": 0.0,
+            "total_pnl": total_pnl,
+            "total_pnl_percent": total_pnl_percent,
             "positions_count": dashboard_metrics.positions_count,
             "top_performers": [
-                {"symbol": str(symbol), "change_percent": float(pct), "current_price": 0.0}
+                {"symbol": str(symbol), "change_percent": float(pct), "current_price": _get_price(str(symbol))}
                 for symbol, pct in dashboard_metrics.top_gainers
             ],
             "worst_performers": [
-                {"symbol": str(symbol), "change_percent": float(pct), "current_price": 0.0}
+                {"symbol": str(symbol), "change_percent": float(pct), "current_price": _get_price(str(symbol))}
                 for symbol, pct in dashboard_metrics.top_losers
             ],
             "allocation": [

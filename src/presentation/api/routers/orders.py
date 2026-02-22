@@ -92,6 +92,7 @@ async def create_order(
             position_type=request.position_type,
             quantity=request.quantity,
             limit_price=request.limit_price,
+            stop_price=request.stop_price,
         )
 
         if not order:
