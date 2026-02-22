@@ -116,83 +116,52 @@ class MarketDataEnhancementService(ABC):
         pass
 
 
-class DefaultMarketDataEnhancementService(MarketDataEnhancementService, MarketDataPort):
+class DefaultMarketDataEnhancementService(MarketDataEnhancementService):
     """
-    Default implementation of market data enhancement services.
-    Note: This is a simplified implementation using mock data - in production,
-    this would connect to real market data APIs
+    Enhanced market data service that delegates to a real MarketDataPort
+    for live prices and enriches with news, technical signals, and economic data.
+
+    When no real market data provider is available, falls back to mock data.
     """
-    
-    def __init__(self):
-        self._mock_prices = self._generate_mock_prices()
+
+    def __init__(self, market_data_provider: Optional[MarketDataPort] = None):
+        self._provider = market_data_provider
         self._mock_news = self._generate_mock_news()
         self._mock_economic_events = self._generate_mock_economic_events()
-    
-    # ------------------------------------------------------------------
-    # MarketDataPort implementation
-    # ------------------------------------------------------------------
 
-    def get_current_price(self, symbol: Symbol) -> Optional[Price]:
-        """Get mock current price for a symbol."""
-        points = self._mock_prices.get(str(symbol), [])
-        if points:
-            return points[-1].price
-        # Return a deterministic fallback for unknown symbols
-        return Price(Decimal('100.00'), 'USD')
+    def _get_live_price(self, symbol: Symbol) -> Optional[Price]:
+        """Fetch live price from the real provider, return None on failure."""
+        if self._provider is None:
+            return None
+        try:
+            return self._provider.get_current_price(symbol)
+        except Exception:
+            return None
 
-    def get_historical_prices(self, symbol: Symbol, start_date=None, end_date=None) -> List[Price]:
-        """Get mock historical prices for a symbol."""
-        points = self._mock_prices.get(str(symbol), [])
-        return [p.price for p in points]
-
-    def get_market_news(self, symbol: Symbol) -> List[str]:
-        """Get mock news headlines for a symbol."""
-        articles = self._mock_news.get(str(symbol), [])
-        return [a.title for a in articles]
-
-    # ------------------------------------------------------------------
-    # Internal data generation
-    # ------------------------------------------------------------------
-
-    def _generate_mock_prices(self) -> Dict[str, List[MarketDataPoint]]:
-        """Generate mock historical price data"""
-        np.random.seed(42)  # For reproducible mock results
-        
-        symbols = ['AAPL', 'GOOG', 'GOOGL', 'MSFT', 'AMZN', 'META', 'NVDA', 'TSLA', 'SPY', 'QQQ', 'DIS', 'MCD']
-        data = {}
-        
-        for symbol_str in symbols:
-            symbol = Symbol(symbol_str)
-            base_price = np.random.uniform(50, 300)
-            price_points = []
-            
-            for i in range(30):  # 30 days of data
-                # Generate realistic price movement
-                change_pct = np.random.normal(0.001, 0.02)  # 0.1% average daily return, 2% std dev
-                current_price = base_price * (1 + change_pct)
-                
-                # Update base price for next iteration
-                base_price = current_price
-                
-                price_points.append(
+    def _fetch_historical_data(self, symbol: Symbol, days: int = 30) -> List[MarketDataPoint]:
+        """Fetch historical price data from the real provider."""
+        if self._provider is None:
+            return []
+        try:
+            from datetime import date as date_type
+            end = date_type.today()
+            start = end - timedelta(days=days)
+            prices = self._provider.get_historical_prices(symbol, start, end)
+            points = []
+            for i, price in enumerate(prices):
+                points.append(
                     MarketDataPoint(
                         symbol=symbol,
-                        price=Price(Decimal(str(round(current_price, 2))), 'USD'),
-                        volume=np.random.randint(1000000, 10000000),
-                        timestamp=datetime.now() - timedelta(days=30-i),
-                        source=MarketDataSource.MOCK_DATA,
-                        high=Price(Decimal(str(round(current_price * 1.02, 2))), 'USD'),
-                        low=Price(Decimal(str(round(current_price * 0.98, 2))), 'USD'),
-                        open=Price(Decimal(str(round(current_price * 0.995, 2))), 'USD'),
-                        close=Price(Decimal(str(round(current_price, 2))), 'USD'),
-                        change=Decimal(str(round(change_pct * 100, 4))),
-                        change_percent=Decimal(str(round(change_pct * 100, 4)))
+                        price=price,
+                        volume=0,
+                        timestamp=datetime.now() - timedelta(days=len(prices) - i),
+                        source=MarketDataSource.YAHOO_FINANCE,
+                        close=price,
                     )
                 )
-            
-            data[symbol_str] = price_points
-        
-        return data
+            return points
+        except Exception:
+            return []
     
     def _generate_mock_news(self) -> Dict[str, List[NewsArticle]]:
         """Generate mock news data"""
@@ -253,32 +222,30 @@ class DefaultMarketDataEnhancementService(MarketDataEnhancementService, MarketDa
         
         return events
     
-    def get_enhanced_market_data(self, symbol: Symbol, 
+    def get_enhanced_market_data(self, symbol: Symbol,
                                 sources: List[MarketDataSource] = None) -> EnhancedMarketData:
         """
-        Get enhanced market data from multiple sources
+        Get enhanced market data from real API providers with enrichment.
         """
-        if sources is None:
-            sources = [MarketDataSource.MOCK_DATA]  # Default to mock data
-        
-        # Get current price (last in our mock data)
-        current_price = self._mock_prices.get(str(symbol), [])[-1].price if self._mock_prices.get(str(symbol)) else Price(Decimal('100.00'), 'USD')
-        
-        # Get historical data points
-        market_data_points = self._mock_prices.get(str(symbol), [])
-        
+        # Fetch live current price
+        live_price = self._get_live_price(symbol)
+        current_price = live_price if live_price else Price(Decimal('0.00'), 'USD')
+
+        # Fetch historical data points from real provider
+        market_data_points = self._fetch_historical_data(symbol)
+
         # Get news sentiment
         news_sentiment = self.get_news_sentiment(symbol)
-        
-        # Calculate volatility forecast
+
+        # Calculate volatility forecast from historical data
         volatility = self.calculate_volatility_forecast(symbol)
-        
+
         # Get technical signals
         technical_signals = self.get_technical_signals(symbol)
-        
+
         # Get upcoming economic events
         economic_events = self.get_economic_calendar(7)
-        
+
         return EnhancedMarketData(
             symbol=symbol,
             current_price=current_price,
@@ -307,30 +274,22 @@ class DefaultMarketDataEnhancementService(MarketDataEnhancementService, MarketDa
     
     def calculate_volatility_forecast(self, symbol: Symbol, lookback_days: int = 30) -> Decimal:
         """
-        Calculate volatility forecast for a symbol
+        Calculate annualised volatility forecast from historical prices.
         """
-        # Mock calculation based on historical data
-        price_data = self._mock_prices.get(str(symbol), [])
-        if not price_data:
-            return Decimal('0.20')  # Default 20% volatility
-        
-        # Calculate daily returns volatility
-        prices = [point.price.amount for point in price_data[-lookback_days:]]
-        if len(prices) < 2:
+        price_data = self._fetch_historical_data(symbol, days=lookback_days)
+        if len(price_data) < 2:
+            return Decimal('0.20')  # Default 20% when no data
+
+        prices = [float(point.price.amount) for point in price_data]
+        returns = [(prices[i] - prices[i - 1]) / prices[i - 1]
+                    for i in range(1, len(prices)) if prices[i - 1] != 0]
+
+        if not returns:
             return Decimal('0.20')
-        
-        returns = []
-        for i in range(1, len(prices)):
-            ret = (prices[i] - prices[i-1]) / prices[i-1]
-            returns.append(float(ret))
-        
-        # Calculate annualized volatility
-        if returns:
-            daily_vol = np.std(returns)
-            annualized_vol = daily_vol * Decimal(str(np.sqrt(252)))  # 252 trading days
-            return min(annualized_vol, Decimal('1.0'))  # Cap at 100%
-        
-        return Decimal('0.20')
+
+        daily_vol = float(np.std(returns))
+        annualized_vol = daily_vol * float(np.sqrt(252))
+        return min(Decimal(str(round(annualized_vol, 4))), Decimal('1.0'))
     
     def get_technical_signals(self, symbol: Symbol) -> Dict[str, str]:
         """

@@ -295,7 +295,7 @@ class FinnhubAdapter(MarketDataPort, NewsAnalysisPort):
 
 
 # Combine adapters into a unified data service
-class MarketDataService:
+class MarketDataService(MarketDataPort):
     """
     Unified service that combines multiple market data adapters.
 

@@ -305,8 +305,6 @@ async def startup_event():
         try:
             from src.infrastructure.scheduler import start_scheduler
             from src.application.services.autonomous_trading_service import AutonomousTradingService
-            from src.infrastructure.api_clients.market_data import MarketDataService
-
             trading_service = AutonomousTradingService(
                 user_repository=container.repositories.user_repository(),
                 portfolio_repository=container.repositories.portfolio_repository(),
@@ -317,7 +315,7 @@ async def startup_event():
                 broker_service=container.adapters.alpaca_broker_service(),
                 risk_manager=container.adapters.risk_manager(),
                 circuit_breaker=container.adapters.circuit_breaker_service(),
-                market_data_service=MarketDataService(),
+                market_data_service=container.adapters.market_data_service(),
                 confidence_threshold=settings.AUTO_TRADING_CONFIDENCE_THRESHOLD,
             )
             start_scheduler(trading_service, cycle_minutes=settings.AUTO_TRADING_CYCLE_MINUTES)

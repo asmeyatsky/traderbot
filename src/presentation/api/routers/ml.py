@@ -102,11 +102,11 @@ async def get_price_prediction(
         else:
             predicted_direction = "NEUTRAL"
 
-        # Fetch current price from market data service for frontend display
+        # Fetch current price from real market data service
         try:
-            market_service = container.services.market_data_enhancement_service()
-            enhanced = market_service.get_enhanced_market_data(symbol_obj)
-            current_price = float(enhanced.current_price.amount)
+            market_service = container.adapters.market_data_service()
+            price = market_service.get_current_price(symbol_obj)
+            current_price = float(price.amount) if price else 0.0
         except Exception:
             current_price = 0.0
 

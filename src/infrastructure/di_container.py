@@ -40,6 +40,7 @@ from src.infrastructure.data_processing.news_aggregation_service import (
 from src.infrastructure.data_processing.backtesting_engine import (
     YahooFinanceDataProvider
 )
+from src.infrastructure.api_clients.market_data import MarketDataService
 from src.infrastructure.broker_integration import (
     AlpacaBrokerService,
     BrokerIntegrationService,
@@ -73,6 +74,7 @@ class ServiceContainer(containers.DeclarativeContainer):
     """Container for domain and application service dependencies."""
 
     repositories = providers.DependenciesContainer()
+    adapters = providers.DependenciesContainer()
 
     # Core domain services
     trading_domain_service = providers.Factory(DefaultTradingDomainService)
@@ -98,8 +100,11 @@ class ServiceContainer(containers.DeclarativeContainer):
     advanced_risk_management_service = providers.Factory(DefaultAdvancedRiskManagementService)
     dashboard_analytics_service = providers.Factory(DefaultDashboardAnalyticsService)
 
-    # Market data enhancement (Singleton to avoid resetting np.random.seed on every call)
-    market_data_enhancement_service = providers.Singleton(DefaultMarketDataEnhancementService)
+    # Market data enhancement backed by real API providers
+    market_data_enhancement_service = providers.Singleton(
+        DefaultMarketDataEnhancementService,
+        market_data_provider=adapters.market_data_service,
+    )
 
     # Performance optimization
     performance_optimizer_service = providers.Factory(DefaultPerformanceOptimizerService)
@@ -128,6 +133,9 @@ class AdapterContainer(containers.DeclarativeContainer):
 
     # Notification adapter (replaces object() placeholder)
     notification_service = providers.Singleton(LoggingNotificationAdapter)
+
+    # Real market data service (Polygon → AlphaVantage → Finnhub → Yahoo fallback)
+    market_data_service = providers.Singleton(MarketDataService)
 
     # Data provider for backtesting and market data
     data_provider_service = providers.Factory(YahooFinanceDataProvider)
@@ -186,7 +194,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         portfolio_repository=repositories.portfolio_repository,
         user_repository=repositories.user_repository,
         trading_service=services.trading_domain_service,
-        market_data_service=services.market_data_enhancement_service,
+        market_data_service=adapters.market_data_service,
     )
 
     execute_trade_use_case = providers.Factory(
@@ -196,7 +204,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         user_repository=repositories.user_repository,
         trading_service=services.trading_domain_service,
         risk_service=services.risk_analytics_service,
-        market_data_service=services.market_data_enhancement_service,
+        market_data_service=adapters.market_data_service,
         trading_execution_service=adapters.broker_integration_service,
         notification_service=adapters.notification_service,
         ai_model_service=services.ml_model_service,
@@ -205,14 +213,14 @@ class UseCaseContainer(containers.DeclarativeContainer):
     analyze_news_sentiment_use_case = providers.Factory(
         AnalyzeNewsSentimentUseCase,
         news_analysis_service=services.news_aggregation_service,
-        market_data_service=services.market_data_enhancement_service,
+        market_data_service=adapters.market_data_service,
         portfolio_repository=repositories.portfolio_repository,
     )
 
     get_portfolio_performance_use_case = providers.Factory(
         GetPortfolioPerformanceUseCase,
         portfolio_repository=repositories.portfolio_repository,
-        market_data_service=services.market_data_enhancement_service,
+        market_data_service=adapters.market_data_service,
     )
 
     get_user_preferences_use_case = providers.Factory(
@@ -230,8 +238,8 @@ class Container(containers.DeclarativeContainer):
     })
 
     repositories = providers.Container(RepositoryContainer)
-    services = providers.Container(ServiceContainer, repositories=repositories)
     adapters = providers.Container(AdapterContainer)
+    services = providers.Container(ServiceContainer, repositories=repositories, adapters=adapters)
     use_cases = providers.Container(UseCaseContainer,
                                    repositories=repositories,
                                    services=services,
