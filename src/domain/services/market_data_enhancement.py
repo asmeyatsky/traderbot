@@ -17,6 +17,7 @@ from enum import Enum
 
 from src.domain.value_objects import Symbol, Price, NewsSentiment
 from src.domain.entities.trading import Order
+from src.domain.ports import MarketDataPort
 
 
 class MarketDataSource(Enum):
@@ -115,7 +116,7 @@ class MarketDataEnhancementService(ABC):
         pass
 
 
-class DefaultMarketDataEnhancementService(MarketDataEnhancementService):
+class DefaultMarketDataEnhancementService(MarketDataEnhancementService, MarketDataPort):
     """
     Default implementation of market data enhancement services.
     Note: This is a simplified implementation using mock data - in production,
@@ -127,11 +128,37 @@ class DefaultMarketDataEnhancementService(MarketDataEnhancementService):
         self._mock_news = self._generate_mock_news()
         self._mock_economic_events = self._generate_mock_economic_events()
     
+    # ------------------------------------------------------------------
+    # MarketDataPort implementation
+    # ------------------------------------------------------------------
+
+    def get_current_price(self, symbol: Symbol) -> Optional[Price]:
+        """Get mock current price for a symbol."""
+        points = self._mock_prices.get(str(symbol), [])
+        if points:
+            return points[-1].price
+        # Return a deterministic fallback for unknown symbols
+        return Price(Decimal('100.00'), 'USD')
+
+    def get_historical_prices(self, symbol: Symbol, start_date=None, end_date=None) -> List[Price]:
+        """Get mock historical prices for a symbol."""
+        points = self._mock_prices.get(str(symbol), [])
+        return [p.price for p in points]
+
+    def get_market_news(self, symbol: Symbol) -> List[str]:
+        """Get mock news headlines for a symbol."""
+        articles = self._mock_news.get(str(symbol), [])
+        return [a.title for a in articles]
+
+    # ------------------------------------------------------------------
+    # Internal data generation
+    # ------------------------------------------------------------------
+
     def _generate_mock_prices(self) -> Dict[str, List[MarketDataPoint]]:
         """Generate mock historical price data"""
         np.random.seed(42)  # For reproducible mock results
         
-        symbols = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'SPY', 'QQQ', 'DIS', 'MCD']
+        symbols = ['AAPL', 'GOOG', 'GOOGL', 'MSFT', 'AMZN', 'META', 'NVDA', 'TSLA', 'SPY', 'QQQ', 'DIS', 'MCD']
         data = {}
         
         for symbol_str in symbols:
@@ -169,7 +196,7 @@ class DefaultMarketDataEnhancementService(MarketDataEnhancementService):
     
     def _generate_mock_news(self) -> Dict[str, List[NewsArticle]]:
         """Generate mock news data"""
-        symbols = ['AAPL', 'GOOGL', 'MSFT', 'TSLA']
+        symbols = ['AAPL', 'GOOG', 'GOOGL', 'MSFT', 'AMZN', 'META', 'NVDA', 'TSLA']
         news_data = {}
         
         for symbol in symbols:

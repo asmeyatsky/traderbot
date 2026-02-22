@@ -98,8 +98,8 @@ class ServiceContainer(containers.DeclarativeContainer):
     advanced_risk_management_service = providers.Factory(DefaultAdvancedRiskManagementService)
     dashboard_analytics_service = providers.Factory(DefaultDashboardAnalyticsService)
 
-    # Market data enhancement
-    market_data_enhancement_service = providers.Factory(DefaultMarketDataEnhancementService)
+    # Market data enhancement (Singleton to avoid resetting np.random.seed on every call)
+    market_data_enhancement_service = providers.Singleton(DefaultMarketDataEnhancementService)
 
     # Performance optimization
     performance_optimizer_service = providers.Factory(DefaultPerformanceOptimizerService)
@@ -186,7 +186,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         portfolio_repository=repositories.portfolio_repository,
         user_repository=repositories.user_repository,
         trading_service=services.trading_domain_service,
-        market_data_service=services.news_aggregation_service,
+        market_data_service=services.market_data_enhancement_service,
     )
 
     execute_trade_use_case = providers.Factory(
@@ -196,7 +196,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         user_repository=repositories.user_repository,
         trading_service=services.trading_domain_service,
         risk_service=services.risk_analytics_service,
-        market_data_service=services.news_aggregation_service,
+        market_data_service=services.market_data_enhancement_service,
         trading_execution_service=adapters.broker_integration_service,
         notification_service=adapters.notification_service,
         ai_model_service=services.ml_model_service,
@@ -205,14 +205,14 @@ class UseCaseContainer(containers.DeclarativeContainer):
     analyze_news_sentiment_use_case = providers.Factory(
         AnalyzeNewsSentimentUseCase,
         news_analysis_service=services.news_aggregation_service,
-        market_data_service=services.news_aggregation_service,
+        market_data_service=services.market_data_enhancement_service,
         portfolio_repository=repositories.portfolio_repository,
     )
 
     get_portfolio_performance_use_case = providers.Factory(
         GetPortfolioPerformanceUseCase,
         portfolio_repository=repositories.portfolio_repository,
-        market_data_service=services.news_aggregation_service,
+        market_data_service=services.market_data_enhancement_service,
     )
 
     get_user_preferences_use_case = providers.Factory(

@@ -46,7 +46,7 @@ class User:
     updated_at: datetime
     risk_tolerance: RiskTolerance
     investment_goal: InvestmentGoal
-    max_position_size_percentage: Decimal = Decimal('5')  # Max 5% per stock
+    max_position_size_percentage: Decimal = Decimal('25')  # Max 25% per stock
     daily_loss_limit: Optional[Money] = None
     weekly_loss_limit: Optional[Money] = None
     monthly_loss_limit: Optional[Money] = None
