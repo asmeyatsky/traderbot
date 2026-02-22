@@ -9,8 +9,8 @@ describe('constants', () => {
   it('defines order types', () => {
     expect(ORDER_TYPES).toContain('MARKET');
     expect(ORDER_TYPES).toContain('LIMIT');
-    expect(ORDER_TYPES).toContain('STOP');
-    expect(ORDER_TYPES).toContain('STOP_LIMIT');
+    expect(ORDER_TYPES).toContain('STOP_LOSS');
+    expect(ORDER_TYPES).toContain('TRAILING_STOP');
   });
 
   it('defines order statuses', () => {
