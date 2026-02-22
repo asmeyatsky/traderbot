@@ -33,9 +33,11 @@ from src.application.dtos.user_dtos import (
 from src.presentation.api.dependencies import (
     get_user_repository,
     get_user_preferences_use_case,
+    get_portfolio_repository,
 )
-from src.infrastructure.repositories import UserRepository
+from src.infrastructure.repositories import UserRepository, PortfolioRepository
 from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
+from src.domain.entities.trading import Portfolio
 from src.domain.value_objects import Money
 
 logger = logging.getLogger(__name__)
@@ -87,6 +89,7 @@ async def register(
     request: Request,
     body: CreateUserRequest,
     user_repository: UserRepository = Depends(get_user_repository),
+    portfolio_repository: PortfolioRepository = Depends(get_portfolio_repository),
 ) -> UserResponse:
     """
     Register a new user account.
@@ -128,6 +131,17 @@ async def register(
 
         # Save user with password hash
         saved_user = user_repository.save(user, password_hash=password_hash)
+
+        # Auto-create portfolio with $10,000 paper-trading cash
+        portfolio = Portfolio(
+            id=str(uuid.uuid4()),
+            user_id=saved_user.id,
+            positions=[],
+            created_at=now,
+            updated_at=now,
+            cash_balance=Money(Decimal('10000'), 'USD'),
+        )
+        portfolio_repository.save(portfolio)
 
         return _user_to_response(saved_user)
 

@@ -304,58 +304,67 @@ class MarketDataService(MarketDataPort):
     """
 
     def __init__(self):
-        self.alpha_vantage = AlphaVantageAdapter()
-        self.polygon = PolygonAdapter()
-        self.yahoo = YahooFinanceAdapter()
-        self.finnhub = FinnhubAdapter()
+        self._adapters: List[MarketDataPort] = []
+
+        # Yahoo Finance first — free, no API key needed
+        if yf is not None:
+            try:
+                self._adapters.append(YahooFinanceAdapter())
+            except Exception as e:
+                print(f"Failed to init YahooFinanceAdapter: {e}")
+
+        # Polygon — requires API key and SDK
+        if RESTClient is not None and settings.POLYGON_API_KEY:
+            try:
+                self._adapters.append(PolygonAdapter())
+            except Exception as e:
+                print(f"Failed to init PolygonAdapter: {e}")
+
+        # Alpha Vantage — requires API key and SDK
+        if TimeSeries is not None and settings.ALPHA_VANTAGE_API_KEY:
+            try:
+                self._adapters.append(AlphaVantageAdapter())
+            except Exception as e:
+                print(f"Failed to init AlphaVantageAdapter: {e}")
+
+        # Finnhub — requires API key and SDK
+        if finnhub is not None and settings.FINNHUB_API_KEY:
+            try:
+                self._adapters.append(FinnhubAdapter())
+            except Exception as e:
+                print(f"Failed to init FinnhubAdapter: {e}")
+
+        if not self._adapters:
+            print("WARNING: No market data adapters available — all prices will be None")
 
     def get_current_price(self, symbol: Symbol) -> Optional[Price]:
         """Get current price using multiple fallback sources."""
-        # Try Polygon first (typically fastest/lowest latency)
-        price = self.polygon.get_current_price(symbol)
-        if price:
-            return price
-
-        # Try Alpha Vantage
-        price = self.alpha_vantage.get_current_price(symbol)
-        if price:
-            return price
-
-        # Try Finnhub
-        price = self.finnhub.get_current_price(symbol)
-        if price:
-            return price
-
-        # Try Yahoo Finance as last resort
-        return self.yahoo.get_current_price(symbol)
+        for adapter in self._adapters:
+            try:
+                price = adapter.get_current_price(symbol)
+                if price:
+                    return price
+            except Exception as e:
+                print(f"Error fetching price from {type(adapter).__name__} for {symbol}: {e}")
+        return None
 
     def get_historical_prices(self, symbol: Symbol, start_date: date, end_date: date) -> List[Price]:
         """Get historical prices using multiple fallback sources."""
-        # Try Polygon first
-        prices = self.polygon.get_historical_prices(symbol, start_date, end_date)
-        if prices:
-            return prices
-
-        # Try Alpha Vantage
-        prices = self.alpha_vantage.get_historical_prices(symbol, start_date, end_date)
-        if prices:
-            return prices
-
-        # Try Finnhub
-        prices = self.finnhub.get_historical_prices(symbol, start_date, end_date)
-        if prices:
-            return prices
-
-        # Try Yahoo Finance as last resort
-        return self.yahoo.get_historical_prices(symbol, start_date, end_date)
+        for adapter in self._adapters:
+            try:
+                prices = adapter.get_historical_prices(symbol, start_date, end_date)
+                if prices:
+                    return prices
+            except Exception as e:
+                print(f"Error fetching historical prices from {type(adapter).__name__} for {symbol}: {e}")
+        return []
 
     def get_market_news(self, symbol: Symbol) -> List[str]:
         """Get market news using multiple data sources."""
         news = []
-
-        # Combine news from multiple sources
-        news.extend(self.polygon.get_market_news(symbol))
-        news.extend(self.finnhub.get_market_news(symbol))
-        news.extend(self.alpha_vantage.get_market_news(symbol))
-
+        for adapter in self._adapters:
+            try:
+                news.extend(adapter.get_market_news(symbol))
+            except Exception as e:
+                print(f"Error fetching news from {type(adapter).__name__} for {symbol}: {e}")
         return news

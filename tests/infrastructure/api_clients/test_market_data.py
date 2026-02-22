@@ -424,19 +424,36 @@ class TestMarketDataService:
                  patch("src.infrastructure.api_clients.market_data.finnhub.Client"):
                 svc = MarketDataService()
 
-        # Replace adapters with fresh mocks for fine-grained control
+        # Replace adapters with fresh mocks for fine-grained control.
+        # Named attrs kept for test readability; _adapters list drives fallback order.
+        svc.yahoo = MagicMock()
         svc.polygon = MagicMock()
         svc.alpha_vantage = MagicMock()
         svc.finnhub = MagicMock()
-        svc.yahoo = MagicMock()
+        svc._adapters = [svc.yahoo, svc.polygon, svc.alpha_vantage, svc.finnhub]
         return svc
 
     # -- get_current_price fallback chain --
+    # Fallback order: Yahoo → Polygon → Alpha Vantage → Finnhub
 
-    def test_current_price_polygon_first(self):
-        """Should return Polygon price when available."""
+    def test_current_price_yahoo_first(self):
+        """Should return Yahoo price when available (first in chain)."""
         svc = self._make_service_with_mocks()
         expected = Price(amount=Decimal("155.50"), currency="USD")
+        svc.yahoo.get_current_price.return_value = expected
+
+        result = svc.get_current_price(AAPL)
+
+        assert result == expected
+        svc.polygon.get_current_price.assert_not_called()
+        svc.alpha_vantage.get_current_price.assert_not_called()
+        svc.finnhub.get_current_price.assert_not_called()
+
+    def test_current_price_falls_to_polygon(self):
+        """Should fall back to Polygon when Yahoo fails."""
+        svc = self._make_service_with_mocks()
+        svc.yahoo.get_current_price.return_value = None
+        expected = Price(amount=Decimal("155.25"), currency="USD")
         svc.polygon.get_current_price.return_value = expected
 
         result = svc.get_current_price(AAPL)
@@ -444,13 +461,13 @@ class TestMarketDataService:
         assert result == expected
         svc.alpha_vantage.get_current_price.assert_not_called()
         svc.finnhub.get_current_price.assert_not_called()
-        svc.yahoo.get_current_price.assert_not_called()
 
     def test_current_price_falls_to_alpha_vantage(self):
-        """Should fall back to Alpha Vantage when Polygon fails."""
+        """Should fall back to Alpha Vantage when Yahoo and Polygon fail."""
         svc = self._make_service_with_mocks()
+        svc.yahoo.get_current_price.return_value = None
         svc.polygon.get_current_price.return_value = None
-        expected = Price(amount=Decimal("155.25"), currency="USD")
+        expected = Price(amount=Decimal("155.00"), currency="USD")
         svc.alpha_vantage.get_current_price.return_value = expected
 
         result = svc.get_current_price(AAPL)
@@ -459,26 +476,13 @@ class TestMarketDataService:
         svc.finnhub.get_current_price.assert_not_called()
 
     def test_current_price_falls_to_finnhub(self):
-        """Should fall back to Finnhub when Polygon and Alpha Vantage fail."""
+        """Should fall back to Finnhub as last resort."""
         svc = self._make_service_with_mocks()
+        svc.yahoo.get_current_price.return_value = None
         svc.polygon.get_current_price.return_value = None
         svc.alpha_vantage.get_current_price.return_value = None
-        expected = Price(amount=Decimal("155.00"), currency="USD")
-        svc.finnhub.get_current_price.return_value = expected
-
-        result = svc.get_current_price(AAPL)
-
-        assert result == expected
-        svc.yahoo.get_current_price.assert_not_called()
-
-    def test_current_price_falls_to_yahoo(self):
-        """Should fall back to Yahoo Finance as last resort."""
-        svc = self._make_service_with_mocks()
-        svc.polygon.get_current_price.return_value = None
-        svc.alpha_vantage.get_current_price.return_value = None
-        svc.finnhub.get_current_price.return_value = None
         expected = Price(amount=Decimal("154.75"), currency="USD")
-        svc.yahoo.get_current_price.return_value = expected
+        svc.finnhub.get_current_price.return_value = expected
 
         result = svc.get_current_price(AAPL)
         assert result == expected
@@ -486,33 +490,33 @@ class TestMarketDataService:
     def test_current_price_all_fail(self):
         """Should return None when all providers fail."""
         svc = self._make_service_with_mocks()
+        svc.yahoo.get_current_price.return_value = None
         svc.polygon.get_current_price.return_value = None
         svc.alpha_vantage.get_current_price.return_value = None
         svc.finnhub.get_current_price.return_value = None
-        svc.yahoo.get_current_price.return_value = None
 
         result = svc.get_current_price(AAPL)
         assert result is None
 
     # -- get_historical_prices fallback chain --
 
-    def test_historical_prices_polygon_first(self):
-        """Should return Polygon historical prices when available."""
+    def test_historical_prices_yahoo_first(self):
+        """Should return Yahoo historical prices when available."""
         svc = self._make_service_with_mocks()
         expected = [Price(amount=Decimal("150"), currency="USD")]
-        svc.polygon.get_historical_prices.return_value = expected
+        svc.yahoo.get_historical_prices.return_value = expected
 
         result = svc.get_historical_prices(AAPL, WEEK_AGO, TODAY)
 
         assert result == expected
-        svc.alpha_vantage.get_historical_prices.assert_not_called()
+        svc.polygon.get_historical_prices.assert_not_called()
 
-    def test_historical_prices_falls_to_alpha_vantage(self):
-        """Should fall back to Alpha Vantage for historical prices."""
+    def test_historical_prices_falls_to_polygon(self):
+        """Should fall back to Polygon for historical prices."""
         svc = self._make_service_with_mocks()
-        svc.polygon.get_historical_prices.return_value = []
+        svc.yahoo.get_historical_prices.return_value = []
         expected = [Price(amount=Decimal("151"), currency="USD")]
-        svc.alpha_vantage.get_historical_prices.return_value = expected
+        svc.polygon.get_historical_prices.return_value = expected
 
         result = svc.get_historical_prices(AAPL, WEEK_AGO, TODAY)
         assert result == expected
@@ -520,10 +524,10 @@ class TestMarketDataService:
     def test_historical_prices_all_fail(self):
         """Should return empty list when all providers fail."""
         svc = self._make_service_with_mocks()
+        svc.yahoo.get_historical_prices.return_value = []
         svc.polygon.get_historical_prices.return_value = []
         svc.alpha_vantage.get_historical_prices.return_value = []
         svc.finnhub.get_historical_prices.return_value = []
-        svc.yahoo.get_historical_prices.return_value = []
 
         result = svc.get_historical_prices(AAPL, WEEK_AGO, TODAY)
         assert result == []
@@ -533,6 +537,7 @@ class TestMarketDataService:
     def test_market_news_aggregates_sources(self):
         """News should aggregate from multiple sources (not fallback)."""
         svc = self._make_service_with_mocks()
+        svc.yahoo.get_market_news.return_value = []
         svc.polygon.get_market_news.return_value = ["Polygon news"]
         svc.finnhub.get_market_news.return_value = ["Finnhub news 1", "Finnhub news 2"]
         svc.alpha_vantage.get_market_news.return_value = []
@@ -546,6 +551,7 @@ class TestMarketDataService:
     def test_market_news_all_empty(self):
         """Should return empty list when no sources have news."""
         svc = self._make_service_with_mocks()
+        svc.yahoo.get_market_news.return_value = []
         svc.polygon.get_market_news.return_value = []
         svc.finnhub.get_market_news.return_value = []
         svc.alpha_vantage.get_market_news.return_value = []

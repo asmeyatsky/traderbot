@@ -63,9 +63,9 @@ export default function FundAccountStep({ onNext }: FundAccountStepProps) {
 
   return (
     <div className="animate-fade-in text-center">
-      <h2 className="text-2xl font-bold text-gray-900">Fund Your Paper Account</h2>
+      <h2 className="text-2xl font-bold text-gray-900">Top Up Your Paper Account</h2>
       <p className="mt-2 text-sm text-gray-600">
-        Add virtual cash to start practicing trades risk-free. No real money is involved — you can always add more later.
+        You already have $10,000 in virtual cash to get started. Want more? Add extra funds below — no real money involved.
       </p>
 
       <div className="mt-8 flex justify-center gap-3">
