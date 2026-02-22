@@ -7,7 +7,7 @@ model performance, portfolio optimization, backtesting, and risk analysis.
 Uses FastAPI TestClient with mocked DI dependencies to isolate
 the presentation layer from infrastructure concerns.
 
-Note: Several ML endpoints use container.<service>() directly rather than
+Note: Several ML endpoints use container.services.<service>() directly rather than
 FastAPI Depends(), so those must be patched via unittest.mock.patch on the
 container attribute.
 """
@@ -177,18 +177,20 @@ class TestGetPricePrediction:
 
     @patch("src.presentation.api.routers.ml.container")
     def test_success(self, mock_container, client, override_auth, mock_ml_service):
-        mock_container.ml_model_service.return_value = mock_ml_service
+        mock_container.services.ml_model_service.return_value = mock_ml_service
+        mock_container.services.market_data_enhancement_service.side_effect = Exception("no market data")
 
         response = client.get("/api/v1/ml/predict/AAPL")
         assert response.status_code == 200
         data = response.json()
         assert data["symbol"] == "AAPL"
-        assert data["prediction"] == "BUY"
+        assert data["predicted_direction"] == "UP"
         assert data["confidence"] == 0.85
 
     @patch("src.presentation.api.routers.ml.container")
     def test_custom_lookback(self, mock_container, client, override_auth, mock_ml_service):
-        mock_container.ml_model_service.return_value = mock_ml_service
+        mock_container.services.ml_model_service.return_value = mock_ml_service
+        mock_container.services.market_data_enhancement_service.side_effect = Exception("no market data")
 
         response = client.get("/api/v1/ml/predict/MSFT", params={"lookback_days": 60})
         assert response.status_code == 200
@@ -197,7 +199,7 @@ class TestGetPricePrediction:
 
     @patch("src.presentation.api.routers.ml.container")
     def test_ml_service_unavailable_returns_500(self, mock_container, client, override_auth):
-        mock_container.ml_model_service.return_value = None
+        mock_container.services.ml_model_service.return_value = None
 
         response = client.get("/api/v1/ml/predict/AAPL")
         assert response.status_code == 500
@@ -214,9 +216,9 @@ class TestGetPricePrediction:
 class TestGetTradingSignal:
 
     @patch("src.presentation.api.routers.ml.container")
-    def test_success(self, mock_container, client, mock_ml_service, mock_news_analyzer):
-        mock_container.ml_model_service.return_value = mock_ml_service
-        mock_container.news_impact_analyzer_service.return_value = mock_news_analyzer
+    def test_success(self, mock_container, client, override_auth, mock_ml_service, mock_news_analyzer):
+        mock_container.services.ml_model_service.return_value = mock_ml_service
+        mock_container.services.news_impact_analyzer_service.return_value = mock_news_analyzer
 
         response = client.get("/api/v1/ml/signal/AAPL/test-user-1")
         assert response.status_code == 200
@@ -227,9 +229,9 @@ class TestGetTradingSignal:
         assert data["user_risk_profile"] == "MODERATE"
 
     @patch("src.presentation.api.routers.ml.container")
-    def test_custom_risk_level(self, mock_container, client, mock_ml_service, mock_news_analyzer):
-        mock_container.ml_model_service.return_value = mock_ml_service
-        mock_container.news_impact_analyzer_service.return_value = mock_news_analyzer
+    def test_custom_risk_level(self, mock_container, client, override_auth, mock_ml_service, mock_news_analyzer):
+        mock_container.services.ml_model_service.return_value = mock_ml_service
+        mock_container.services.news_impact_analyzer_service.return_value = mock_news_analyzer
 
         response = client.get(
             "/api/v1/ml/signal/AAPL/test-user-1",
@@ -241,9 +243,9 @@ class TestGetTradingSignal:
         assert data["investment_goal"] == "MAXIMUM_RETURNS"
 
     @patch("src.presentation.api.routers.ml.container")
-    def test_invalid_risk_level_returns_400(self, mock_container, client, mock_ml_service, mock_news_analyzer):
-        mock_container.ml_model_service.return_value = mock_ml_service
-        mock_container.news_impact_analyzer_service.return_value = mock_news_analyzer
+    def test_invalid_risk_level_returns_400(self, mock_container, client, override_auth, mock_ml_service, mock_news_analyzer):
+        mock_container.services.ml_model_service.return_value = mock_ml_service
+        mock_container.services.news_impact_analyzer_service.return_value = mock_news_analyzer
 
         response = client.get(
             "/api/v1/ml/signal/AAPL/test-user-1",
@@ -253,9 +255,9 @@ class TestGetTradingSignal:
         assert "Invalid risk level" in response.json()["detail"]
 
     @patch("src.presentation.api.routers.ml.container")
-    def test_invalid_investment_goal_returns_400(self, mock_container, client, mock_ml_service, mock_news_analyzer):
-        mock_container.ml_model_service.return_value = mock_ml_service
-        mock_container.news_impact_analyzer_service.return_value = mock_news_analyzer
+    def test_invalid_investment_goal_returns_400(self, mock_container, client, override_auth, mock_ml_service, mock_news_analyzer):
+        mock_container.services.ml_model_service.return_value = mock_ml_service
+        mock_container.services.news_impact_analyzer_service.return_value = mock_news_analyzer
 
         response = client.get(
             "/api/v1/ml/signal/AAPL/test-user-1",
@@ -265,9 +267,9 @@ class TestGetTradingSignal:
         assert "Invalid investment goal" in response.json()["detail"]
 
     @patch("src.presentation.api.routers.ml.container")
-    def test_services_unavailable_returns_500(self, mock_container, client):
-        mock_container.ml_model_service.return_value = None
-        mock_container.news_impact_analyzer_service.return_value = None
+    def test_services_unavailable_returns_500(self, mock_container, client, override_auth):
+        mock_container.services.ml_model_service.return_value = None
+        mock_container.services.news_impact_analyzer_service.return_value = None
 
         response = client.get("/api/v1/ml/signal/AAPL/test-user-1")
         assert response.status_code == 500
@@ -281,7 +283,7 @@ class TestGetModelPerformance:
 
     @patch("src.presentation.api.routers.ml.container")
     def test_success_specific_model(self, mock_container, client, override_auth, mock_ml_service):
-        mock_container.ml_model_service.return_value = mock_ml_service
+        mock_container.services.ml_model_service.return_value = mock_ml_service
 
         response = client.get("/api/v1/ml/model-performance/lstm")
         assert response.status_code == 200
@@ -292,7 +294,7 @@ class TestGetModelPerformance:
 
     @patch("src.presentation.api.routers.ml.container")
     def test_success_all_models(self, mock_container, client, override_auth, mock_ml_service):
-        mock_container.ml_model_service.return_value = mock_ml_service
+        mock_container.services.ml_model_service.return_value = mock_ml_service
 
         response = client.get("/api/v1/ml/model-performance/all")
         assert response.status_code == 200
@@ -301,7 +303,7 @@ class TestGetModelPerformance:
 
     @patch("src.presentation.api.routers.ml.container")
     def test_invalid_model_type_returns_400(self, mock_container, client, override_auth, mock_ml_service):
-        mock_container.ml_model_service.return_value = mock_ml_service
+        mock_container.services.ml_model_service.return_value = mock_ml_service
 
         response = client.get("/api/v1/ml/model-performance/invalid_model")
         assert response.status_code == 400
@@ -315,8 +317,8 @@ class TestGetModelPerformance:
 class TestOptimizePortfolio:
 
     @patch("src.presentation.api.routers.ml.container")
-    def test_success(self, mock_container, client, mock_repos, mock_portfolio_optimization_service):
-        mock_container.portfolio_optimization_service.return_value = mock_portfolio_optimization_service
+    def test_success(self, mock_container, client, override_auth, mock_repos, mock_portfolio_optimization_service):
+        mock_container.services.portfolio_optimization_service.return_value = mock_portfolio_optimization_service
 
         response = client.post(
             "/api/v1/ml/optimize-portfolio/test-user-1",
@@ -328,8 +330,8 @@ class TestOptimizePortfolio:
         assert "allocation_recommendation" in data
 
     @patch("src.presentation.api.routers.ml.container")
-    def test_invalid_risk_tolerance_returns_400(self, mock_container, client, mock_repos, mock_portfolio_optimization_service):
-        mock_container.portfolio_optimization_service.return_value = mock_portfolio_optimization_service
+    def test_invalid_risk_tolerance_returns_400(self, mock_container, client, override_auth, mock_repos, mock_portfolio_optimization_service):
+        mock_container.services.portfolio_optimization_service.return_value = mock_portfolio_optimization_service
 
         response = client.post(
             "/api/v1/ml/optimize-portfolio/test-user-1",
@@ -338,8 +340,8 @@ class TestOptimizePortfolio:
         assert response.status_code == 400
 
     @patch("src.presentation.api.routers.ml.container")
-    def test_user_not_found_returns_404(self, mock_container, client, mock_portfolio_optimization_service, sample_portfolio, sample_positions):
-        mock_container.portfolio_optimization_service.return_value = mock_portfolio_optimization_service
+    def test_user_not_found_returns_404(self, mock_container, client, override_auth, mock_portfolio_optimization_service, sample_portfolio, sample_positions):
+        mock_container.services.portfolio_optimization_service.return_value = mock_portfolio_optimization_service
 
         portfolio_repo = Mock()
         portfolio_repo.get_by_user_id.return_value = sample_portfolio
@@ -355,8 +357,8 @@ class TestOptimizePortfolio:
         assert response.status_code == 404
 
     @patch("src.presentation.api.routers.ml.container")
-    def test_portfolio_not_found_returns_404(self, mock_container, client, mock_portfolio_optimization_service, sample_user):
-        mock_container.portfolio_optimization_service.return_value = mock_portfolio_optimization_service
+    def test_portfolio_not_found_returns_404(self, mock_container, client, override_auth, mock_portfolio_optimization_service, sample_user):
+        mock_container.services.portfolio_optimization_service.return_value = mock_portfolio_optimization_service
 
         portfolio_repo = Mock()
         portfolio_repo.get_by_user_id.return_value = None
@@ -384,8 +386,8 @@ class TestRunBacktest:
     def test_success_sma(self, MockStrategy, MockEngine, mock_container, client, override_auth):
         mock_data_provider = Mock()
         mock_ml_service = Mock()
-        mock_container.data_provider_service.return_value = mock_data_provider
-        mock_container.ml_model_service.return_value = mock_ml_service
+        mock_container.adapters.data_provider_service.return_value = mock_data_provider
+        mock_container.services.ml_model_service.return_value = mock_ml_service
 
         strategy_instance = Mock()
         strategy_instance.get_strategy_name.return_value = "SMA Crossover"
@@ -472,8 +474,8 @@ class TestRunBacktest:
 class TestGetRiskAnalysis:
 
     @patch("src.presentation.api.routers.ml.container")
-    def test_success(self, mock_container, client, mock_repos, mock_risk_analytics_service):
-        mock_container.risk_analytics_service.return_value = mock_risk_analytics_service
+    def test_success(self, mock_container, client, override_auth, mock_repos, mock_risk_analytics_service):
+        mock_container.services.risk_analytics_service.return_value = mock_risk_analytics_service
 
         response = client.get("/api/v1/ml/risk-analysis/test-user-1")
         assert response.status_code == 200
@@ -483,8 +485,8 @@ class TestGetRiskAnalysis:
         assert data["risk_metrics"]["value_at_risk_95"] == 1500.0
 
     @patch("src.presentation.api.routers.ml.container")
-    def test_portfolio_not_found_returns_404(self, mock_container, client, mock_risk_analytics_service):
-        mock_container.risk_analytics_service.return_value = mock_risk_analytics_service
+    def test_portfolio_not_found_returns_404(self, mock_container, client, override_auth, mock_risk_analytics_service):
+        mock_container.services.risk_analytics_service.return_value = mock_risk_analytics_service
 
         portfolio_repo = Mock()
         portfolio_repo.get_by_user_id.return_value = None
@@ -497,8 +499,8 @@ class TestGetRiskAnalysis:
         assert response.status_code == 404
 
     @patch("src.presentation.api.routers.ml.container")
-    def test_risk_service_unavailable_returns_500(self, mock_container, client, mock_repos):
-        mock_container.risk_analytics_service.return_value = None
+    def test_risk_service_unavailable_returns_500(self, mock_container, client, override_auth, mock_repos):
+        mock_container.services.risk_analytics_service.return_value = None
 
         response = client.get("/api/v1/ml/risk-analysis/test-user-1")
         assert response.status_code == 500
