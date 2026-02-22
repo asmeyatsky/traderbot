@@ -30,14 +30,20 @@ from src.infrastructure.data_processing.ml_model_service import (
 # ---------------------------------------------------------------------------
 
 def _make_ohlcv_dataframe(rows: int = 100) -> pd.DataFrame:
-    """Generate synthetic OHLCV data for testing."""
+    """Generate synthetic OHLCV data for testing.
+
+    Uses a fixed start date with daily frequency to avoid business-day
+    edge cases that cause date count mismatches.
+    """
     np.random.seed(42)
-    dates = pd.date_range(end=datetime.now(), periods=rows, freq="B")
+    dates = pd.date_range(start="2024-01-01", periods=rows, freq="D")
     close = 100 + np.cumsum(np.random.randn(rows) * 0.5)
+    high = close + np.abs(np.random.rand(rows))
+    low = close - np.abs(np.random.rand(rows))
     return pd.DataFrame({
-        "Open": close - np.random.rand(rows),
-        "High": close + np.random.rand(rows),
-        "Low": close - np.random.rand(rows),
+        "Open": close - np.random.rand(rows) * 0.5,
+        "High": high,
+        "Low": low,
         "Close": close,
         "Volume": np.random.randint(1_000_000, 10_000_000, rows),
     }, index=dates)
