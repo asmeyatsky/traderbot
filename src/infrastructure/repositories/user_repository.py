@@ -142,7 +142,7 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             return self._to_domain_entity(orm_obj) if orm_obj else None
         except Exception as e:
             logger.error(f"Failed to get user by email: {e}")
-            return None
+            raise
         finally:
             session.close()
 
@@ -168,7 +168,7 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             return orm_obj.password_hash if orm_obj else None
         except Exception as e:
             logger.error(f"Failed to get password hash: {e}")
-            return None
+            raise
         finally:
             session.close()
 
