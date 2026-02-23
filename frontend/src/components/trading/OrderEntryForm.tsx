@@ -36,7 +36,7 @@ export default function OrderEntryForm() {
           setPrice('');
           setShowConfirm(false);
         },
-        onSettled: () => setShowConfirm(false),
+        onError: () => setShowConfirm(false),
       },
     );
   }
@@ -45,7 +45,11 @@ export default function OrderEntryForm() {
     <>
       <form onSubmit={handleSubmit} className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
         <h3 className="text-lg font-medium text-gray-900">New Order</h3>
-        {error && <p className="mt-2 text-sm text-red-600">{(error as Error).message}</p>}
+        {error && (
+          <p className="mt-2 text-sm text-red-600">
+            {(error as any).response?.data?.detail ?? (error as Error).message}
+          </p>
+        )}
         <div className="mt-4 grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <label className="block text-sm font-medium text-gray-700">Symbol</label>
