@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { depositCash } from '../../api/portfolio';
+import { usePortfolio } from '../../hooks/use-portfolio';
 import { formatCurrency } from '../../lib/format';
 
 const presets = [1000, 5000, 10000];
@@ -14,6 +15,7 @@ export default function FundAccountStep({ onNext }: FundAccountStepProps) {
   const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
   const [success, setSuccess] = useState(false);
   const queryClient = useQueryClient();
+  const { data: portfolio } = usePortfolio();
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: depositCash,
@@ -65,7 +67,11 @@ export default function FundAccountStep({ onNext }: FundAccountStepProps) {
     <div className="animate-fade-in text-center">
       <h2 className="text-2xl font-bold text-gray-900">Top Up Your Paper Account</h2>
       <p className="mt-2 text-sm text-gray-600">
-        You already have $10,000 in virtual cash to get started. Want more? Add extra funds below — no real money involved.
+        You have{' '}
+        <span className="font-semibold text-gray-900">
+          {portfolio ? formatCurrency(portfolio.cash_balance) : '$10,000'}
+        </span>{' '}
+        in virtual cash. Want more? Add extra funds below — no real money involved.
       </p>
 
       <div className="mt-8 flex justify-center gap-3">

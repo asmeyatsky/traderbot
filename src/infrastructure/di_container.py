@@ -195,6 +195,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         user_repository=repositories.user_repository,
         trading_service=services.trading_domain_service,
         market_data_service=adapters.market_data_service,
+        position_repository=repositories.position_repository,
     )
 
     execute_trade_use_case = providers.Factory(

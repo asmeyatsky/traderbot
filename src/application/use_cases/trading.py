@@ -38,49 +38,53 @@ class CreateOrderUseCase:
         portfolio_repository: PortfolioRepositoryPort,
         user_repository: UserRepositoryPort,
         trading_service: TradingDomainService,
-        market_data_service: MarketDataPort
+        market_data_service: MarketDataPort,
+        position_repository: Optional[PositionRepositoryPort] = None,
     ):
         self.order_repository = order_repository
         self.portfolio_repository = portfolio_repository
         self.user_repository = user_repository
         self.trading_service = trading_service
         self.market_data_service = market_data_service
-    
+        self.position_repository = position_repository
+
     def execute(
         self,
         user_id: str,
         symbol: Symbol,
-        order_type: str,  # This would be an enum in real implementation
-        position_type: str,  # This would be an enum
+        order_type: str,
+        position_type: str,
         quantity: int,
         limit_price: Optional[float] = None,
         stop_price: Optional[float] = None
     ) -> Optional[Order]:
         """
         Execute the create order use case.
+
+        In paper-trading mode, market orders are auto-filled immediately:
+        the order is marked EXECUTED, a position is created/updated, and
+        the portfolio cash balance is adjusted.
         """
         # Retrieve user and portfolio
         user = self.user_repository.get_by_id(user_id)
         if not user:
             raise ValueError(f"User not found: {user_id}")
-        
+
         portfolio = self.portfolio_repository.get_by_user_id(user_id)
         if not portfolio:
             raise ValueError(f"Portfolio not found for user: {user_id}")
-        
+
         # Get current price for the symbol
         current_price = self.market_data_service.get_current_price(symbol)
         if not current_price:
             raise ValueError(f"Could not get current price for symbol: {symbol}")
-        
-        # Create order entity
-        from src.domain.entities.trading import OrderType, PositionType, OrderStatus
-        from enum import Enum
-        
-        # Map string types to enums
+
+        from src.domain.entities.trading import OrderType, PositionType as PT, OrderStatus
+        from dataclasses import replace as dc_replace
+
         order_type_enum = OrderType[order_type.upper()]
-        position_type_enum = PositionType[position_type.upper()]
-        
+        position_type_enum = PT[position_type.upper()]
+
         order = Order(
             id=str(uuid.uuid4()),
             user_id=user_id,
@@ -96,16 +100,66 @@ class CreateOrderUseCase:
             commission=None,
             notes=None
         )
-        
+
         # Validate order against user constraints
         validation_errors = self.trading_service.validate_order(order, user, portfolio)
         if validation_errors:
             raise ValueError(f"Order validation failed: {'; '.join(validation_errors)}")
-        
-        # Save the order
+
+        # Paper trading: auto-fill market orders immediately
+        if order_type_enum == OrderType.MARKET:
+            order = dc_replace(
+                order,
+                status=OrderStatus.EXECUTED,
+                filled_quantity=quantity,
+                executed_at=datetime.now(),
+            )
+
         saved_order = self.order_repository.save(order)
-        
+
+        # If filled, update position and cash balance
+        if saved_order.status == OrderStatus.EXECUTED and self.position_repository:
+            self._settle_fill(saved_order, portfolio)
+
         return saved_order
+
+    def _settle_fill(self, order: Order, portfolio) -> None:
+        """Create/update position and adjust cash after a paper-trade fill."""
+        from src.domain.entities.trading import PositionType as PT
+        from dataclasses import replace as dc_replace
+
+        fill_price = order.price or Money(Decimal("0"), "USD")
+        trade_value = fill_price.amount * Decimal(order.quantity)
+
+        # Update position
+        existing = self.position_repository.get_by_symbol(order.user_id, order.symbol)
+
+        if order.position_type == PT.LONG:
+            if existing:
+                updated = existing.adjust_quantity(order.quantity, fill_price)
+                self.position_repository.update(updated)
+            else:
+                new_position = Position(
+                    id=str(uuid.uuid4()),
+                    user_id=order.user_id,
+                    symbol=order.symbol,
+                    position_type=PT.LONG,
+                    quantity=order.quantity,
+                    average_buy_price=fill_price,
+                    current_price=fill_price,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now(),
+                )
+                self.position_repository.save(new_position)
+            new_cash = portfolio.cash_balance.amount - trade_value
+        else:
+            if existing:
+                updated = existing.adjust_quantity(-order.quantity, fill_price)
+                self.position_repository.update(updated)
+            new_cash = portfolio.cash_balance.amount + trade_value
+
+        updated_portfolio = portfolio.update_cash_balance(Money(new_cash, "USD"))
+        self.portfolio_repository.update(updated_portfolio)
 
 
 class ExecuteTradeUseCase:
