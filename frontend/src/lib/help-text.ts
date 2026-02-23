@@ -80,3 +80,27 @@ export const PAGE_DESCRIPTIONS: Record<string, string> = {
 
 export const AUTO_TRADING_HELP =
   'When enabled, TraderBot automatically generates trading signals using ML models and places orders on your watchlist stocks within your risk parameters.';
+
+export const AUTO_TRADING_CONTROL_HELP: Record<string, string> = {
+  stop_loss:
+    'Maximum loss allowed before auto-selling. Example: at 5%, a $2,000 position auto-sells if it drops to $1,900.',
+  take_profit:
+    'Gain target that triggers auto-selling. Example: at 15%, a $2,000 position auto-sells when it reaches $2,300.',
+  budget:
+    'Total dollars the bot can deploy. Leave blank to use your full cash balance. Example: $10,000 means the bot won\u2019t invest more than that.',
+  confidence:
+    'Minimum ML model confidence required to place a trade. Higher = fewer but stronger signals. At 65%, only trades the model is at least 65% sure about.',
+  max_position:
+    'Largest single stock position as a % of budget. At 20% with a $10,000 budget, no single stock exceeds $2,000.',
+};
+
+export interface HowItWorksStep {
+  title: string;
+  description: string;
+}
+
+export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
+  { title: 'Scan', description: 'Monitors your watchlist stocks for new opportunities throughout the trading day.' },
+  { title: 'Analyze', description: 'ML models score each opportunity using price patterns, news sentiment, and technicals.' },
+  { title: 'Trade', description: 'Places orders automatically for signals that pass your confidence and risk limits.' },
+];

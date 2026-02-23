@@ -14,3 +14,18 @@ export type RiskTolerance = (typeof RISK_TOLERANCES)[number];
 
 export const INVESTMENT_GOALS = ['CAPITAL_PRESERVATION', 'BALANCED_GROWTH', 'MAXIMUM_RETURNS'] as const;
 export type InvestmentGoal = (typeof INVESTMENT_GOALS)[number];
+
+export type RiskPresetKey = 'CONSERVATIVE' | 'MODERATE' | 'AGGRESSIVE' | 'CUSTOM';
+
+export interface RiskPresetValues {
+  stopLoss: number;
+  takeProfit: number;
+  confidence: number;
+  maxPosition: number;
+}
+
+export const RISK_PRESETS: Record<Exclude<RiskPresetKey, 'CUSTOM'>, RiskPresetValues> = {
+  CONSERVATIVE: { stopLoss: 3, takeProfit: 8, confidence: 80, maxPosition: 10 },
+  MODERATE: { stopLoss: 5, takeProfit: 15, confidence: 65, maxPosition: 20 },
+  AGGRESSIVE: { stopLoss: 10, takeProfit: 30, confidence: 55, maxPosition: 35 },
+};
