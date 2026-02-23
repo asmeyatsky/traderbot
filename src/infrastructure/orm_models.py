@@ -62,6 +62,10 @@ class UserORM(Base):
     auto_trading_enabled = Column(Boolean, nullable=False, default=False)
     watchlist = Column(JSON, nullable=False, default=[])
     trading_budget = Column(Numeric(15, 2), nullable=True)
+    stop_loss_pct = Column(Numeric(5, 2), nullable=False, default=Decimal('5'))
+    take_profit_pct = Column(Numeric(5, 2), nullable=False, default=Decimal('10'))
+    confidence_threshold = Column(Numeric(3, 2), nullable=False, default=Decimal('0.6'))
+    max_position_pct = Column(Numeric(5, 2), nullable=False, default=Decimal('20'))
 
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

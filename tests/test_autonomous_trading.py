@@ -33,6 +33,8 @@ from src.application.services.autonomous_trading_service import (
     ORDER_FILLED,
     ORDER_FAILED,
     RISK_BLOCKED,
+    STOP_LOSS_TRIGGERED,
+    TAKE_PROFIT_TRIGGERED,
 )
 from src.domain.entities.trading import (
     Order, OrderStatus, OrderType, Portfolio, Position, PositionType,
@@ -114,10 +116,12 @@ def _make_service(**overrides) -> AutonomousTradingService:
         risk_manager=MagicMock(),
         circuit_breaker=MagicMock(),
         market_data_service=MagicMock(),
-        confidence_threshold=0.6,
     )
     defaults.update(overrides)
-    return AutonomousTradingService(**defaults)
+    svc = AutonomousTradingService(**defaults)
+    # Default: no positions for SL/TP check
+    svc.position_repo.get_by_user_id.return_value = []
+    return svc
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +195,8 @@ class TestBuyOrders:
 
         svc.broker.place_order.assert_called_once()
         placed_order = svc.broker.place_order.call_args[0][0]
-        assert placed_order.quantity == 100
+        # Budget $10000, max_position_pct=20% → capped at $2000, price $100 → 20 shares
+        assert placed_order.quantity == 20
         assert placed_order.position_type == PositionType.LONG
         assert str(placed_order.symbol) == "AAPL"
 

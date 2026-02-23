@@ -5,6 +5,8 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ShieldExclamationIcon,
+  ArrowTrendingDownIcon,
+  ArrowTrendingUpIcon,
 } from '@heroicons/react/24/outline';
 import { useTradingActivity } from '../hooks/use-auto-trading';
 import { formatCurrency, formatDateTime } from '../lib/format';
@@ -19,6 +21,8 @@ const FILTERS = [
   { label: 'Filled', value: 'ORDER_FILLED' },
   { label: 'Failed', value: 'ORDER_FAILED' },
   { label: 'Risk Blocked', value: 'RISK_BLOCKED' },
+  { label: 'Stop-Loss', value: 'STOP_LOSS_TRIGGERED' },
+  { label: 'Take-Profit', value: 'TAKE_PROFIT_TRIGGERED' },
 ];
 
 const EVENT_ICONS: Record<string, typeof BoltIcon> = {
@@ -27,6 +31,8 @@ const EVENT_ICONS: Record<string, typeof BoltIcon> = {
   ORDER_FILLED: CheckCircleIcon,
   ORDER_FAILED: XCircleIcon,
   RISK_BLOCKED: ShieldExclamationIcon,
+  STOP_LOSS_TRIGGERED: ArrowTrendingDownIcon,
+  TAKE_PROFIT_TRIGGERED: ArrowTrendingUpIcon,
 };
 
 const EVENT_COLORS: Record<string, string> = {
@@ -35,6 +41,8 @@ const EVENT_COLORS: Record<string, string> = {
   ORDER_FILLED: 'bg-green-100 text-green-700',
   ORDER_FAILED: 'bg-red-100 text-red-700',
   RISK_BLOCKED: 'bg-amber-100 text-amber-700',
+  STOP_LOSS_TRIGGERED: 'bg-red-100 text-red-700',
+  TAKE_PROFIT_TRIGGERED: 'bg-emerald-100 text-emerald-700',
 };
 
 const PAGE_SIZE = 20;

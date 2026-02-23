@@ -111,6 +111,10 @@ class UpdateAutoTradingRequest(BaseModel):
         None, max_length=50, description="List of ticker symbols (max 50)"
     )
     trading_budget: Optional[float] = Field(None, gt=0, description="Trading budget in USD (must be positive)")
+    stop_loss_pct: Optional[float] = Field(None, ge=1, le=25, description="Stop-loss percentage (1-25%)")
+    take_profit_pct: Optional[float] = Field(None, ge=5, le=50, description="Take-profit percentage (5-50%)")
+    confidence_threshold: Optional[float] = Field(None, ge=0.5, le=0.95, description="Confidence threshold (0.5-0.95)")
+    max_position_pct: Optional[float] = Field(None, ge=5, le=50, description="Max position size as % of budget (5-50%)")
 
     @field_validator("watchlist")
     @classmethod

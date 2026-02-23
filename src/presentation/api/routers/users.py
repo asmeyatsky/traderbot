@@ -427,6 +427,10 @@ async def get_auto_trading_settings(
             "enabled": user.auto_trading_enabled,
             "watchlist": user.watchlist,
             "trading_budget": float(user.trading_budget.amount) if user.trading_budget else None,
+            "stop_loss_pct": float(user.stop_loss_pct),
+            "take_profit_pct": float(user.take_profit_pct),
+            "confidence_threshold": float(user.confidence_threshold),
+            "max_position_pct": float(user.max_position_pct),
         }
     except HTTPException:
         raise
@@ -463,6 +467,14 @@ async def update_auto_trading_settings(
             updates["watchlist"] = body.watchlist
         if body.trading_budget is not None:
             updates["trading_budget"] = Money(Decimal(str(body.trading_budget)), "USD")
+        if body.stop_loss_pct is not None:
+            updates["stop_loss_pct"] = Decimal(str(body.stop_loss_pct))
+        if body.take_profit_pct is not None:
+            updates["take_profit_pct"] = Decimal(str(body.take_profit_pct))
+        if body.confidence_threshold is not None:
+            updates["confidence_threshold"] = Decimal(str(body.confidence_threshold))
+        if body.max_position_pct is not None:
+            updates["max_position_pct"] = Decimal(str(body.max_position_pct))
 
         updated_user = dc_replace(user, **updates)
         saved = user_repository.update(updated_user)
@@ -471,6 +483,10 @@ async def update_auto_trading_settings(
             "enabled": saved.auto_trading_enabled,
             "watchlist": saved.watchlist,
             "trading_budget": float(saved.trading_budget.amount) if saved.trading_budget else None,
+            "stop_loss_pct": float(saved.stop_loss_pct),
+            "take_profit_pct": float(saved.take_profit_pct),
+            "confidence_threshold": float(saved.confidence_threshold),
+            "max_position_pct": float(saved.max_position_pct),
         }
     except HTTPException:
         raise

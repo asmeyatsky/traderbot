@@ -51,13 +51,17 @@ export default function AutoTradingStatusCard() {
         )}
       </div>
 
-      {settings.trading_budget != null && (
-        <p className="mt-3 text-xs text-gray-500">
-          Budget: <span className="font-medium text-gray-700">{formatCurrency(settings.trading_budget)}</span>
-        </p>
-      )}
+      {/* Settings at a glance */}
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+        {settings.trading_budget != null && (
+          <span>Budget: <span className="font-medium text-gray-700">{formatCurrency(settings.trading_budget)}</span></span>
+        )}
+        <span>SL: <span className="font-medium text-gray-700">{settings.stop_loss_pct}%</span></span>
+        <span>TP: <span className="font-medium text-gray-700">{settings.take_profit_pct}%</span></span>
+        <span>Confidence: <span className="font-medium text-gray-700">{Math.round(settings.confidence_threshold * 100)}%</span></span>
+      </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-4 border-t border-gray-100 pt-4">
+      <div className="mt-4 grid grid-cols-5 gap-2 border-t border-gray-100 pt-4">
         <div className="text-center">
           <p className="text-lg font-semibold text-gray-900">{counts['SIGNAL_GENERATED'] ?? 0}</p>
           <p className="text-xs text-gray-500">Signals</p>
@@ -69,6 +73,14 @@ export default function AutoTradingStatusCard() {
         <div className="text-center">
           <p className="text-lg font-semibold text-gray-900">{counts['ORDER_FILLED'] ?? 0}</p>
           <p className="text-xs text-gray-500">Filled</p>
+        </div>
+        <div className="text-center">
+          <p className="text-lg font-semibold text-red-600">{counts['STOP_LOSS_TRIGGERED'] ?? 0}</p>
+          <p className="text-xs text-gray-500">Stop-Loss</p>
+        </div>
+        <div className="text-center">
+          <p className="text-lg font-semibold text-green-600">{counts['TAKE_PROFIT_TRIGGERED'] ?? 0}</p>
+          <p className="text-xs text-gray-500">Take-Profit</p>
         </div>
       </div>
     </div>

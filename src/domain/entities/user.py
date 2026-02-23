@@ -62,6 +62,10 @@ class User:
     auto_trading_enabled: bool = False
     watchlist: List[str] = field(default_factory=list)
     trading_budget: Optional[Money] = None
+    stop_loss_pct: Decimal = Decimal('5')
+    take_profit_pct: Decimal = Decimal('10')
+    confidence_threshold: Decimal = Decimal('0.6')
+    max_position_pct: Decimal = Decimal('20')
     
     def update_risk_tolerance(self, new_risk_tolerance: RiskTolerance) -> 'User':
         """Update user's risk tolerance and return new instance"""

@@ -46,6 +46,8 @@ ORDER_FILLED = "ORDER_FILLED"
 ORDER_FAILED = "ORDER_FAILED"
 RISK_BLOCKED = "RISK_BLOCKED"
 CIRCUIT_BREAKER = "CIRCUIT_BREAKER"
+STOP_LOSS_TRIGGERED = "STOP_LOSS_TRIGGERED"
+TAKE_PROFIT_TRIGGERED = "TAKE_PROFIT_TRIGGERED"
 
 
 class AutonomousTradingService:
@@ -69,7 +71,6 @@ class AutonomousTradingService:
         risk_manager: RiskManager,
         circuit_breaker: CircuitBreakerService,
         market_data_service: MarketDataService,
-        confidence_threshold: float = 0.6,
     ):
         self.user_repo = user_repository
         self.portfolio_repo = portfolio_repository
@@ -81,7 +82,6 @@ class AutonomousTradingService:
         self.risk_manager = risk_manager
         self.circuit_breaker = circuit_breaker
         self.market_data = market_data_service
-        self.confidence_threshold = confidence_threshold
 
     # ------------------------------------------------------------------
     # Trading cycle
@@ -114,6 +114,9 @@ class AutonomousTradingService:
             logger.warning(f"No portfolio for user {user.id}, skipping")
             return
 
+        # Check stop-loss / take-profit on existing positions first
+        self._check_stop_loss_take_profit(user, portfolio)
+
         # Check risk limits
         if self.risk_manager.should_pause_trading(portfolio, user):
             self.activity_log.log_event(
@@ -131,7 +134,13 @@ class AutonomousTradingService:
         )
         if not user.watchlist:
             return
-        budget_per_symbol = total_budget / Decimal(len(user.watchlist))
+
+        # Cap per-symbol budget at max_position_pct of total budget
+        max_per_symbol = total_budget * user.max_position_pct / Decimal('100')
+        budget_per_symbol = min(
+            total_budget / Decimal(len(user.watchlist)),
+            max_per_symbol,
+        )
 
         for ticker in user.watchlist:
             try:
@@ -166,14 +175,98 @@ class AutonomousTradingService:
             message=signal.explanation,
         )
 
-        # Skip HOLD or low-confidence signals
-        if signal_str == "HOLD" or confidence < self.confidence_threshold:
+        # Skip HOLD or low-confidence signals (per-user threshold)
+        if signal_str == "HOLD" or confidence < float(user.confidence_threshold):
             return
 
         if signal_str in ("BUY", "STRONG_BUY"):
             self._handle_buy(user, portfolio, symbol, ticker, budget_per_symbol, signal)
         elif signal_str in ("SELL", "STRONG_SELL"):
             self._handle_sell(user, portfolio, symbol, ticker, signal)
+
+    # ------------------------------------------------------------------
+    # Stop-loss / take-profit monitoring
+    # ------------------------------------------------------------------
+
+    def _check_stop_loss_take_profit(self, user: User, portfolio) -> None:
+        """Check all user positions for stop-loss or take-profit triggers."""
+        positions = self.position_repo.get_by_user_id(user.id)
+        if not positions:
+            return
+
+        for position in positions:
+            if position.quantity <= 0:
+                continue
+
+            ticker = str(position.symbol)
+            symbol = Symbol(ticker) if not isinstance(position.symbol, Symbol) else position.symbol
+
+            try:
+                current_price = self.market_data.get_current_price(symbol)
+                if not current_price or current_price.amount <= 0:
+                    continue
+
+                entry_price = position.average_buy_price.amount if position.average_buy_price else None
+                if not entry_price or entry_price <= 0:
+                    continue
+
+                pnl_pct = ((current_price.amount - entry_price) / entry_price) * Decimal('100')
+
+                if pnl_pct <= -user.stop_loss_pct:
+                    self._auto_exit_position(
+                        user, position, symbol, ticker, current_price,
+                        STOP_LOSS_TRIGGERED,
+                        f"Stop-loss triggered: {ticker} down {abs(pnl_pct):.1f}% (threshold {user.stop_loss_pct}%)",
+                    )
+                elif pnl_pct >= user.take_profit_pct:
+                    self._auto_exit_position(
+                        user, position, symbol, ticker, current_price,
+                        TAKE_PROFIT_TRIGGERED,
+                        f"Take-profit triggered: {ticker} up {pnl_pct:.1f}% (threshold {user.take_profit_pct}%)",
+                    )
+            except Exception as e:
+                logger.error(f"Error checking SL/TP for {ticker} user {user.id}: {e}", exc_info=True)
+
+    def _auto_exit_position(
+        self, user, position, symbol, ticker, current_price, event_type, message
+    ) -> None:
+        """Place a sell order to auto-exit a position."""
+        price_money = Money(current_price.amount.quantize(Decimal("0.01")), "USD")
+        order = Order(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            symbol=symbol,
+            order_type=OrderType.MARKET,
+            position_type=PositionType.SHORT,
+            quantity=position.quantity,
+            status=OrderStatus.PENDING,
+            placed_at=datetime.utcnow(),
+            price=price_money,
+        )
+
+        try:
+            response = self.broker.place_order(order)
+            order = replace(order, broker_order_id=response.broker_order_id)
+            self.order_repo.save(order)
+
+            self.activity_log.log_event(
+                user_id=user.id,
+                event_type=event_type,
+                symbol=ticker,
+                order_id=order.id,
+                broker_order_id=response.broker_order_id,
+                quantity=position.quantity,
+                price=current_price.amount,
+                message=message,
+            )
+        except Exception as e:
+            self.activity_log.log_event(
+                user_id=user.id,
+                event_type=ORDER_FAILED,
+                symbol=ticker,
+                message=f"Auto-exit order failed for {ticker}: {e}",
+            )
+            logger.error(f"Failed to auto-exit {ticker} for user {user.id}: {e}")
 
     # ------------------------------------------------------------------
     # Order handling

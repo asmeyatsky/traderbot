@@ -5,6 +5,8 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ShieldExclamationIcon,
+  ArrowTrendingDownIcon,
+  ArrowTrendingUpIcon,
 } from '@heroicons/react/24/outline';
 import { useTradingActivity } from '../../hooks/use-auto-trading';
 
@@ -14,6 +16,8 @@ const EVENT_ICONS: Record<string, typeof BoltIcon> = {
   ORDER_FILLED: CheckCircleIcon,
   ORDER_FAILED: XCircleIcon,
   RISK_BLOCKED: ShieldExclamationIcon,
+  STOP_LOSS_TRIGGERED: ArrowTrendingDownIcon,
+  TAKE_PROFIT_TRIGGERED: ArrowTrendingUpIcon,
 };
 
 const EVENT_COLORS: Record<string, string> = {
@@ -22,6 +26,8 @@ const EVENT_COLORS: Record<string, string> = {
   ORDER_FILLED: 'text-green-500',
   ORDER_FAILED: 'text-red-500',
   RISK_BLOCKED: 'text-amber-500',
+  STOP_LOSS_TRIGGERED: 'text-red-500',
+  TAKE_PROFIT_TRIGGERED: 'text-emerald-500',
 };
 
 function timeAgo(dateStr: string): string {

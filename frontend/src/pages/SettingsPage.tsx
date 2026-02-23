@@ -145,12 +145,20 @@ function AutoTradingSection() {
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [symbolInput, setSymbolInput] = useState('');
   const [budget, setBudget] = useState('');
+  const [stopLoss, setStopLoss] = useState(5);
+  const [takeProfit, setTakeProfit] = useState(10);
+  const [confidence, setConfidence] = useState(60);
+  const [maxPosition, setMaxPosition] = useState(20);
 
   useEffect(() => {
     if (settings) {
       setEnabled(settings.enabled);
       setWatchlist(settings.watchlist);
       setBudget(settings.trading_budget != null ? String(settings.trading_budget) : '');
+      setStopLoss(settings.stop_loss_pct);
+      setTakeProfit(settings.take_profit_pct);
+      setConfidence(Math.round(settings.confidence_threshold * 100));
+      setMaxPosition(settings.max_position_pct);
     }
   }, [settings]);
 
@@ -180,6 +188,10 @@ function AutoTradingSection() {
       enabled,
       watchlist,
       trading_budget: budget ? Number(budget) : null,
+      stop_loss_pct: stopLoss,
+      take_profit_pct: takeProfit,
+      confidence_threshold: confidence / 100,
+      max_position_pct: maxPosition,
     });
   }
 
@@ -206,6 +218,7 @@ function AutoTradingSection() {
         <p className="mt-3 rounded-md bg-green-50 p-3 text-sm text-green-700">Auto-trading settings saved</p>
       )}
 
+      {/* Enable + Watchlist */}
       <div className="mt-4 space-y-4">
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium text-gray-700">Enable Auto-Trading</label>
@@ -262,6 +275,43 @@ function AutoTradingSection() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Risk Controls */}
+      <div className="mt-6 space-y-4 border-t border-gray-200 pt-4">
+        <h3 className="text-sm font-semibold text-gray-800">Risk Controls</h3>
+
+        <div>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700">Stop-Loss</label>
+            <span className="text-sm font-semibold text-gray-900">{stopLoss}%</span>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={25}
+            value={stopLoss}
+            onChange={(e) => setStopLoss(Number(e.target.value))}
+            className="mt-1 w-full accent-indigo-600"
+          />
+          <p className="text-xs text-gray-400">Auto-sell if a position drops by this %</p>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700">Take-Profit</label>
+            <span className="text-sm font-semibold text-gray-900">{takeProfit}%</span>
+          </div>
+          <input
+            type="range"
+            min={5}
+            max={50}
+            value={takeProfit}
+            onChange={(e) => setTakeProfit(Number(e.target.value))}
+            className="mt-1 w-full accent-indigo-600"
+          />
+          <p className="text-xs text-gray-400">Auto-sell if a position gains this %</p>
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -279,6 +329,43 @@ function AutoTradingSection() {
               className="block w-full rounded-md border border-gray-300 py-2 pl-7 pr-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Strategy Tuning */}
+      <div className="mt-6 space-y-4 border-t border-gray-200 pt-4">
+        <h3 className="text-sm font-semibold text-gray-800">Strategy Tuning</h3>
+
+        <div>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700">Confidence Threshold</label>
+            <span className="text-sm font-semibold text-gray-900">{confidence}%</span>
+          </div>
+          <input
+            type="range"
+            min={50}
+            max={95}
+            value={confidence}
+            onChange={(e) => setConfidence(Number(e.target.value))}
+            className="mt-1 w-full accent-indigo-600"
+          />
+          <p className="text-xs text-gray-400">Higher = fewer but more confident trades</p>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700">Max Position Size</label>
+            <span className="text-sm font-semibold text-gray-900">{maxPosition}%</span>
+          </div>
+          <input
+            type="range"
+            min={5}
+            max={50}
+            value={maxPosition}
+            onChange={(e) => setMaxPosition(Number(e.target.value))}
+            className="mt-1 w-full accent-indigo-600"
+          />
+          <p className="text-xs text-gray-400">Max % of budget per single stock</p>
         </div>
       </div>
 

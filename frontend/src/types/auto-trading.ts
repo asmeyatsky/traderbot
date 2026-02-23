@@ -2,12 +2,20 @@ export interface AutoTradingSettings {
   enabled: boolean;
   watchlist: string[];
   trading_budget: number | null;
+  stop_loss_pct: number;
+  take_profit_pct: number;
+  confidence_threshold: number;
+  max_position_pct: number;
 }
 
 export interface UpdateAutoTradingRequest {
   enabled?: boolean;
   watchlist?: string[];
   trading_budget?: number | null;
+  stop_loss_pct?: number;
+  take_profit_pct?: number;
+  confidence_threshold?: number;
+  max_position_pct?: number;
 }
 
 export interface ActivityLogItem {
