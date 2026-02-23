@@ -67,12 +67,11 @@ class DefaultTradingDomainService(TradingDomainService):
         order_errors = order.validate()
         errors.extend(order_errors)
         
-        # Check if user has sufficient cash for the order
-        if order.order_type != OrderType.MARKET or order.position_type == PositionType.SHORT:
-            # For market buys, check if user can afford the position
+        # Check if user has sufficient cash for buy orders
+        if order.position_type == PositionType.LONG:
             required_amount = order.price.amount * Decimal(order.quantity) if order.price else 0
             if required_amount > portfolio.cash_balance.amount:
-                errors.append(f"Insufficient cash balance. Required: {required_amount}, Available: {portfolio.cash_balance.amount}")
+                errors.append(f"Insufficient cash balance. Required: ${required_amount:.2f}, Available: ${portfolio.cash_balance.amount:.2f}")
         
         # Check position size constraints
         portfolio_value = portfolio.total_value.amount

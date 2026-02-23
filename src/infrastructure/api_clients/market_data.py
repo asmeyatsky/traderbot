@@ -161,7 +161,8 @@ class YahooFinanceAdapter(MarketDataPort):
         """Get the current price for a symbol using Yahoo Finance."""
         try:
             ticker = yf.Ticker(str(symbol))
-            hist = ticker.history(period="1d")
+            # Use 5d window so weekends/holidays still return the last close
+            hist = ticker.history(period="5d")
             if not hist.empty:
                 return _to_price(hist['Close'].iloc[-1])
         except Exception as e:
