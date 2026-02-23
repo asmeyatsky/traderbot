@@ -36,7 +36,7 @@ class UserORM(Base):
     # Risk and investment preferences
     risk_tolerance = Column(SQLEnum(RiskTolerance), nullable=False, default=RiskTolerance.MODERATE)
     investment_goal = Column(SQLEnum(InvestmentGoal), nullable=False, default=InvestmentGoal.BALANCED_GROWTH)
-    max_position_size_percentage = Column(Numeric(5, 2), nullable=False, default=Decimal('5'))
+    max_position_size_percentage = Column(Numeric(5, 2), nullable=False, default=Decimal('25'))
 
     # Loss limits
     daily_loss_limit = Column(Numeric(12, 2), nullable=True)

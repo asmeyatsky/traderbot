@@ -121,7 +121,7 @@ async def register(
             updated_at=now,
             risk_tolerance=RiskTolerance[body.risk_tolerance],
             investment_goal=InvestmentGoal[body.investment_goal],
-            max_position_size_percentage=Decimal("5.0"),
+            max_position_size_percentage=Decimal("25"),
             daily_loss_limit=None,
             weekly_loss_limit=None,
             monthly_loss_limit=None,
