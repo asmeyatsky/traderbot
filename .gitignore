@@ -175,6 +175,9 @@ sa-key.json
 # Trained ML model artifacts
 models/
 
-# Temporary status/notes files
+# Temporary status/notes/planning files
 status*.md
 features*.md
+plan*.md
+auto.md
+uiux.md
