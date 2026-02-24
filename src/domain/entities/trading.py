@@ -129,13 +129,13 @@ class Position:
     @property
     def market_value(self) -> Money:
         """Calculate the current market value of the position"""
-        amount = self.current_price.amount * Decimal(self.quantity)
+        amount = (self.current_price.amount * Decimal(self.quantity)).quantize(Decimal("0.01"))
         return Money(amount, self.current_price.currency)
-    
+
     @property
     def total_cost(self) -> Money:
         """Calculate the total cost of the position"""
-        amount = self.average_buy_price.amount * Decimal(self.quantity)
+        amount = (self.average_buy_price.amount * Decimal(self.quantity)).quantize(Decimal("0.01"))
         return Money(amount, self.average_buy_price.currency)
     
     @property
@@ -194,8 +194,8 @@ class Position:
         total_cost_before = self.average_buy_price.amount * Decimal(self.quantity)
         cost_of_new_shares = execution_price.amount * Decimal(quantity_change)
         new_total_cost = total_cost_before + cost_of_new_shares
-        new_avg_price = new_total_cost / Decimal(new_quantity)
-        
+        new_avg_price = (new_total_cost / Decimal(new_quantity)).quantize(Decimal("0.01"))
+
         return Position(
             id=self.id,
             user_id=self.user_id,

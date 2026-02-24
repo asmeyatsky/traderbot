@@ -128,8 +128,11 @@ class CreateOrderUseCase:
         from src.domain.entities.trading import PositionType as PT
         from dataclasses import replace as dc_replace
 
-        fill_price = order.price or Money(Decimal("0"), "USD")
-        trade_value = fill_price.amount * Decimal(order.quantity)
+        TWO_PLACES = Decimal("0.01")
+        raw_price = order.price or Money(Decimal("0"), "USD")
+        # Ensure fill price is a Money (2-decimal) regardless of source type
+        fill_price = Money(raw_price.amount.quantize(TWO_PLACES), "USD")
+        trade_value = (fill_price.amount * Decimal(order.quantity)).quantize(TWO_PLACES)
 
         # Update position
         existing = self.position_repository.get_by_symbol(order.user_id, order.symbol)
@@ -151,12 +154,12 @@ class CreateOrderUseCase:
                     updated_at=datetime.now(),
                 )
                 self.position_repository.save(new_position)
-            new_cash = portfolio.cash_balance.amount - trade_value
+            new_cash = (portfolio.cash_balance.amount - trade_value).quantize(TWO_PLACES)
         else:
             if existing:
                 updated = existing.adjust_quantity(-order.quantity, fill_price)
                 self.position_repository.update(updated)
-            new_cash = portfolio.cash_balance.amount + trade_value
+            new_cash = (portfolio.cash_balance.amount + trade_value).quantize(TWO_PLACES)
 
         updated_portfolio = portfolio.update_cash_balance(Money(new_cash, "USD"))
         self.portfolio_repository.update(updated_portfolio)

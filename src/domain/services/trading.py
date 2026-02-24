@@ -69,14 +69,14 @@ class DefaultTradingDomainService(TradingDomainService):
         
         # Check if user has sufficient cash for buy orders
         if order.position_type == PositionType.LONG:
-            required_amount = order.price.amount * Decimal(order.quantity) if order.price else 0
+            required_amount = (order.price.amount * Decimal(order.quantity)).quantize(Decimal("0.01")) if order.price else Decimal("0")
             if required_amount > portfolio.cash_balance.amount:
                 errors.append(f"Insufficient cash balance. Required: ${required_amount:.2f}, Available: ${portfolio.cash_balance.amount:.2f}")
-        
+
         # Check position size constraints
         portfolio_value = portfolio.total_value.amount
         if portfolio_value > 0:
-            position_value = order.price.amount * Decimal(order.quantity) if order.price else 0
+            position_value = (order.price.amount * Decimal(order.quantity)).quantize(Decimal("0.01")) if order.price else Decimal("0")
             position_percentage = (position_value / portfolio_value) * 100
             
             if position_percentage > user.max_position_size_percentage:
