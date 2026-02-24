@@ -66,6 +66,7 @@ class UserORM(Base):
     take_profit_pct = Column(Numeric(5, 2), nullable=False, default=Decimal('10'))
     confidence_threshold = Column(Numeric(3, 2), nullable=False, default=Decimal('0.6'))
     max_position_pct = Column(Numeric(5, 2), nullable=False, default=Decimal('20'))
+    allowed_markets = Column(JSON, nullable=False, default=["US_NYSE", "US_NASDAQ"])
 
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

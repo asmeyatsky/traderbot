@@ -52,6 +52,7 @@ from src.presentation.api.routers import (
     ml,
     rl,
     trading_activity,
+    markets,
 )
 
 # Setup logging
@@ -234,6 +235,7 @@ app.include_router(alternative_data.router)
 app.include_router(ml.router)
 app.include_router(rl.router)
 app.include_router(trading_activity.router)
+app.include_router(markets.router)
 
 
 # ============================================================================

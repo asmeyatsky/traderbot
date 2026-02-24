@@ -68,6 +68,7 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             take_profit_pct=orm_obj.take_profit_pct,
             confidence_threshold=orm_obj.confidence_threshold,
             max_position_pct=orm_obj.max_position_pct,
+            allowed_markets=orm_obj.allowed_markets or ["US_NYSE", "US_NASDAQ"],
         )
 
     def _to_orm_model(self, entity: User, password_hash: str = "") -> UserORM:
@@ -102,6 +103,7 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             take_profit_pct=entity.take_profit_pct,
             confidence_threshold=entity.confidence_threshold,
             max_position_pct=entity.max_position_pct,
+            allowed_markets=entity.allowed_markets,
         )
 
     def save(self, entity: User, password_hash: str = "") -> User:
@@ -266,6 +268,7 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             orm_obj.take_profit_pct = entity.take_profit_pct
             orm_obj.confidence_threshold = entity.confidence_threshold
             orm_obj.max_position_pct = entity.max_position_pct
+            orm_obj.allowed_markets = entity.allowed_markets
             orm_obj.updated_at = datetime.utcnow()
 
             session.commit()

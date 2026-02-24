@@ -15,6 +15,7 @@ export interface User {
   email_notifications_enabled: boolean;
   sms_notifications_enabled: boolean;
   approval_mode_enabled: boolean;
+  allowed_markets: string[];
   created_at: string;
   updated_at: string;
 }
@@ -42,4 +43,5 @@ export interface UpdateUserRequest {
   email_notifications_enabled?: boolean;
   sms_notifications_enabled?: boolean;
   approval_mode_enabled?: boolean;
+  allowed_markets?: string[];
 }

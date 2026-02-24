@@ -43,6 +43,7 @@ class UpdateUserRequest(BaseModel):
     email_notifications_enabled: Optional[bool] = None
     sms_notifications_enabled: Optional[bool] = None
     approval_mode_enabled: Optional[bool] = None
+    allowed_markets: Optional[List[str]] = None
 
 
 class UpdateRiskSettingsRequest(BaseModel):
@@ -80,6 +81,7 @@ class UserResponse(BaseModel):
     email_notifications_enabled: bool
     sms_notifications_enabled: bool
     approval_mode_enabled: bool
+    allowed_markets: List[str]
     created_at: datetime
     updated_at: datetime
 
