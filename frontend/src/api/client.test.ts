@@ -33,6 +33,7 @@ describe('apiClient', () => {
       email_notifications_enabled: true,
       sms_notifications_enabled: false,
       approval_mode_enabled: false,
+      allowed_markets: ['US_NYSE', 'US_NASDAQ'],
       created_at: '',
       updated_at: '',
     });

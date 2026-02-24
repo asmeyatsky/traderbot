@@ -19,6 +19,7 @@ const mockUser: User = {
   email_notifications_enabled: true,
   sms_notifications_enabled: false,
   approval_mode_enabled: false,
+  allowed_markets: ['US_NYSE', 'US_NASDAQ'],
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 };
