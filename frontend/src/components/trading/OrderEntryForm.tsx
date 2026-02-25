@@ -165,9 +165,7 @@ export default function OrderEntryForm() {
                       {stocksLoading ? (
                         <li className="px-3 py-2 text-gray-400">Loading...</li>
                       ) : stocks.length === 0 ? (
-                        <li className="px-3 py-2 text-gray-400">
-                          {debouncedSearch ? 'No matches found' : 'Type to search stocks'}
-                        </li>
+                        <li className="px-3 py-2 text-gray-400">No matches found</li>
                       ) : (
                         stocks.map((s) => (
                           <li
