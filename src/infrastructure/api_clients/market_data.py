@@ -185,11 +185,28 @@ class YahooFinanceAdapter(MarketDataPort):
             return []
 
     def get_market_news(self, symbol: Symbol) -> List[str]:
-        """Get recent news for a symbol."""
-        # Yahoo Finance doesn't directly provide news text through yfinance
-        # This would typically require web scraping or another API
-        # For now, return empty list
-        return []
+        """Get recent news for a symbol using yfinance."""
+        try:
+            ticker = yf.Ticker(str(symbol))
+            news = ticker.news
+            if not news:
+                return []
+            return [article.get('title', '') for article in news if article.get('title')]
+        except Exception as e:
+            print(f"Error fetching news from Yahoo Finance for {symbol}: {e}")
+            return []
+
+    def get_market_news_detailed(self, symbol: Symbol) -> List[Dict[str, Any]]:
+        """Get detailed news articles from Yahoo Finance with metadata."""
+        try:
+            ticker = yf.Ticker(str(symbol))
+            news = ticker.news
+            if not news:
+                return []
+            return news
+        except Exception as e:
+            print(f"Error fetching detailed news from Yahoo Finance for {symbol}: {e}")
+            return []
 
 
 class MarketauxAdapter(NewsAnalysisPort):

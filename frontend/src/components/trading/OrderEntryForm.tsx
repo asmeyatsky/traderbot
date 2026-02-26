@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useCreateOrder } from '../../hooks/use-orders';
 import { useMarkets, useStocks } from '../../hooks/use-markets';
+import { useEnhancedMarketData } from '../../hooks/use-market-data';
 import { ORDER_SIDES, ORDER_TYPES } from '../../lib/constants';
 import { ORDER_TYPE_HELP, ORDER_SIDE_HELP } from '../../lib/help-text';
+import { formatCurrency, formatPercent, formatNumber } from '../../lib/format';
 import InfoTooltip from '../common/InfoTooltip';
 import ConfirmDialog from '../common/ConfirmDialog';
 import type { Stock } from '../../types/market';
+import type { NewsArticle } from '../../types/market-data';
 
 export default function OrderEntryForm() {
   const [selectedMarket, setSelectedMarket] = useState<string>('');
@@ -21,6 +24,8 @@ export default function OrderEntryForm() {
   const { mutate, isPending, error } = useCreateOrder();
   const { data: marketsData } = useMarkets();
   const { data: stocksData, isLoading: stocksLoading } = useStocks(selectedMarket || null, debouncedSearch);
+
+  const { data: marketData, isLoading: marketDataLoading } = useEnhancedMarketData(selectedStock?.symbol ?? '');
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -186,6 +191,37 @@ export default function OrderEntryForm() {
             </div>
           )}
 
+          {/* Price card */}
+          {selectedStock && (
+            <div className="col-span-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+              {marketDataLoading ? (
+                <div className="animate-pulse space-y-2">
+                  <div className="h-6 w-28 rounded bg-gray-200" />
+                  <div className="flex gap-4">
+                    <div className="h-4 w-32 rounded bg-gray-200" />
+                    <div className="h-4 w-24 rounded bg-gray-200" />
+                  </div>
+                </div>
+              ) : marketData ? (
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xl font-semibold text-gray-900">
+                      {formatCurrency(marketData.current_price)}
+                    </span>
+                    <span className={`text-sm font-medium ${marketData.price_change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {marketData.price_change >= 0 ? '+' : ''}{formatNumber(marketData.price_change, 2)}
+                      {' '}({formatPercent(marketData.price_change_percent)})
+                    </span>
+                  </div>
+                  <div className="mt-1 flex gap-4 text-xs text-gray-500">
+                    <span>Day Range: {formatCurrency(marketData.low)} — {formatCurrency(marketData.high)}</span>
+                    <span>Vol: {marketData.volume.toLocaleString()}</span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+
           <div>
             <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
               Side
@@ -259,6 +295,20 @@ export default function OrderEntryForm() {
         </button>
       </form>
 
+      {selectedStock && marketData?.sentiment && marketData.sentiment.articles.length > 0 && (
+        <div className="mt-4 rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-gray-900">Recent News</h4>
+            <SentimentBadge label={marketData.sentiment.sentiment_label} />
+          </div>
+          <ul className="mt-3 divide-y divide-gray-100">
+            {marketData.sentiment.articles.slice(0, 5).map((article, i) => (
+              <NewsItem key={i} article={article} />
+            ))}
+          </ul>
+        </div>
+      )}
+
       <ConfirmDialog
         open={showConfirm}
         title="Confirm Order"
@@ -306,4 +356,61 @@ export default function OrderEntryForm() {
       </ConfirmDialog>
     </>
   );
+}
+
+function SentimentBadge({ label }: { label: string }) {
+  const color =
+    label.toLowerCase() === 'bullish'
+      ? 'bg-green-50 text-green-700 ring-green-600/20'
+      : label.toLowerCase() === 'bearish'
+        ? 'bg-red-50 text-red-700 ring-red-600/20'
+        : 'bg-gray-50 text-gray-600 ring-gray-500/10';
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${color}`}>
+      {label}
+    </span>
+  );
+}
+
+function NewsItem({ article }: { article: NewsArticle }) {
+  const sentimentDot =
+    article.sentiment_score > 0.2
+      ? 'bg-green-400'
+      : article.sentiment_score < -0.2
+        ? 'bg-red-400'
+        : 'bg-gray-300';
+
+  const timeAgo = getTimeAgo(article.published_at);
+
+  return (
+    <li className="py-2">
+      <div className="flex items-start gap-2">
+        <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${sentimentDot}`} />
+        <div className="min-w-0">
+          <a
+            href={article.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-gray-900 hover:text-indigo-600"
+          >
+            {article.title}
+          </a>
+          <div className="mt-0.5 text-xs text-gray-500">
+            {article.source} &middot; {timeAgo}
+          </div>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function getTimeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMin = Math.round((now - then) / 60_000);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDays = Math.round(diffHr / 24);
+  return `${diffDays}d ago`;
 }

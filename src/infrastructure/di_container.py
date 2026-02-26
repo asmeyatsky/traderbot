@@ -104,6 +104,7 @@ class ServiceContainer(containers.DeclarativeContainer):
     market_data_enhancement_service = providers.Singleton(
         DefaultMarketDataEnhancementService,
         market_data_provider=adapters.market_data_service,
+        sentiment_service=sentiment_analysis_service,
     )
 
     # Performance optimization

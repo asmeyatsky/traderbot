@@ -56,6 +56,7 @@ class NewsArticle:
     symbols: List[Symbol]
     sentiment: NewsSentiment
     relevance_score: Decimal  # 0-100, how relevant to the symbols
+    url: str = ""
 
 
 @dataclass
@@ -124,9 +125,10 @@ class DefaultMarketDataEnhancementService(MarketDataEnhancementService):
     When no real market data provider is available, falls back to mock data.
     """
 
-    def __init__(self, market_data_provider: Optional[MarketDataPort] = None):
+    def __init__(self, market_data_provider: Optional[MarketDataPort] = None,
+                 sentiment_service=None):
         self._provider = market_data_provider
-        self._mock_news = self._generate_mock_news()
+        self._sentiment_service = sentiment_service
         self._mock_economic_events = self._generate_mock_economic_events()
 
     def _get_live_price(self, symbol: Symbol) -> Optional[Price]:
@@ -163,39 +165,65 @@ class DefaultMarketDataEnhancementService(MarketDataEnhancementService):
         except Exception:
             return []
     
-    def _generate_mock_news(self) -> Dict[str, List[NewsArticle]]:
-        """Generate mock news data"""
-        symbols = ['AAPL', 'GOOG', 'GOOGL', 'MSFT', 'AMZN', 'META', 'NVDA', 'TSLA']
-        news_data = {}
-        
-        for symbol in symbols:
-            news_articles = []
-            for i in range(5):  # 5 mock articles per symbol
-                # Generate mock sentiment score
-                sentiment_score = Decimal(str(round(np.random.uniform(-50, 50), 2)))
-                
-                news_articles.append(
+    def _fetch_yahoo_news(self, symbol: Symbol) -> List[NewsArticle]:
+        """Fetch real news articles from Yahoo Finance via yfinance."""
+        try:
+            import yfinance as yf
+        except ImportError:
+            return []
+
+        try:
+            ticker = yf.Ticker(str(symbol))
+            raw_news = ticker.news
+            if not raw_news:
+                return []
+
+            articles = []
+            for i, item in enumerate(raw_news[:10]):
+                title = item.get('title', '')
+                if not title:
+                    continue
+
+                published_ts = item.get('providerPublishTime', 0)
+                published_at = (
+                    datetime.fromtimestamp(published_ts)
+                    if published_ts
+                    else datetime.now() - timedelta(hours=i)
+                )
+
+                sentiment = self._analyze_article_sentiment(title)
+
+                articles.append(
                     NewsArticle(
-                        id=f"news_{symbol}_{i}",
-                        title=f"Mock news title for {symbol} - {i}",
-                        summary=f"Summary of news article for {symbol} showing market movements",
-                        content=f"Full content of the news article about {symbol} and how it might affect the market...",
-                        source="Mock News Source",
-                        published_at=datetime.now() - timedelta(hours=np.random.randint(1, 24)),
-                        symbols=[Symbol(symbol)],
-                        sentiment=NewsSentiment(
-                            score=sentiment_score,
-                            confidence=Decimal('85.0'),
-                            source="Mock Analyzer"
-                        ),
-                        relevance_score=Decimal(str(round(np.random.uniform(70, 100), 2)))
+                        id=item.get('uuid', f"yahoo_{symbol}_{i}"),
+                        title=title,
+                        summary=title,
+                        content='',
+                        source=item.get('publisher', 'Yahoo Finance'),
+                        published_at=published_at,
+                        symbols=[symbol],
+                        sentiment=sentiment,
+                        relevance_score=Decimal('80'),
+                        url=item.get('link', ''),
                     )
                 )
-            
-            news_data[symbol] = news_articles
-        
-        return news_data
-    
+            return articles
+        except Exception:
+            return []
+
+    def _analyze_article_sentiment(self, text: str) -> NewsSentiment:
+        """Score article text using the injected sentiment service, with a neutral fallback."""
+        if self._sentiment_service is not None:
+            try:
+                return self._sentiment_service.analyze_sentiment(text)
+            except Exception:
+                pass
+        return NewsSentiment(
+            score=Decimal('0'),
+            confidence=Decimal('30'),
+            source='none',
+        )
+
     def _generate_mock_economic_events(self) -> List[EconomicEvent]:
         """Generate mock economic calendar events"""
         events = []
@@ -258,11 +286,12 @@ class DefaultMarketDataEnhancementService(MarketDataEnhancementService):
     
     def get_news_sentiment(self, symbol: Symbol, days: int = 7) -> List[NewsArticle]:
         """
-        Get news sentiment for a symbol
+        Get news for a symbol. Tries Yahoo Finance as the primary free source.
         """
-        # Return mock news for this symbol
-        symbol_str = str(symbol)
-        return self._mock_news.get(symbol_str, [])
+        articles = self._fetch_yahoo_news(symbol)
+        if articles:
+            return articles
+        return []
     
     def get_economic_calendar(self, days_ahead: int = 7) -> List[EconomicEvent]:
         """

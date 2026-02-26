@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useCreateOrder } from '../../hooks/use-orders';
 import { useMarkets, useStocks } from '../../hooks/use-markets';
+import { useEnhancedMarketData } from '../../hooks/use-market-data';
+import { formatCurrency, formatPercent } from '../../lib/format';
 import type { Stock } from '../../types/market';
 
 interface FirstTradeStepProps {
@@ -19,6 +21,8 @@ export default function FirstTradeStep({ symbol: initialSymbol, onNext }: FirstT
   const { mutate, isPending, error } = useCreateOrder();
   const { data: marketsData } = useMarkets();
   const { data: stocksData, isLoading: stocksLoading } = useStocks(selectedMarket || null, debouncedSearch);
+
+  const { data: marketData } = useEnhancedMarketData(selectedStock?.symbol ?? '');
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -182,6 +186,16 @@ export default function FirstTradeStep({ symbol: initialSymbol, onNext }: FirstT
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {selectedStock && marketData && (
+            <div className="rounded-md bg-white px-3 py-2 text-sm ring-1 ring-gray-200">
+              <span className="text-gray-500">Current Price: </span>
+              <span className="font-semibold text-gray-900">{formatCurrency(marketData.current_price)}</span>
+              <span className={`ml-1 font-medium ${marketData.price_change_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                ({formatPercent(marketData.price_change_percent)})
+              </span>
             </div>
           )}
 
