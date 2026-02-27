@@ -40,6 +40,7 @@ class CreateOrderUseCase:
         trading_service: TradingDomainService,
         market_data_service: MarketDataPort,
         position_repository: Optional[PositionRepositoryPort] = None,
+        activity_log_repository=None,
     ):
         self.order_repository = order_repository
         self.portfolio_repository = portfolio_repository
@@ -47,6 +48,7 @@ class CreateOrderUseCase:
         self.trading_service = trading_service
         self.market_data_service = market_data_service
         self.position_repository = position_repository
+        self.activity_log_repository = activity_log_repository
 
     def execute(
         self,
@@ -117,11 +119,40 @@ class CreateOrderUseCase:
 
         saved_order = self.order_repository.save(order)
 
+        # Log order placement
+        self._log_activity(
+            user_id=user_id,
+            event_type="order_placed",
+            message=f"{position_type.upper()} {order_type.upper()} order for {quantity} shares of {symbol}",
+            symbol=str(symbol),
+            order_id=saved_order.id,
+            quantity=quantity,
+            price=current_price.amount,
+        )
+
         # If filled, update position and cash balance
         if saved_order.status == OrderStatus.EXECUTED and self.position_repository:
             self._settle_fill(saved_order, portfolio)
+            self._log_activity(
+                user_id=user_id,
+                event_type="order_filled",
+                message=f"Filled {quantity} shares of {symbol} at {current_price.amount}",
+                symbol=str(symbol),
+                order_id=saved_order.id,
+                quantity=quantity,
+                price=current_price.amount,
+            )
 
         return saved_order
+
+    def _log_activity(self, **kwargs) -> None:
+        """Log an activity event if the activity log repository is available."""
+        if self.activity_log_repository is None:
+            return
+        try:
+            self.activity_log_repository.log_event(**kwargs)
+        except Exception:
+            pass  # Activity logging must not break order flow
 
     def _settle_fill(self, order: Order, portfolio) -> None:
         """Create/update position and adjust cash after a paper-trade fill."""

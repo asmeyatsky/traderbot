@@ -20,6 +20,8 @@ class PositionResponse(BaseModel):
     market_value: float
     unrealized_pnl: float
     pnl_percentage: float
+    day_change: Optional[float] = None
+    day_change_percent: Optional[float] = None
     created_at: datetime
     updated_at: datetime
 

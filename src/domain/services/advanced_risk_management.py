@@ -140,7 +140,7 @@ class DefaultAdvancedRiskManagementService(AdvancedRiskManagementService):
         var_amount = portfolio_value * Decimal(str(z_score)) * portfolio_volatility * Decimal(str(time_horizon ** 0.5))
         
         # Return absolute value (VaR should be positive)
-        return Money(abs(var_amount), portfolio.total_value.currency)
+        return Money(abs(var_amount).quantize(Decimal('0.01')), portfolio.total_value.currency)
     
     def calculate_expected_shortfall(self, portfolio: Portfolio, confidence_level: Decimal = Decimal('95.0')) -> Money:
         """
@@ -152,7 +152,7 @@ class DefaultAdvancedRiskManagementService(AdvancedRiskManagementService):
         # ES is typically ~10-20% higher than VaR for normal distributions
         es_amount = var_result.amount * Decimal('1.15')
         
-        return Money(es_amount, var_result.currency)
+        return Money(es_amount.quantize(Decimal('0.01')), var_result.currency)
     
     def calculate_portfolio_metrics(self, portfolio: Portfolio, lookback_days: int = 252) -> RiskMetrics:
         """
@@ -215,7 +215,7 @@ class DefaultAdvancedRiskManagementService(AdvancedRiskManagementService):
         stressed_value = portfolio_value * (Decimal('1') + stress_impact / Decimal('100'))
         loss = portfolio_value - stressed_value
         
-        return Money(abs(loss), portfolio.total_value.currency)
+        return Money(abs(loss).quantize(Decimal('0.01')), portfolio.total_value.currency)
     
     def calculate_correlation_matrix(self, portfolio: Portfolio) -> Dict[str, Dict[str, Decimal]]:
         """

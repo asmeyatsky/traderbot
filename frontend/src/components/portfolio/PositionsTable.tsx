@@ -23,6 +23,20 @@ export default function PositionsTable({ positions }: { positions: Position[] })
             </span>
           ),
         },
+        {
+          key: 'today',
+          header: 'Today',
+          render: (p) => {
+            const change = p.day_change ?? 0;
+            const pct = p.day_change_percent ?? 0;
+            const color = change >= 0 ? 'text-green-600' : 'text-red-600';
+            return (
+              <span className={color}>
+                {change >= 0 ? '+' : ''}{formatCurrency(change)} ({change >= 0 ? '+' : ''}{formatPercent(pct)})
+              </span>
+            );
+          },
+        },
       ]}
     />
   );

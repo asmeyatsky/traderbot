@@ -49,8 +49,11 @@ export default function PortfolioPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-900/5">
-            <div className="border-b border-gray-200 px-4 py-3">
+            <div className="flex items-baseline justify-between border-b border-gray-200 px-4 py-3">
               <h3 className="text-sm font-medium text-gray-700">Positions</h3>
+              <p className="text-xs text-gray-400">
+                Prices as of {new Date().toLocaleString()}
+              </p>
             </div>
             <PositionsTable positions={portfolio.positions ?? []} />
           </div>

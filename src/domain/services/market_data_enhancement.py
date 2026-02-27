@@ -141,13 +141,47 @@ class DefaultMarketDataEnhancementService(MarketDataEnhancementService):
             return None
 
     def _fetch_historical_data(self, symbol: Symbol, days: int = 30) -> List[MarketDataPoint]:
-        """Fetch historical price data from the real provider."""
+        """Fetch historical price data from the real provider with full OHLCV."""
         if self._provider is None:
             return []
         try:
             from datetime import date as date_type
+            from src.infrastructure.api_clients.market_data import YahooFinanceAdapter
             end = date_type.today()
             start = end - timedelta(days=days)
+
+            # Use OHLCV endpoint when Yahoo adapter is available
+            yahoo_adapter = None
+            if isinstance(self._provider, YahooFinanceAdapter):
+                yahoo_adapter = self._provider
+            elif hasattr(self._provider, '_adapters'):
+                for adapter in self._provider._adapters:
+                    if isinstance(adapter, YahooFinanceAdapter):
+                        yahoo_adapter = adapter
+                        break
+
+            if yahoo_adapter is not None:
+                ohlcv = yahoo_adapter.get_historical_ohlcv(symbol, start, end)
+                if ohlcv:
+                    points = []
+                    for bar in ohlcv:
+                        close_price = Price(amount=Decimal(str(round(bar['close'], 4))), currency='USD')
+                        points.append(
+                            MarketDataPoint(
+                                symbol=symbol,
+                                price=close_price,
+                                volume=bar['volume'],
+                                timestamp=bar['date'] if isinstance(bar['date'], datetime) else datetime.combine(bar['date'], datetime.min.time()),
+                                source=MarketDataSource.YAHOO_FINANCE,
+                                open=Price(amount=Decimal(str(round(bar['open'], 4))), currency='USD'),
+                                high=Price(amount=Decimal(str(round(bar['high'], 4))), currency='USD'),
+                                low=Price(amount=Decimal(str(round(bar['low'], 4))), currency='USD'),
+                                close=close_price,
+                            )
+                        )
+                    return points
+
+            # Fallback: close-only data from generic provider
             prices = self._provider.get_historical_prices(symbol, start, end)
             points = []
             for i, price in enumerate(prices):

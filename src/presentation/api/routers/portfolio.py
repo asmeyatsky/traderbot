@@ -30,7 +30,30 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/portfolio", tags=["portfolio"])
 
 
-def _position_to_response(position) -> PositionResponse:
+def _fetch_daily_changes(symbols: list[str]) -> dict[str, tuple[float, float]]:
+    """Batch-fetch today's price change and change% for a list of symbols.
+
+    Returns a dict mapping symbol -> (day_change, day_change_percent).
+    """
+    result: dict[str, tuple[float, float]] = {}
+    try:
+        import yfinance as yf
+        tickers = yf.Tickers(' '.join(symbols))
+        for sym in symbols:
+            try:
+                info = tickers.tickers[sym].info
+                change = float(info.get('regularMarketChange', 0) or 0)
+                change_pct = float(info.get('regularMarketChangePercent', 0) or 0)
+                result[sym] = (round(change, 2), round(change_pct, 2))
+            except Exception:
+                result[sym] = (0.0, 0.0)
+    except Exception:
+        for sym in symbols:
+            result[sym] = (0.0, 0.0)
+    return result
+
+
+def _position_to_response(position, daily_changes: dict | None = None) -> PositionResponse:
     """Convert domain Position entity to PositionResponse DTO."""
     current_price = float(position.current_price.amount) if position.current_price else 0.0
     avg_buy_price = float(position.average_buy_price.amount) if hasattr(position, 'average_buy_price') and position.average_buy_price else float(position.average_entry_price.amount) if hasattr(position, 'average_entry_price') and position.average_entry_price else 0.0
@@ -39,9 +62,15 @@ def _position_to_response(position) -> PositionResponse:
     unrealized_pnl = (current_price - avg_buy_price) * quantity
     pnl_percentage = ((current_price - avg_buy_price) / avg_buy_price * 100) if avg_buy_price > 0 else 0.0
 
+    sym = str(position.symbol)
+    day_change = None
+    day_change_percent = None
+    if daily_changes and sym in daily_changes:
+        day_change, day_change_percent = daily_changes[sym]
+
     return PositionResponse(
         id=position.id,
-        symbol=str(position.symbol),
+        symbol=sym,
         position_type=position.position_type.name if hasattr(position.position_type, 'name') else str(position.position_type),
         quantity=quantity,
         average_buy_price=avg_buy_price,
@@ -49,19 +78,21 @@ def _position_to_response(position) -> PositionResponse:
         market_value=market_value,
         unrealized_pnl=unrealized_pnl,
         pnl_percentage=pnl_percentage,
+        day_change=day_change,
+        day_change_percent=day_change_percent,
         created_at=position.opened_at if hasattr(position, 'opened_at') else datetime.utcnow(),
         updated_at=position.updated_at if hasattr(position, 'updated_at') else datetime.utcnow(),
     )
 
 
-def _portfolio_to_response(portfolio, positions=None) -> PortfolioResponse:
+def _portfolio_to_response(portfolio, positions=None, daily_changes=None) -> PortfolioResponse:
     """Convert domain Portfolio entity to PortfolioResponse DTO."""
     position_responses = []
     positions_value = 0.0
 
     if positions:
         for pos in positions:
-            pos_response = _position_to_response(pos)
+            pos_response = _position_to_response(pos, daily_changes)
             position_responses.append(pos_response)
             positions_value += pos_response.market_value
 
@@ -122,7 +153,13 @@ async def get_portfolio(
         # Get positions for this portfolio
         positions = position_repository.get_by_user_id(user_id)
 
-        return _portfolio_to_response(portfolio, positions)
+        # Batch-fetch today's daily changes for all position symbols
+        daily_changes = None
+        if positions:
+            symbols = [str(pos.symbol) for pos in positions]
+            daily_changes = _fetch_daily_changes(symbols)
+
+        return _portfolio_to_response(portfolio, positions, daily_changes)
 
     except Exception as e:
         logger.error(f"Error fetching portfolio: {e}")

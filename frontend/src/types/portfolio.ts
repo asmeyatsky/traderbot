@@ -8,6 +8,8 @@ export interface Position {
   market_value: number;
   unrealized_pnl: number;
   pnl_percentage: number;
+  day_change: number | null;
+  day_change_percent: number | null;
   created_at: string;
   updated_at: string;
 }

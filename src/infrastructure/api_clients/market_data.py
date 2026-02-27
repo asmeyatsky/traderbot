@@ -184,6 +184,29 @@ class YahooFinanceAdapter(MarketDataPort):
             print(f"Error fetching historical prices from Yahoo Finance for {symbol}: {e}")
             return []
 
+    def get_historical_ohlcv(self, symbol: Symbol, start_date: date, end_date: date) -> List[Dict[str, Any]]:
+        """Get historical OHLCV data for a symbol within a date range.
+
+        Returns a list of dicts with keys: date, open, high, low, close, volume.
+        """
+        try:
+            ticker = yf.Ticker(str(symbol))
+            hist = ticker.history(start=start_date, end=end_date)
+            results: List[Dict[str, Any]] = []
+            for idx, row in hist.iterrows():
+                results.append({
+                    'date': idx.to_pydatetime() if hasattr(idx, 'to_pydatetime') else idx,
+                    'open': float(row['Open']),
+                    'high': float(row['High']),
+                    'low': float(row['Low']),
+                    'close': float(row['Close']),
+                    'volume': int(row['Volume']),
+                })
+            return results
+        except Exception as e:
+            print(f"Error fetching OHLCV from Yahoo Finance for {symbol}: {e}")
+            return []
+
     def get_market_news(self, symbol: Symbol) -> List[str]:
         """Get recent news for a symbol using yfinance."""
         try:
