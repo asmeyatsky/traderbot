@@ -1,16 +1,16 @@
 import {
-  SparklesIcon,
+  ChatBubbleLeftRightIcon,
   ShieldCheckIcon,
   ChartBarSquareIcon,
-  PresentationChartLineIcon,
+  BoltIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../../stores/auth-store';
 
 const features = [
-  { icon: SparklesIcon, title: 'AI Predictions', description: 'ML-powered trading signals' },
+  { icon: ChatBubbleLeftRightIcon, title: 'AI Co-Pilot', description: 'Ask anything about stocks' },
+  { icon: BoltIcon, title: 'One-Click Trades', description: 'Confirm AI recommendations' },
   { icon: ShieldCheckIcon, title: 'Risk Controls', description: 'Automated position management' },
-  { icon: ChartBarSquareIcon, title: 'Market Data', description: 'Real-time quotes and charts' },
-  { icon: PresentationChartLineIcon, title: 'Analytics', description: 'Performance tracking' },
+  { icon: ChartBarSquareIcon, title: 'Live Data', description: 'Real-time prices and signals' },
 ];
 
 interface WelcomeStepProps {
@@ -24,7 +24,7 @@ export default function WelcomeStep({ onNext }: WelcomeStepProps) {
     <div className="animate-fade-in text-center">
       <h2 className="text-3xl font-bold text-gray-900">Welcome, {firstName}!</h2>
       <p className="mt-3 text-gray-600">
-        Let's get you set up so you can start trading with confidence.
+        Let's set up your AI trading co-pilot so it can give you personalized insights.
       </p>
       <div className="mt-10 grid grid-cols-2 gap-4">
         {features.map((f) => (

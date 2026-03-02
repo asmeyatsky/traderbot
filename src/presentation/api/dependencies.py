@@ -21,6 +21,12 @@ from src.application.use_cases.trading import (
     GetUserPreferencesUseCase,
 )
 from src.application.use_cases.chat import ChatUseCase
+from src.application.use_cases.broker_account import (
+    LinkBrokerAccountUseCase,
+    GetBrokerAccountsUseCase,
+    UpdateBrokerSettingsUseCase,
+    DeleteBrokerAccountUseCase,
+)
 from src.infrastructure.repositories import (
     OrderRepository,
     PortfolioRepository,
@@ -159,3 +165,27 @@ def get_broker_adapter_manager():
 def get_rl_agent_service():
     """Provide RL trading agent service instance."""
     return container.services.rl_agent_service()
+
+
+# ============================================================================
+# Broker Account Use Case Dependencies
+# ============================================================================
+
+def get_link_broker_account_use_case() -> LinkBrokerAccountUseCase:
+    """Provide LinkBrokerAccountUseCase instance."""
+    return container.use_cases.link_broker_account_use_case()
+
+
+def get_get_broker_accounts_use_case() -> GetBrokerAccountsUseCase:
+    """Provide GetBrokerAccountsUseCase instance."""
+    return container.use_cases.get_broker_accounts_use_case()
+
+
+def get_update_broker_settings_use_case() -> UpdateBrokerSettingsUseCase:
+    """Provide UpdateBrokerSettingsUseCase instance."""
+    return container.use_cases.update_broker_settings_use_case()
+
+
+def get_delete_broker_account_use_case() -> DeleteBrokerAccountUseCase:
+    """Provide DeleteBrokerAccountUseCase instance."""
+    return container.use_cases.delete_broker_account_use_case()

@@ -1,15 +1,15 @@
 import { Link } from 'react-router-dom';
 import {
-  HomeIcon,
-  ArrowTrendingUpIcon,
+  ChatBubbleLeftRightIcon,
+  BanknotesIcon,
   ChartBarSquareIcon,
 } from '@heroicons/react/24/outline';
 import { useOnboardingStore } from '../../stores/onboarding-store';
 
 const links = [
-  { icon: HomeIcon, title: 'Dashboard', description: 'View your portfolio overview', to: '/dashboard' },
-  { icon: ArrowTrendingUpIcon, title: 'Trading', description: 'Place orders and manage trades', to: '/trading' },
-  { icon: ChartBarSquareIcon, title: 'Market Data', description: 'Explore charts and indicators', to: '/market-data' },
+  { icon: ChatBubbleLeftRightIcon, title: 'AI Chat', description: 'Ask your AI co-pilot anything', to: '/chat' },
+  { icon: BanknotesIcon, title: 'Portfolio', description: 'View your holdings and P&L', to: '/portfolio' },
+  { icon: ChartBarSquareIcon, title: 'Markets', description: 'Browse stocks and watchlists', to: '/markets' },
 ];
 
 export default function CompletionStep() {
@@ -24,7 +24,7 @@ export default function CompletionStep() {
       </div>
       <h2 className="mt-6 text-3xl font-bold text-gray-900">You're All Set!</h2>
       <p className="mt-3 text-gray-600">
-        Your account is ready. Explore the platform and start trading with AI-powered insights.
+        Your AI co-pilot is ready. Start a conversation to get trading insights.
       </p>
 
       <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -43,11 +43,11 @@ export default function CompletionStep() {
       </div>
 
       <Link
-        to="/dashboard"
+        to="/chat"
         onClick={markComplete}
         className="mt-10 inline-block rounded-md bg-indigo-600 px-8 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
       >
-        Go to Dashboard
+        Start Chatting
       </Link>
     </div>
   );

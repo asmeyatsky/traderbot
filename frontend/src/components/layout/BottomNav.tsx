@@ -22,14 +22,14 @@ export default function BottomNav() {
             key={item.name}
             to={item.to}
             className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors ${
+              `flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors ${
                 isActive
                   ? 'text-indigo-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`
             }
           >
-            <item.icon className="h-5 w-5" />
+            <item.icon className="h-6 w-6" />
             {item.name}
           </NavLink>
         ))}

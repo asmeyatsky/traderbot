@@ -55,6 +55,7 @@ from src.presentation.api.routers import (
     markets,
     chat,
     websocket,
+    broker_accounts,
 )
 
 # Setup logging
@@ -240,6 +241,7 @@ app.include_router(trading_activity.router)
 app.include_router(markets.router)
 app.include_router(chat.router)
 app.include_router(websocket.router)
+app.include_router(broker_accounts.router)
 
 
 # ============================================================================

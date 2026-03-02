@@ -55,6 +55,7 @@ from src.infrastructure.adapters.notification import LoggingNotificationAdapter
 from src.infrastructure.adapters.claude_chat_adapter import ClaudeChatAdapter
 from src.infrastructure.repositories.activity_log_repository import ActivityLogRepository
 from src.infrastructure.repositories.conversation_repository import ConversationRepository
+from src.infrastructure.repositories.broker_account_repository import BrokerAccountRepository
 
 
 class RepositoryContainer(containers.DeclarativeContainer):
@@ -71,6 +72,7 @@ class RepositoryContainer(containers.DeclarativeContainer):
     portfolio_repository = providers.Factory(PortfolioRepository)
     activity_log_repository = providers.Factory(ActivityLogRepository)
     conversation_repository = providers.Factory(ConversationRepository)
+    broker_account_repository = providers.Factory(BrokerAccountRepository)
 
 
 class ServiceContainer(containers.DeclarativeContainer):
@@ -195,6 +197,12 @@ class UseCaseContainer(containers.DeclarativeContainer):
         GetUserPreferencesUseCase,
     )
     from src.application.use_cases.chat import ChatUseCase
+    from src.application.use_cases.broker_account import (
+        LinkBrokerAccountUseCase,
+        GetBrokerAccountsUseCase,
+        UpdateBrokerSettingsUseCase,
+        DeleteBrokerAccountUseCase,
+    )
 
     create_order_use_case = providers.Factory(
         CreateOrderUseCase,
@@ -236,6 +244,26 @@ class UseCaseContainer(containers.DeclarativeContainer):
     get_user_preferences_use_case = providers.Factory(
         GetUserPreferencesUseCase,
         user_repository=repositories.user_repository,
+    )
+
+    link_broker_account_use_case = providers.Factory(
+        LinkBrokerAccountUseCase,
+        broker_account_repository=repositories.broker_account_repository,
+    )
+
+    get_broker_accounts_use_case = providers.Factory(
+        GetBrokerAccountsUseCase,
+        broker_account_repository=repositories.broker_account_repository,
+    )
+
+    update_broker_settings_use_case = providers.Factory(
+        UpdateBrokerSettingsUseCase,
+        broker_account_repository=repositories.broker_account_repository,
+    )
+
+    delete_broker_account_use_case = providers.Factory(
+        DeleteBrokerAccountUseCase,
+        broker_account_repository=repositories.broker_account_repository,
     )
 
     chat_use_case = providers.Factory(

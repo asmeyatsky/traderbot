@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import {
+  ChatBubbleLeftRightIcon,
   BoltIcon,
   ShieldCheckIcon,
   ChartBarSquareIcon,
-  PresentationChartLineIcon,
   LockClosedIcon,
   ServerIcon,
   CheckBadgeIcon,
@@ -11,22 +11,22 @@ import {
 import FeatureCard from '../components/landing/FeatureCard';
 
 const features = [
-  { icon: BoltIcon, title: 'Autonomous Trading', description: 'Set your goals and risk tolerance. TraderBot\'s AI finds opportunities, executes trades, and manages positions automatically.' },
+  { icon: ChatBubbleLeftRightIcon, title: 'AI Chat Co-Pilot', description: 'Ask questions in plain English. Get real-time prices, ML predictions, and trade recommendations — all through conversation.' },
+  { icon: BoltIcon, title: 'One-Click Trades', description: 'See a trade recommendation? Confirm it with a single tap. Your linked Alpaca account executes instantly.' },
   { icon: ShieldCheckIcon, title: 'Built-In Risk Controls', description: 'Automated position sizing, drawdown limits, and a circuit breaker that halts trading during extreme volatility.' },
-  { icon: ChartBarSquareIcon, title: 'Market Intelligence', description: 'Real-time market data, technical indicators, and news sentiment analysis in one unified view.' },
-  { icon: PresentationChartLineIcon, title: 'Portfolio Analytics', description: 'Track performance, allocation, and risk metrics with professional-grade analytics dashboards.' },
+  { icon: ChartBarSquareIcon, title: 'Portfolio Intelligence', description: 'Track performance, allocation, and risk metrics. Ask the AI to explain your portfolio in plain language.' },
 ];
 
 const steps = [
-  { num: '1', title: 'Set Your Goals', description: 'Choose your risk tolerance, investment goals, and a watchlist of stocks.' },
-  { num: '2', title: 'Fund Your Account', description: 'Deposit funds and set a trading budget for the AI.' },
-  { num: '3', title: 'Let TraderBot Trade', description: 'TraderBot autonomously trades your portfolio. Review activity anytime.' },
+  { num: '1', title: 'Ask the AI', description: '"What\'s oversold in tech?" — your AI co-pilot scans the market for opportunities.' },
+  { num: '2', title: 'Review & Confirm', description: 'The AI shows trade recommendations with reasoning. You decide what to execute.' },
+  { num: '3', title: 'Track Performance', description: 'Monitor your portfolio and get real-time alerts. Ask the AI anything about your positions.' },
 ];
 
 const trust = [
-  { icon: LockClosedIcon, title: 'Bank-Grade Encryption', description: 'Your data is protected with industry-standard encryption at rest and in transit.' },
-  { icon: ServerIcon, title: 'Real-Time Monitoring', description: 'Systems are monitored around the clock to ensure uptime and reliability.' },
-  { icon: CheckBadgeIcon, title: 'Data Protection', description: 'Strict access controls and privacy policies safeguard your information.' },
+  { icon: LockClosedIcon, title: 'Encrypted Credentials', description: 'Broker API keys are AES-256 encrypted at rest. Never exposed in API responses.' },
+  { icon: ServerIcon, title: 'You Stay in Control', description: 'The AI recommends — you confirm. No trades execute without your explicit approval.' },
+  { icon: CheckBadgeIcon, title: 'Paper Trading First', description: 'Test with paper trading before going live. No real money until you\'re ready.' },
 ];
 
 export default function LandingPage() {
@@ -51,25 +51,41 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="mx-auto max-w-4xl px-6 py-20 text-center lg:py-32">
         <h1 className="animate-fade-in text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-          Stop Watching Charts. Start Making Money.
+          Your AI Trading Co-Pilot
         </h1>
         <p className="animate-fade-in-delay-1 mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-indigo-200">
-          TraderBot's AI autonomously trades your portfolio — finding opportunities,
-          executing trades, and managing risk so you don't have to.
+          Ask about any stock in plain English. Get ML-powered predictions, news sentiment,
+          and trade recommendations — then execute with one click.
         </p>
-        <div className="animate-fade-in-delay-2 mt-10 flex items-center justify-center gap-4">
+        <div className="animate-fade-in-delay-2 mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
             to="/register"
-            className="rounded-md bg-indigo-500 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-indigo-400"
+            className="w-full rounded-md bg-indigo-500 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-indigo-400 sm:w-auto"
           >
-            Get Started Free
+            Start Free
           </Link>
           <Link
             to="/login"
-            className="rounded-md border border-indigo-400 px-6 py-3 text-sm font-semibold text-indigo-200 hover:bg-white/5"
+            className="w-full rounded-md border border-indigo-400 px-6 py-3 text-sm font-semibold text-indigo-200 hover:bg-white/5 sm:w-auto"
           >
             Sign In
           </Link>
+        </div>
+
+        {/* Chat preview bubble */}
+        <div className="animate-fade-in-delay-2 mx-auto mt-12 max-w-md rounded-2xl bg-white/10 p-4 text-left ring-1 ring-white/20 backdrop-blur-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-xs font-bold text-white">
+              AI
+            </div>
+            <div className="text-sm leading-relaxed text-indigo-100">
+              AAPL is trading at <span className="font-semibold text-white">$187.42</span>.
+              RSI is at <span className="font-semibold text-white">28.3</span> (oversold).
+              Our ML model gives a{' '}
+              <span className="font-semibold text-green-400">BUY signal</span> with 78% confidence.
+              Want me to place an order?
+            </div>
+          </div>
         </div>
       </section>
 
@@ -100,7 +116,7 @@ export default function LandingPage() {
 
       {/* Trust */}
       <section className="mx-auto max-w-5xl px-6 py-20">
-        <h2 className="text-center text-3xl font-bold text-white">Built for Security</h2>
+        <h2 className="text-center text-3xl font-bold text-white">Safe by Design</h2>
         <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
           {trust.map((t) => (
             <div key={t.title} className="rounded-xl bg-white/5 p-6 text-center ring-1 ring-white/10">
@@ -114,8 +130,8 @@ export default function LandingPage() {
 
       {/* Footer CTA */}
       <section className="bg-indigo-600/20 py-16 text-center">
-        <h2 className="text-2xl font-bold text-white">Ready to put your portfolio on autopilot?</h2>
-        <p className="mt-3 text-indigo-200">Join TraderBot and let AI trade for you.</p>
+        <h2 className="text-2xl font-bold text-white">Ready to trade smarter?</h2>
+        <p className="mt-3 text-indigo-200">Your AI co-pilot is waiting.</p>
         <Link
           to="/register"
           className="mt-8 inline-block rounded-md bg-indigo-500 px-8 py-3 text-sm font-semibold text-white shadow-md hover:bg-indigo-400"

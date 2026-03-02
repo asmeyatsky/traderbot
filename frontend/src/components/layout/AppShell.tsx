@@ -5,11 +5,11 @@ import BottomNav from './BottomNav';
 
 export default function AppShell() {
   return (
-    <div className="flex h-full">
+    <div className="flex h-[100dvh]">
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-hidden pb-14 md:pb-0">
+        <main className="flex-1 overflow-hidden pb-16 md:pb-0">
           <Outlet />
         </main>
         <BottomNav />

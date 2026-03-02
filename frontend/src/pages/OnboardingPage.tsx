@@ -8,7 +8,7 @@ export default function OnboardingPage() {
 
   function handleSkip() {
     markComplete();
-    navigate('/dashboard');
+    navigate('/chat');
   }
 
   return (

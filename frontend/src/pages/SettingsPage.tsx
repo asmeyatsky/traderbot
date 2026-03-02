@@ -5,6 +5,7 @@ import { useMe, useUpdateMe } from '../hooks/use-auth';
 import { useAutoTradingSettings, useUpdateAutoTrading } from '../hooks/use-auto-trading';
 import { usePortfolio } from '../hooks/use-portfolio';
 import { useOnboardingStore } from '../stores/onboarding-store';
+import BrokerLinkForm from '../components/settings/BrokerLinkForm';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import PageHeader from '../components/common/PageHeader';
 import InfoTooltip from '../components/common/InfoTooltip';
@@ -137,6 +138,7 @@ export default function SettingsPage() {
         </div>
       </form>
 
+      <BrokerLinkForm />
       <AutoTradingSection />
     </div>
   );

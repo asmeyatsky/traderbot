@@ -266,6 +266,28 @@ class MessageORM(Base):
     )
 
 
+class BrokerAccountORM(Base):
+    """ORM model for BrokerAccount entity. API keys stored encrypted."""
+    __tablename__ = "broker_accounts"
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    broker_type = Column(String(50), nullable=False)
+    encrypted_api_key = Column(String(500), nullable=False)
+    encrypted_secret_key = Column(String(500), nullable=False)
+    paper_trading = Column(Boolean, nullable=False, default=True)
+    label = Column(String(255), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index('idx_broker_account_user_id', 'user_id'),
+        Index('idx_broker_account_user_broker', 'user_id', 'broker_type', unique=True),
+    )
+
+
 class DomainEventORM(Base):
     """ORM model for Domain Events (audit trail and event sourcing)."""
     __tablename__ = "domain_events"
