@@ -52,7 +52,9 @@ from src.domain.services.dashboard_analytics import DefaultDashboardAnalyticsSer
 from src.domain.services.market_data_enhancement import DefaultMarketDataEnhancementService
 from src.domain.services.risk_management import RiskManager, CircuitBreakerService
 from src.infrastructure.adapters.notification import LoggingNotificationAdapter
+from src.infrastructure.adapters.claude_chat_adapter import ClaudeChatAdapter
 from src.infrastructure.repositories.activity_log_repository import ActivityLogRepository
+from src.infrastructure.repositories.conversation_repository import ConversationRepository
 
 
 class RepositoryContainer(containers.DeclarativeContainer):
@@ -68,6 +70,7 @@ class RepositoryContainer(containers.DeclarativeContainer):
     position_repository = providers.Factory(PositionRepository)
     portfolio_repository = providers.Factory(PortfolioRepository)
     activity_log_repository = providers.Factory(ActivityLogRepository)
+    conversation_repository = providers.Factory(ConversationRepository)
 
 
 class ServiceContainer(containers.DeclarativeContainer):
@@ -154,6 +157,9 @@ class AdapterContainer(containers.DeclarativeContainer):
         alpaca_service=alpaca_broker_service
     )
 
+    # AI Chat adapter
+    claude_chat_adapter = providers.Singleton(ClaudeChatAdapter)
+
     # Broker adapter manager
     broker_adapter_manager = providers.Singleton(BrokerAdapterManager)
 
@@ -188,6 +194,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         GetPortfolioPerformanceUseCase,
         GetUserPreferencesUseCase,
     )
+    from src.application.use_cases.chat import ChatUseCase
 
     create_order_use_case = providers.Factory(
         CreateOrderUseCase,
@@ -228,6 +235,17 @@ class UseCaseContainer(containers.DeclarativeContainer):
 
     get_user_preferences_use_case = providers.Factory(
         GetUserPreferencesUseCase,
+        user_repository=repositories.user_repository,
+    )
+
+    chat_use_case = providers.Factory(
+        ChatUseCase,
+        ai_chat_port=adapters.claude_chat_adapter,
+        conversation_repository=repositories.conversation_repository,
+        market_data_service=adapters.market_data_service,
+        ai_model_service=services.ml_model_service,
+        news_analysis_service=services.news_aggregation_service,
+        portfolio_repository=repositories.portfolio_repository,
         user_repository=repositories.user_repository,
     )
 

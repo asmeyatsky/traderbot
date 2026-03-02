@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     ALPACA_SECRET_KEY: Optional[str] = Field(default=None)
     INTERACTIVE_BROKERS_API_KEY: Optional[str] = Field(default=None)
 
+    # AI Chat Configuration
+    ANTHROPIC_API_KEY: Optional[str] = Field(default=None)
+    CHAT_MODEL: str = Field(default="claude-sonnet-4-20250514")
+
     # Database Configuration
     DATABASE_URL: str = Field(...)
     REDIS_URL: str = Field(default="redis://localhost:6379/0")

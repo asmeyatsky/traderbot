@@ -20,6 +20,7 @@ from src.application.use_cases.trading import (
     GetPortfolioPerformanceUseCase,
     GetUserPreferencesUseCase,
 )
+from src.application.use_cases.chat import ChatUseCase
 from src.infrastructure.repositories import (
     OrderRepository,
     PortfolioRepository,
@@ -85,6 +86,11 @@ def get_portfolio_performance_use_case() -> GetPortfolioPerformanceUseCase:
 def get_user_preferences_use_case() -> GetUserPreferencesUseCase:
     """Provide GetUserPreferencesUseCase instance with all dependencies."""
     return container.use_cases.get_user_preferences_use_case()
+
+
+def get_chat_use_case() -> ChatUseCase:
+    """Provide ChatUseCase instance with all dependencies."""
+    return container.use_cases.chat_use_case()
 
 
 # ============================================================================

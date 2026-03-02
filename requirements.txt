@@ -44,6 +44,9 @@ finnhub-python==2.4.14
 alembic==1.13.1
 psycopg2-binary==2.9.9
 
+# AI Chat
+anthropic>=0.40.0
+
 # AWS
 boto3>=1.35.0
 

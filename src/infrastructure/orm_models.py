@@ -226,6 +226,46 @@ class TradingActivityLogORM(Base):
     )
 
 
+class ConversationORM(Base):
+    """ORM model for Conversation entity."""
+    __tablename__ = "conversations"
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    title = Column(String(500), nullable=False, default="New conversation")
+
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    messages = relationship("MessageORM", back_populates="conversation", cascade="all, delete-orphan",
+                            order_by="MessageORM.created_at")
+
+    __table_args__ = (
+        Index('idx_conversation_user_id', 'user_id'),
+        Index('idx_conversation_updated_at', 'updated_at'),
+    )
+
+
+class MessageORM(Base):
+    """ORM model for Message entity."""
+    __tablename__ = "messages"
+
+    id = Column(String(36), primary_key=True, index=True)
+    conversation_id = Column(String(36), ForeignKey('conversations.id', ondelete='CASCADE'), nullable=False, index=True)
+    role = Column(String(20), nullable=False)  # user, assistant, system
+    content = Column(String, nullable=False)
+    metadata_json = Column("metadata", JSON, nullable=True)
+
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    conversation = relationship("ConversationORM", back_populates="messages")
+
+    __table_args__ = (
+        Index('idx_message_conversation_id', 'conversation_id'),
+        Index('idx_message_created_at', 'created_at'),
+    )
+
+
 class DomainEventORM(Base):
     """ORM model for Domain Events (audit trail and event sourcing)."""
     __tablename__ = "domain_events"

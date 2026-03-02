@@ -7,14 +7,10 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import OnboardingPage from './pages/OnboardingPage';
-import DashboardPage from './pages/DashboardPage';
-import TradingPage from './pages/TradingPage';
+import ChatPage from './pages/ChatPage';
 import PortfolioPage from './pages/PortfolioPage';
-import MarketDataPage from './pages/MarketDataPage';
-import MLPredictionsPage from './pages/MLPredictionsPage';
-import RiskPage from './pages/RiskPage';
+import MarketsPage from './pages/MarketsPage';
 import SettingsPage from './pages/SettingsPage';
-import TradingActivityPage from './pages/TradingActivityPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,7 +24,7 @@ const queryClient = new QueryClient({
 
 function RootRedirect() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />;
+  return isAuthenticated ? <Navigate to="/chat" replace /> : <LandingPage />;
 }
 
 export default function App() {
@@ -42,14 +38,17 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route element={<AppShell />}>
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/trading" element={<TradingPage />} />
+              <Route path="/chat" element={<ChatPage />} />
               <Route path="/portfolio" element={<PortfolioPage />} />
-              <Route path="/market-data" element={<MarketDataPage />} />
-              <Route path="/analytics" element={<RiskPage />} />
-              <Route path="/predictions" element={<MLPredictionsPage />} />
-              <Route path="/activity" element={<TradingActivityPage />} />
+              <Route path="/markets" element={<MarketsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              {/* Legacy redirects */}
+              <Route path="/dashboard" element={<Navigate to="/chat" replace />} />
+              <Route path="/trading" element={<Navigate to="/chat" replace />} />
+              <Route path="/market-data" element={<Navigate to="/markets" replace />} />
+              <Route path="/predictions" element={<Navigate to="/chat" replace />} />
+              <Route path="/analytics" element={<Navigate to="/chat" replace />} />
+              <Route path="/activity" element={<Navigate to="/chat" replace />} />
             </Route>
           </Route>
         </Routes>
