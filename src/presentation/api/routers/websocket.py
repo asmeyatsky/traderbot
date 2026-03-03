@@ -37,7 +37,8 @@ def _authenticate_ws_token(token: str) -> str | None:
             algorithms=[settings.JWT_ALGORITHM],
         )
         return payload.get("sub")
-    except jwt.PyJWTError:
+    except jwt.PyJWTError as e:
+        logger.warning(f"WebSocket authentication failed: {e}")
         return None
 
 

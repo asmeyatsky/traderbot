@@ -79,8 +79,8 @@ export async function* sendMessageStream(
         try {
           const event: SSEEvent = JSON.parse(line.slice(6));
           yield event;
-        } catch {
-          // Skip malformed events
+        } catch (e) {
+          console.warn('Malformed SSE event, skipping:', line.slice(6, 100), e);
         }
       }
     }

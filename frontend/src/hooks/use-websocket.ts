@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { getWebSocketClient, type WSMessage } from '../api/websocket';
+import { getWebSocketClient, resetWebSocketClient, type WSMessage } from '../api/websocket';
 import { useAuthStore } from '../stores/auth-store';
 
 /**
@@ -12,6 +12,9 @@ export function useWebSocket() {
   useEffect(() => {
     if (isAuthenticated) {
       client.connect();
+    } else {
+      // Full reset on logout so a new token is used on next login
+      resetWebSocketClient();
     }
     return () => client.disconnect();
   }, [isAuthenticated]);

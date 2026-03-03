@@ -60,7 +60,13 @@ export default function PortfolioPage() {
         </div>
         <div className="space-y-6">
           <CashManagement cashBalance={portfolio.cash_balance} totalValue={portfolio.total_value} />
-          {allocation && <AllocationChart data={allocation.allocations ?? []} />}
+          {allocation ? (
+            <AllocationChart data={allocation.allocations ?? []} />
+          ) : (
+            <div className="flex items-center justify-center rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
+              <LoadingSpinner />
+            </div>
+          )}
         </div>
       </div>
     </div>

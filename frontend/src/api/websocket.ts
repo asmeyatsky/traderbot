@@ -89,10 +89,17 @@ export class WebSocketClient {
   }
 }
 
-// Singleton
+// Singleton with reset support for auth changes
 let instance: WebSocketClient | null = null;
 
 export function getWebSocketClient(): WebSocketClient {
   if (!instance) instance = new WebSocketClient();
   return instance;
+}
+
+export function resetWebSocketClient(): void {
+  if (instance) {
+    instance.disconnect();
+    instance = null;
+  }
 }

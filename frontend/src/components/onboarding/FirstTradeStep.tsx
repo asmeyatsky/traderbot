@@ -219,10 +219,14 @@ export default function FirstTradeStep({ symbol: initialSymbol, onNext }: FirstT
               id="qty"
               type="number"
               min={1}
+              max={1000}
               value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
+              onChange={(e) => setQuantity(Math.min(1000, Math.max(1, Number(e.target.value))))}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
             />
+            {quantity > 100 && (
+              <p className="mt-1 text-xs text-amber-600">Large order — make sure you have sufficient balance.</p>
+            )}
           </div>
         </div>
       </div>

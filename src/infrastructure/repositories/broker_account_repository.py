@@ -81,61 +81,61 @@ class BrokerAccountRepository(BrokerAccountRepositoryPort):
         )
 
     def save(self, account: BrokerAccount) -> BrokerAccount:
-        session = get_db_session()
-        try:
-            existing = session.query(BrokerAccountORM).filter_by(id=account.id).first()
-            if existing:
-                existing.broker_type = account.broker_type.value
-                existing.encrypted_api_key = self._encrypt(account.api_key)
-                existing.encrypted_secret_key = self._encrypt(account.secret_key)
-                existing.paper_trading = account.paper_trading
-                existing.label = account.label
-                existing.is_active = account.is_active
-                existing.updated_at = datetime.utcnow()
-            else:
-                orm = self._to_orm(account)
-                session.add(orm)
-            session.commit()
-            return account
-        except Exception:
-            session.rollback()
-            raise
+        with get_db_session() as session:
+            try:
+                existing = session.query(BrokerAccountORM).filter_by(id=account.id).first()
+                if existing:
+                    existing.broker_type = account.broker_type.value
+                    existing.encrypted_api_key = self._encrypt(account.api_key)
+                    existing.encrypted_secret_key = self._encrypt(account.secret_key)
+                    existing.paper_trading = account.paper_trading
+                    existing.label = account.label
+                    existing.is_active = account.is_active
+                    existing.updated_at = datetime.utcnow()
+                else:
+                    orm = self._to_orm(account)
+                    session.add(orm)
+                session.commit()
+                return account
+            except Exception:
+                session.rollback()
+                raise
 
     def get_by_id(self, account_id: str) -> Optional[BrokerAccount]:
-        session = get_db_session()
-        orm = session.query(BrokerAccountORM).filter_by(id=account_id).first()
-        return self._to_entity(orm) if orm else None
+        with get_db_session() as session:
+            orm = session.query(BrokerAccountORM).filter_by(id=account_id).first()
+            return self._to_entity(orm) if orm else None
 
     def get_by_user_and_broker(
         self, user_id: str, broker_type: BrokerType
     ) -> Optional[BrokerAccount]:
-        session = get_db_session()
-        orm = (
-            session.query(BrokerAccountORM)
-            .filter_by(user_id=user_id, broker_type=broker_type.value)
-            .first()
-        )
-        return self._to_entity(orm) if orm else None
+        with get_db_session() as session:
+            orm = (
+                session.query(BrokerAccountORM)
+                .filter_by(user_id=user_id, broker_type=broker_type.value)
+                .first()
+            )
+            return self._to_entity(orm) if orm else None
 
     def get_by_user(self, user_id: str) -> List[BrokerAccount]:
-        session = get_db_session()
-        orms = (
-            session.query(BrokerAccountORM)
-            .filter_by(user_id=user_id)
-            .order_by(BrokerAccountORM.created_at)
-            .all()
-        )
-        return [self._to_entity(orm) for orm in orms]
+        with get_db_session() as session:
+            orms = (
+                session.query(BrokerAccountORM)
+                .filter_by(user_id=user_id)
+                .order_by(BrokerAccountORM.created_at)
+                .all()
+            )
+            return [self._to_entity(orm) for orm in orms]
 
     def delete(self, account_id: str) -> bool:
-        session = get_db_session()
-        try:
-            orm = session.query(BrokerAccountORM).filter_by(id=account_id).first()
-            if not orm:
-                return False
-            session.delete(orm)
-            session.commit()
-            return True
-        except Exception:
-            session.rollback()
-            raise
+        with get_db_session() as session:
+            try:
+                orm = session.query(BrokerAccountORM).filter_by(id=account_id).first()
+                if not orm:
+                    return False
+                session.delete(orm)
+                session.commit()
+                return True
+            except Exception:
+                session.rollback()
+                raise

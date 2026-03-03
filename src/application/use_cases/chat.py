@@ -409,6 +409,8 @@ class ChatUseCase:
             )
 
     async def _tool_get_stock_price(self, args: Dict[str, Any]) -> ToolResult:
+        if "symbol" not in args:
+            return ToolResult(tool_call_id="", content="Missing required argument: symbol", is_error=True)
         symbol = Symbol(args["symbol"].upper())
         price = self._market_data.get_current_price(symbol)
         if price:
@@ -427,6 +429,8 @@ class ChatUseCase:
         )
 
     async def _tool_get_ml_prediction(self, args: Dict[str, Any]) -> ToolResult:
+        if "symbol" not in args:
+            return ToolResult(tool_call_id="", content="Missing required argument: symbol", is_error=True)
         symbol = Symbol(args["symbol"].upper())
         days = args.get("days", 1)
         prediction = self._ai_model.predict_price_movement(symbol, days)
@@ -441,6 +445,8 @@ class ChatUseCase:
         )
 
     async def _tool_get_trading_signal(self, args: Dict[str, Any]) -> ToolResult:
+        if "symbol" not in args:
+            return ToolResult(tool_call_id="", content="Missing required argument: symbol", is_error=True)
         symbol = Symbol(args["symbol"].upper())
         signal = self._ai_model.get_trading_signal(symbol)
         return ToolResult(
@@ -452,6 +458,8 @@ class ChatUseCase:
         )
 
     async def _tool_get_news_sentiment(self, args: Dict[str, Any]) -> ToolResult:
+        if "symbol" not in args:
+            return ToolResult(tool_call_id="", content="Missing required argument: symbol", is_error=True)
         symbol = Symbol(args["symbol"].upper())
         news = self._market_data.get_market_news(symbol)
         if news:

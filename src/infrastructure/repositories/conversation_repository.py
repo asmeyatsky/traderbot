@@ -22,6 +22,8 @@ from src.domain.entities.conversation import (
     TradeAction,
     TradeActionType,
 )
+from sqlalchemy.orm import joinedload
+
 from src.domain.ports.conversation_repository_port import ConversationRepositoryPort
 from src.infrastructure.database import get_database_manager
 from src.infrastructure.orm_models import ConversationORM, MessageORM
@@ -122,13 +124,18 @@ class ConversationRepository(ConversationRepositoryPort):
         finally:
             session.close()
 
-    def get_by_id(self, conversation_id: str) -> Optional[Conversation]:
+    def get_by_id(self, conversation_id: str, user_id: str | None = None) -> Optional[Conversation]:
         db_manager = get_database_manager()
         session = db_manager._session_factory()
         try:
-            orm = session.query(ConversationORM).filter(
-                ConversationORM.id == conversation_id
-            ).first()
+            query = (
+                session.query(ConversationORM)
+                .options(joinedload(ConversationORM.messages))
+                .filter(ConversationORM.id == conversation_id)
+            )
+            if user_id is not None:
+                query = query.filter(ConversationORM.user_id == user_id)
+            orm = query.first()
             return self._to_domain(orm) if orm else None
         except Exception as e:
             logger.error(f"Failed to get conversation {conversation_id}: {e}")

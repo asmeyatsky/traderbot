@@ -9,6 +9,7 @@ interface MessageListProps {
   streamingContent: string;
   isStreaming: boolean;
   onConfirmTrade?: (action: ChatMessage['trade_actions'][0]) => void;
+  onSuggestionClick?: (text: string) => void;
 }
 
 export default function MessageList({
@@ -16,6 +17,7 @@ export default function MessageList({
   streamingContent,
   isStreaming,
   onConfirmTrade,
+  onSuggestionClick,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -44,9 +46,7 @@ export default function MessageList({
             <button
               key={suggestion}
               className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 transition-colors hover:border-indigo-300 hover:text-indigo-600"
-              onClick={() => {
-                // This will be connected via props
-              }}
+              onClick={() => onSuggestionClick?.(suggestion)}
             >
               {suggestion}
             </button>

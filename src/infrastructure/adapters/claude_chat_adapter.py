@@ -84,65 +84,82 @@ class ClaudeChatAdapter(AIChatPort):
         if user_context.portfolio_summary:
             system_with_context += f"\nPortfolio: {user_context.portfolio_summary}"
 
-        try:
-            kwargs = {
-                "model": self._model,
-                "max_tokens": 4096,
-                "system": [
-                    {
-                        "type": "text",
-                        "text": system_with_context,
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ],
-                "messages": api_messages,
-            }
-            if api_tools:
-                kwargs["tools"] = api_tools
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                kwargs = {
+                    "model": self._model,
+                    "max_tokens": 4096,
+                    "system": [
+                        {
+                            "type": "text",
+                            "text": system_with_context,
+                            "cache_control": {"type": "ephemeral"},
+                        }
+                    ],
+                    "messages": api_messages,
+                }
+                if api_tools:
+                    kwargs["tools"] = api_tools
 
-            async with self._client.messages.stream(**kwargs) as stream:
-                async for event in stream:
-                    if event.type == "content_block_start":
-                        if hasattr(event.content_block, "type"):
-                            if event.content_block.type == "tool_use":
-                                # Tool call starting — we'll accumulate input
+                async with self._client.messages.stream(**kwargs) as stream:
+                    async for event in stream:
+                        if event.type == "content_block_start":
+                            if hasattr(event.content_block, "type"):
+                                if event.content_block.type == "tool_use":
+                                    pass
+                        elif event.type == "content_block_delta":
+                            if hasattr(event.delta, "text"):
+                                yield ChatStreamEvent(
+                                    type="text_delta",
+                                    content=event.delta.text,
+                                )
+                            elif hasattr(event.delta, "partial_json"):
                                 pass
-                    elif event.type == "content_block_delta":
-                        if hasattr(event.delta, "text"):
-                            yield ChatStreamEvent(
-                                type="text_delta",
-                                content=event.delta.text,
-                            )
-                        elif hasattr(event.delta, "partial_json"):
-                            # Tool input being streamed — skip, we get full result at end
+                        elif event.type == "message_stop":
                             pass
-                    elif event.type == "message_stop":
-                        pass
 
-                # After stream completes, check for tool use in final message
-                final_message = await stream.get_final_message()
-                for block in final_message.content:
-                    if block.type == "tool_use":
-                        yield ChatStreamEvent(
-                            type="tool_call",
-                            tool_call=ToolCall(
-                                id=block.id,
-                                name=block.name,
-                                arguments=block.input if isinstance(block.input, dict) else json.loads(block.input),
-                            ),
-                        )
+                    final_message = await stream.get_final_message()
+                    for block in final_message.content:
+                        if block.type == "tool_use":
+                            yield ChatStreamEvent(
+                                type="tool_call",
+                                tool_call=ToolCall(
+                                    id=block.id,
+                                    name=block.name,
+                                    arguments=block.input if isinstance(block.input, dict) else json.loads(block.input),
+                                ),
+                            )
 
-            yield ChatStreamEvent(type="done")
+                yield ChatStreamEvent(type="done")
+                return  # Success — exit retry loop
 
-        except anthropic.APIError as e:
-            logger.error(f"Claude API error: {e}")
-            yield ChatStreamEvent(
-                type="error",
-                content=f"AI service error: {str(e)}",
-            )
-        except Exception as e:
-            logger.error(f"Unexpected error in Claude adapter: {e}")
-            yield ChatStreamEvent(
-                type="error",
-                content="An unexpected error occurred while generating a response.",
-            )
+            except anthropic.RateLimitError as e:
+                if attempt < max_retries - 1:
+                    import asyncio
+                    delay = 2 ** (attempt + 1)
+                    logger.warning(f"Rate limited by Claude API, retrying in {delay}s (attempt {attempt + 1}/{max_retries})")
+                    await asyncio.sleep(delay)
+                    continue
+                logger.error(f"Claude API rate limit exceeded after {max_retries} attempts: {e}")
+                yield ChatStreamEvent(type="error", content="AI service is temporarily overloaded. Please try again shortly.")
+
+            except anthropic.InternalServerError as e:
+                if attempt < max_retries - 1:
+                    import asyncio
+                    delay = 2 ** (attempt + 1)
+                    logger.warning(f"Claude API server error, retrying in {delay}s (attempt {attempt + 1}/{max_retries})")
+                    await asyncio.sleep(delay)
+                    continue
+                logger.error(f"Claude API server error after {max_retries} attempts: {e}")
+                yield ChatStreamEvent(type="error", content=f"AI service error: {str(e)}")
+
+            except anthropic.APIError as e:
+                logger.error(f"Claude API error: {e}")
+                yield ChatStreamEvent(type="error", content=f"AI service error: {str(e)}")
+                return
+
+            except Exception as e:
+                logger.error(f"Unexpected error in Claude adapter: {e}")
+                yield ChatStreamEvent(type="error", content="An unexpected error occurred while generating a response.")
+                return

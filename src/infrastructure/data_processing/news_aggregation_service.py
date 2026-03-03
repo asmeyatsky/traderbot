@@ -282,9 +282,13 @@ class MarketauxNewsService(NewsAggregationService):
 
 
 class EnhancedNewsAggregationService(NewsAggregationService):
-    """Enhanced news service that combines multiple sources for comprehensive coverage."""
+    """Enhanced news service that combines multiple sources for comprehensive coverage.
 
-    def __init__(self, 
+    Also implements NewsAnalysisPort so it can be injected into ChatUseCase
+    for sentiment analysis of news text.
+    """
+
+    def __init__(self,
                  marketaux_service: MarketauxNewsService,
                  sentiment_service: SentimentAnalysisService,
                  additional_sources: Optional[List] = None):
@@ -293,6 +297,28 @@ class EnhancedNewsAggregationService(NewsAggregationService):
         self.additional_sources = additional_sources or []
         self.cache = {}  # Simple in-memory cache
         logger.info("EnhancedNewsAggregationService initialized")
+
+    # -- NewsAnalysisPort interface ------------------------------------------
+
+    def analyze_sentiment(self, text: str) -> NewsSentiment:
+        """Analyze sentiment of a single text string."""
+        return self.sentiment_service.analyze_sentiment(text)
+
+    def batch_analyze_sentiment(self, texts: List[str]) -> List[NewsSentiment]:
+        """Analyze sentiment of multiple texts."""
+        return [self.sentiment_service.analyze_sentiment(t) for t in texts]
+
+    def extract_symbols_from_news(self, news_text: str) -> List[Symbol]:
+        """Extract stock symbols mentioned in news text (best-effort)."""
+        import re
+        # Match 1-5 uppercase letters that look like tickers
+        candidates = re.findall(r'\b([A-Z]{1,5})\b', news_text)
+        # Filter out common English words that look like tickers
+        stopwords = {"THE", "AND", "FOR", "WITH", "FROM", "THIS", "THAT", "WILL",
+                     "ARE", "WAS", "HAS", "HAVE", "HAD", "NOT", "BUT", "ALL", "CAN",
+                     "HER", "HIS", "ITS", "OUR", "NEW", "NOW", "OLD", "SEE", "WAY",
+                     "WHO", "DID", "GET", "LET", "SAY", "SHE", "TOO", "USE"}
+        return [Symbol(c) for c in dict.fromkeys(candidates) if c not in stopwords]
 
     def get_news_for_symbol(self, symbol: Symbol, hours_back: int = 24) -> List[NewsArticle]:
         """

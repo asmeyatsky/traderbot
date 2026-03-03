@@ -79,6 +79,7 @@ export default function ChatView() {
           streamingContent={streamingContent}
           isStreaming={isStreaming}
           onConfirmTrade={handleConfirmTrade}
+          onSuggestionClick={handleSend}
         />
         <ChatInput onSend={handleSend} disabled={isStreaming} />
       </div>

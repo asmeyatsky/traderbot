@@ -26,12 +26,12 @@ jobs:
           pip install torch==2.0.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
           pip install -r requirements-dev.txt
 
-      - name: Run backend tests
+      - name: Run backend tests with coverage
         env:
           DATABASE_URL: sqlite:///./test.db
           JWT_SECRET_KEY: test_secret_key_for_ci_at_least_32_characters_long
           ENVIRONMENT: development
-        run: pytest tests/ -v --tb=short
+        run: pytest tests/ -v --tb=short --cov=src --cov-report=term-missing --cov-fail-under=60
 
   test-frontend:
     runs-on: ubuntu-latest
@@ -48,6 +48,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        working-directory: frontend
+
+      - name: TypeScript type check
+        run: npx tsc -b --noEmit
+        working-directory: frontend
+
+      - name: Lint
+        run: npm run lint
         working-directory: frontend
 
       - name: Run frontend tests
