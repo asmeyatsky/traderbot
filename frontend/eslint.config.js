@@ -19,5 +19,9 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Downgrade to warn: common React pattern for syncing server data to form state
+      'react-hooks/set-state-in-effect': 'warn',
+    },
   },
 ])

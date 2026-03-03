@@ -80,7 +80,6 @@ export function useSendMessage() {
       clearStreaming();
 
       let fullContent = '';
-      const tradeActions: TradeAction[] = [];
 
       try {
         for await (const event of chatApi.sendMessageStream(
@@ -114,7 +113,7 @@ export function useSendMessage() {
               break;
             }
 
-            case 'error':
+            case 'error': {
               clearStreaming();
               const errorMsg: ChatMessage = {
                 id: `err-${Date.now()}`,
@@ -126,9 +125,10 @@ export function useSendMessage() {
               };
               addMessage(conversationId, errorMsg);
               break;
+            }
           }
         }
-      } catch (err) {
+      } catch {
         clearStreaming();
         const errorMsg: ChatMessage = {
           id: `err-${Date.now()}`,
@@ -144,7 +144,7 @@ export function useSendMessage() {
       // Refresh conversations list to update titles
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
-    [],
+    [addMessage, appendStreamingContent, setIsStreaming, clearStreaming, queryClient],
   );
 
   return { sendMessage };

@@ -31,14 +31,14 @@ export default function ChatView() {
     if (convData && convData.conversations.length === 0) {
       createConv({});
     }
-  }, [convData]);
+  }, [convData, createConv]);
 
   // Auto-select first conversation
   useEffect(() => {
     if (!activeConversationId && conversations.length > 0) {
       setActiveConversation(conversations[0].id);
     }
-  }, [conversations, activeConversationId]);
+  }, [conversations, activeConversationId, setActiveConversation]);
 
   const messages = activeConv?.messages ?? [];
 

@@ -17,7 +17,7 @@ export function useWebSocket() {
       resetWebSocketClient();
     }
     return () => client.disconnect();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, client]);
 
   return client;
 }
@@ -28,11 +28,14 @@ export function useWebSocket() {
 export function useWSMessage(type: string, handler: (msg: WSMessage) => void) {
   const client = getWebSocketClient();
   const handlerRef = useRef(handler);
-  handlerRef.current = handler;
+
+  useEffect(() => {
+    handlerRef.current = handler;
+  });
 
   useEffect(() => {
     return client.on(type, (msg) => handlerRef.current(msg));
-  }, [type]);
+  }, [type, client]);
 }
 
 /**
@@ -45,5 +48,5 @@ export function usePriceUpdates(symbol: string | null) {
     if (!symbol) return;
     client.subscribe(`prices:${symbol}`);
     return () => client.unsubscribe(`prices:${symbol}`);
-  }, [symbol]);
+  }, [symbol, client]);
 }
