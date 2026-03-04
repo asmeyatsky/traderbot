@@ -132,7 +132,7 @@ def create_conversation(
     chat_use_case: ChatUseCase = Depends(get_chat_use_case),
 ):
     conv = chat_use_case.create_conversation(
-        user_id=current_user.id,
+        user_id=current_user,
         title=request.title,
     )
     return _conversation_to_response(conv)
@@ -150,7 +150,7 @@ def list_conversations(
     chat_use_case: ChatUseCase = Depends(get_chat_use_case),
 ):
     conversations = chat_use_case.get_user_conversations(
-        user_id=current_user.id, limit=limit, offset=offset
+        user_id=current_user, limit=limit, offset=offset
     )
     return ConversationListResponse(
         conversations=[_conversation_to_response(c) for c in conversations],
@@ -174,7 +174,7 @@ def get_conversation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
         )
-    if conv.user_id != current_user.id:
+    if conv.user_id != current_user:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this conversation",
@@ -209,7 +209,7 @@ async def send_message(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
         )
-    if conv.user_id != current_user.id:
+    if conv.user_id != current_user:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this conversation",
@@ -218,7 +218,7 @@ async def send_message(
     async def event_generator():
         async for event in chat_use_case.send_message(
             conversation_id=conversation_id,
-            user_id=current_user.id,
+            user_id=current_user,
             content=request.content,
         ):
             data = {"type": event.type}
@@ -272,7 +272,7 @@ def delete_conversation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
         )
-    if conv.user_id != current_user.id:
+    if conv.user_id != current_user:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this conversation",
