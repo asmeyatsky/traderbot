@@ -11,7 +11,9 @@ www.{$DOMAIN} {
 {$DOMAIN} {
 	# ── API routes → FastAPI backend ──────────────────────────────────
 	handle /api/* {
-		reverse_proxy api:8000
+		reverse_proxy api:8000 {
+			flush_interval -1
+		}
 	}
 
 	# ── WebSocket → FastAPI backend ───────────────────────────────────
