@@ -21,7 +21,8 @@ www.{$DOMAIN} {
 
 	# ── Health check (for external monitoring) ────────────────────────
 	handle /health {
-		reverse_proxy api:8000/ready
+		rewrite * /ready
+		reverse_proxy api:8000
 	}
 
 	# ── Everything else → frontend SPA (nginx) ────────────────────────
