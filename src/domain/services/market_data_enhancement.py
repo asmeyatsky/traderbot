@@ -126,9 +126,11 @@ class DefaultMarketDataEnhancementService(MarketDataEnhancementService):
     """
 
     def __init__(self, market_data_provider: Optional[MarketDataPort] = None,
-                 sentiment_service=None):
+                 sentiment_service=None,
+                 technical_analysis_port=None):
         self._provider = market_data_provider
         self._sentiment_service = sentiment_service
+        self._technical_analysis = technical_analysis_port
         self._mock_economic_events = self._generate_mock_economic_events()
 
     def _get_live_price(self, symbol: Symbol) -> Optional[Price]:
@@ -357,27 +359,17 @@ class DefaultMarketDataEnhancementService(MarketDataEnhancementService):
     
     def get_technical_signals(self, symbol: Symbol) -> Dict[str, str]:
         """
-        Get technical analysis signals for a symbol
+        Get technical analysis signals for a symbol.
+
+        Delegates to the injected TechnicalAnalysisPort when available;
+        falls back to a minimal default otherwise.
         """
-        # Mock technical signals
-        signals = {}
-        
-        # Generate random signals for demo
-        if np.random.random() > 0.5:
-            signals["RSI"] = "OVERSOLD" if np.random.random() > 0.5 else "OVERBOUGHT"
-        else:
-            signals["RSI"] = "NEUTRAL"
-        
-        if np.random.random() > 0.5:
-            signals["MACD"] = "BULLISH" if np.random.random() > 0.5 else "BEARISH"
-        else:
-            signals["MACD"] = "NEUTRAL"
-        
-        if np.random.random() > 0.5:
-            signals["Moving_Average"] = "BULLISH" if np.random.random() > 0.5 else "BEARISH"
-        else:
-            signals["Moving_Average"] = "NEUTRAL"
-        
-        signals["Bollinger_Bands"] = "NEUTRAL"
-        
-        return signals
+        if self._technical_analysis is not None:
+            try:
+                from src.domain.services.technical_analysis import generate_signal_summary
+                indicators = self._technical_analysis.compute_indicators(symbol)
+                return generate_signal_summary(indicators)
+            except Exception:
+                pass
+
+        return {"RSI": "NEUTRAL", "MACD": "NEUTRAL", "Moving_Average": "NEUTRAL", "Bollinger_Bands": "NEUTRAL"}

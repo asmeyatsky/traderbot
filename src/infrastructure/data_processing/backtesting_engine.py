@@ -198,6 +198,82 @@ class SMACrossoverStrategy(Strategy):
         return f"SMA Crossover ({self.short_window}/{self.long_window})"
 
 
+class RSIMeanReversionStrategy(Strategy):
+    """RSI Mean Reversion Strategy: buy when RSI < oversold, sell when RSI > overbought."""
+
+    def __init__(self, rsi_period: int = 14, oversold: float = 30.0, overbought: float = 70.0):
+        self.rsi_period = rsi_period
+        self.oversold = oversold
+        self.overbought = overbought
+
+    def generate_signals(self, data: pd.DataFrame, state: Dict) -> List[Tuple[datetime, str, Dict]]:
+        if len(data) < self.rsi_period + 1:
+            return []
+
+        close = data['Close']
+        delta = close.diff()
+        gain = delta.clip(lower=0).rolling(window=self.rsi_period).mean()
+        loss = (-delta.clip(upper=0)).rolling(window=self.rsi_period).mean()
+        rs = gain / loss.replace(0, np.nan)
+        rsi = 100 - (100 / (1 + rs))
+
+        signals = []
+        for i in range(self.rsi_period + 1, len(data)):
+            current_rsi = rsi.iloc[i]
+            if pd.isna(current_rsi):
+                continue
+            row = data.iloc[i]
+            if current_rsi < self.oversold:
+                signals.append((row.name, 'BUY', {
+                    'reason': f'RSI={current_rsi:.1f} < {self.oversold} (oversold)',
+                    'price': row['Close'],
+                    'rsi': current_rsi,
+                }))
+            elif current_rsi > self.overbought:
+                signals.append((row.name, 'SELL', {
+                    'reason': f'RSI={current_rsi:.1f} > {self.overbought} (overbought)',
+                    'price': row['Close'],
+                    'rsi': current_rsi,
+                }))
+        return signals
+
+    def get_strategy_name(self) -> str:
+        return f"RSI Mean Reversion ({self.rsi_period}, {self.oversold}/{self.overbought})"
+
+
+class MomentumStrategy(Strategy):
+    """Momentum Strategy: buy when price crosses above N-day high, sell when below N-day low."""
+
+    def __init__(self, lookback: int = 20):
+        self.lookback = lookback
+
+    def generate_signals(self, data: pd.DataFrame, state: Dict) -> List[Tuple[datetime, str, Dict]]:
+        if len(data) < self.lookback + 1:
+            return []
+
+        signals = []
+        for i in range(self.lookback, len(data)):
+            window = data.iloc[i - self.lookback:i]
+            current = data.iloc[i]
+            high_n = window['High'].max()
+            low_n = window['Low'].min()
+
+            if current['Close'] > high_n:
+                signals.append((current.name, 'BUY', {
+                    'reason': f'Price {current["Close"]:.2f} broke above {self.lookback}-day high {high_n:.2f}',
+                    'price': current['Close'],
+                }))
+            elif current['Close'] < low_n:
+                signals.append((current.name, 'SELL', {
+                    'reason': f'Price {current["Close"]:.2f} broke below {self.lookback}-day low {low_n:.2f}',
+                    'price': current['Close'],
+                }))
+        return signals
+
+    def get_strategy_name(self) -> str:
+        return f"Momentum ({self.lookback}-day breakout)"
+
+
 class MLStrategy(Strategy):
     """Machine Learning-based trading strategy."""
 

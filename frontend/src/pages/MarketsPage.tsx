@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMarkets, useStocks } from '../hooks/use-markets';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorAlert from '../components/common/ErrorAlert';
+import ScreenerPanel from '../components/markets/ScreenerPanel';
 import type { Market } from '../types/market';
 
 export default function MarketsPage() {
@@ -76,6 +77,9 @@ export default function MarketsPage() {
           </p>
         )}
       </div>
+
+      {/* Stock Screener */}
+      <ScreenerPanel />
     </div>
   );
 }

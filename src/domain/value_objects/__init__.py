@@ -90,8 +90,8 @@ class Symbol:
     
     def __post_init__(self):
         """Validate symbol after initialization"""
-        # Stock symbols are typically 1-5 uppercase letters (sometimes with dots for special cases like BRK.B)
-        if not re.match(r'^[A-Z][A-Z0-9\.\-]{0,4}$', self.value):
+        # Supports US (AAPL, BRK.B) and international (HSBA.L, 7203.T) tickers up to 10 chars
+        if not re.match(r'^[A-Z0-9][A-Z0-9\.\-]{0,9}$', self.value):
             raise ValueError(f"Invalid stock symbol format: {self.value}")
     
     def __str__(self) -> str:

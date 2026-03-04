@@ -162,10 +162,10 @@ def mock_news_analysis_port():
     """Create a mock NewsAnalysisPort."""
     from src.domain.value_objects import NewsSentiment
     mock = Mock()
-    mock.analyze_sentiment = Mock(return_value=NewsSentiment(score=0.8, label="POSITIVE"))
+    mock.analyze_sentiment = Mock(return_value=NewsSentiment(score=Decimal("80"), confidence=Decimal("90"), source="test"))
     mock.batch_analyze_sentiment = Mock(return_value=[
-        NewsSentiment(score=0.8, label="POSITIVE"),
-        NewsSentiment(score=0.5, label="NEUTRAL"),
+        NewsSentiment(score=Decimal("80"), confidence=Decimal("90"), source="test"),
+        NewsSentiment(score=Decimal("0"), confidence=Decimal("50"), source="test"),
     ])
     mock.extract_symbols_from_news = Mock(return_value=[Symbol("AAPL"), Symbol("MSFT")])
     return mock

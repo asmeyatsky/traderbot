@@ -11,6 +11,7 @@ import ChatPage from './pages/ChatPage';
 import PortfolioPage from './pages/PortfolioPage';
 import MarketsPage from './pages/MarketsPage';
 import SettingsPage from './pages/SettingsPage';
+import BacktestPage from './pages/BacktestPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,6 +43,7 @@ export default function App() {
               <Route path="/portfolio" element={<PortfolioPage />} />
               <Route path="/markets" element={<MarketsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/backtest" element={<BacktestPage />} />
               {/* Legacy redirects */}
               <Route path="/dashboard" element={<Navigate to="/chat" replace />} />
               <Route path="/trading" element={<Navigate to="/chat" replace />} />

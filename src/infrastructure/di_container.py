@@ -43,6 +43,7 @@ from src.infrastructure.data_processing.news_aggregation_service import (
 from src.infrastructure.data_processing.backtesting_engine import (
     YahooFinanceDataProvider
 )
+from src.infrastructure.data_processing.ensemble_predictor import EnsemblePredictorService
 from src.infrastructure.api_clients.market_data import MarketDataService
 from src.infrastructure.broker_integration import (
     AlpacaBrokerService,
@@ -54,9 +55,12 @@ from src.domain.services.trading import DefaultTradingDomainService, DefaultRisk
 from src.domain.services.advanced_risk_management import DefaultAdvancedRiskManagementService
 from src.domain.services.dashboard_analytics import DefaultDashboardAnalyticsService
 from src.domain.services.market_data_enhancement import DefaultMarketDataEnhancementService
+from src.domain.services.exchange_registry import ExchangeRegistry
 from src.domain.services.risk_management import RiskManager, CircuitBreakerService
 from src.infrastructure.adapters.notification import LoggingNotificationAdapter
 from src.infrastructure.adapters.claude_chat_adapter import ClaudeChatAdapter
+from src.infrastructure.adapters.technical_analysis import PandasTATechnicalAnalysisAdapter
+from src.infrastructure.adapters.stock_screener import YahooFinanceScreenerAdapter
 from src.infrastructure.repositories.activity_log_repository import ActivityLogRepository
 from src.infrastructure.repositories.conversation_repository import ConversationRepository
 from src.infrastructure.repositories.broker_account_repository import BrokerAccountRepository
@@ -95,6 +99,9 @@ class ServiceContainer(containers.DeclarativeContainer):
     sentiment_analysis_service = providers.Factory(TransformerSentimentAnalysisService)
     rl_agent_service = providers.Factory(RLTradingAgentService)
 
+    # Ensemble predictor (RF + GB + SHAP)
+    ensemble_predictor = providers.Singleton(EnsemblePredictorService)
+
     # Ensemble service combining multiple AI models
     ml_model_service = providers.Factory(
         EnsembleModelService,
@@ -114,7 +121,11 @@ class ServiceContainer(containers.DeclarativeContainer):
         DefaultMarketDataEnhancementService,
         market_data_provider=adapters.market_data_service,
         sentiment_service=sentiment_analysis_service,
+        technical_analysis_port=adapters.technical_analysis_adapter,
     )
+
+    # Exchange registry
+    exchange_registry = providers.Singleton(ExchangeRegistry)
 
     # Performance optimization
     performance_optimizer_service = providers.Factory(DefaultPerformanceOptimizerService)
@@ -162,6 +173,12 @@ class AdapterContainer(containers.DeclarativeContainer):
         BrokerIntegrationService,
         alpaca_service=alpaca_broker_service
     )
+
+    # Technical analysis adapter
+    technical_analysis_adapter = providers.Singleton(PandasTATechnicalAnalysisAdapter)
+
+    # Stock screener adapter
+    stock_screener = providers.Singleton(YahooFinanceScreenerAdapter)
 
     # AI Chat adapter
     claude_chat_adapter = providers.Singleton(ClaudeChatAdapter)
@@ -220,6 +237,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         GetUserPreferencesUseCase,
     )
     from src.application.use_cases.chat import ChatUseCase
+    from src.application.use_cases.backtest import RunBacktestUseCase
     from src.application.use_cases.broker_account import (
         LinkBrokerAccountUseCase,
         GetBrokerAccountsUseCase,
@@ -289,6 +307,8 @@ class UseCaseContainer(containers.DeclarativeContainer):
         broker_account_repository=repositories.broker_account_repository,
     )
 
+    backtest_use_case = providers.Factory(RunBacktestUseCase)
+
     chat_use_case = providers.Factory(
         ChatUseCase,
         ai_chat_port=adapters.claude_chat_adapter,
@@ -298,6 +318,12 @@ class UseCaseContainer(containers.DeclarativeContainer):
         news_analysis_service=services.news_aggregation_service,
         portfolio_repository=repositories.portfolio_repository,
         user_repository=repositories.user_repository,
+        order_repository=repositories.order_repository,
+        technical_analysis_port=adapters.technical_analysis_adapter,
+        stock_screener=adapters.stock_screener,
+        exchange_registry=services.exchange_registry,
+        ensemble_predictor=services.ensemble_predictor,
+        backtest_use_case=backtest_use_case,
     )
 
 

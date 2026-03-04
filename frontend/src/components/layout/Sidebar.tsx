@@ -4,12 +4,14 @@ import {
   BanknotesIcon,
   ChartBarSquareIcon,
   Cog6ToothIcon,
+  BeakerIcon,
 } from '@heroicons/react/24/outline';
 
 const navigation = [
   { name: 'Chat', to: '/chat', icon: ChatBubbleLeftRightIcon },
   { name: 'Portfolio', to: '/portfolio', icon: BanknotesIcon },
   { name: 'Markets', to: '/markets', icon: ChartBarSquareIcon },
+  { name: 'Backtest', to: '/backtest', icon: BeakerIcon },
   { name: 'Settings', to: '/settings', icon: Cog6ToothIcon },
 ];
 

@@ -16,7 +16,7 @@ import logging
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, TYPE_CHECKING
 
 from src.domain.entities.conversation import (
     Conversation,
@@ -39,10 +39,12 @@ from src.domain.ports import (
     MarketDataPort,
     AIModelPort,
     NewsAnalysisPort,
+    OrderRepositoryPort,
     PortfolioRepositoryPort,
     UserRepositoryPort,
 )
 from src.domain.value_objects import Symbol
+from src.domain.services.technical_analysis import TechnicalAnalysisPort
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +59,10 @@ Key behaviors:
 - If a tool call fails, acknowledge the error and suggest alternatives.
 - Format numbers clearly: currency with $, percentages with %, large numbers with commas.
 - When showing multiple stocks, use a structured comparison.
+- Use get_technical_analysis for detailed indicator breakdowns (RSI, MACD, Bollinger Bands, etc.).
+- Use screen_stocks to find stocks matching criteria or prebuilt screens like top_gainers, top_losers, most_active.
+- Use get_market_status to check which global exchanges are currently open.
+- Use run_backtest to test trading strategies against historical data.
 """
 
 TOOL_DEFINITIONS: List[ToolDefinition] = [
@@ -157,6 +163,141 @@ TOOL_DEFINITIONS: List[ToolDefinition] = [
             "required": ["symbol", "action", "quantity", "reasoning"],
         },
     ),
+    # Phase 2 — Real Technical Indicators
+    ToolDefinition(
+        name="get_technical_analysis",
+        description="Get detailed technical analysis indicators for a stock: RSI, MACD, SMA, EMA, Bollinger Bands, ATR, Stochastic, ADX.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Stock ticker symbol",
+                }
+            },
+            "required": ["symbol"],
+        },
+    ),
+    # Phase 3 — Chat Trading Improvements
+    ToolDefinition(
+        name="get_orders",
+        description="Get the user's recent orders, optionally filtered by status (PENDING, EXECUTED, CANCELLED).",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": ["PENDING", "EXECUTED", "CANCELLED", "ALL"],
+                    "description": "Filter by order status (default: ALL)",
+                }
+            },
+        },
+    ),
+    ToolDefinition(
+        name="cancel_order",
+        description="Cancel a pending order by its order ID.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "order_id": {
+                    "type": "string",
+                    "description": "The ID of the order to cancel",
+                }
+            },
+            "required": ["order_id"],
+        },
+    ),
+    ToolDefinition(
+        name="get_position_details",
+        description="Get detailed information about a specific position the user holds.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Stock ticker symbol",
+                }
+            },
+            "required": ["symbol"],
+        },
+    ),
+    # Phase 1 — Stock Screening
+    ToolDefinition(
+        name="screen_stocks",
+        description="Screen stocks by criteria or use prebuilt screens (top_gainers, top_losers, most_active, high_momentum, oversold_rsi).",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "prebuilt_screen": {
+                    "type": "string",
+                    "enum": ["top_gainers", "top_losers", "most_active", "high_momentum", "oversold_rsi"],
+                    "description": "Use a prebuilt screen",
+                },
+                "min_change_pct": {
+                    "type": "number",
+                    "description": "Minimum daily change percentage",
+                },
+                "max_change_pct": {
+                    "type": "number",
+                    "description": "Maximum daily change percentage",
+                },
+                "min_volume": {
+                    "type": "integer",
+                    "description": "Minimum trading volume",
+                },
+                "sectors": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Filter by sectors",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results to return (default: 10)",
+                },
+            },
+        },
+    ),
+    # Phase 4 — Multi-Market Coverage
+    ToolDefinition(
+        name="get_market_status",
+        description="Check which global stock exchanges are currently open or closed, with next open/close times.",
+        input_schema={
+            "type": "object",
+            "properties": {},
+        },
+    ),
+    # Phase 6 — Backtesting
+    ToolDefinition(
+        name="run_backtest",
+        description="Run a backtest of a trading strategy (sma_crossover, rsi_mean_reversion, momentum) on historical data.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "strategy": {
+                    "type": "string",
+                    "enum": ["sma_crossover", "rsi_mean_reversion", "momentum"],
+                    "description": "Strategy to backtest",
+                },
+                "symbol": {
+                    "type": "string",
+                    "description": "Stock ticker symbol",
+                },
+                "start_date": {
+                    "type": "string",
+                    "description": "Start date (YYYY-MM-DD). Default: 1 year ago.",
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "End date (YYYY-MM-DD). Default: today.",
+                },
+                "initial_capital": {
+                    "type": "number",
+                    "description": "Starting capital in USD (default: 10000)",
+                },
+            },
+            "required": ["strategy", "symbol"],
+        },
+    ),
 ]
 
 
@@ -181,6 +322,12 @@ class ChatUseCase:
         news_analysis_service: NewsAnalysisPort,
         portfolio_repository: PortfolioRepositoryPort,
         user_repository: UserRepositoryPort,
+        order_repository: Optional[Any] = None,
+        technical_analysis_port: Optional[TechnicalAnalysisPort] = None,
+        stock_screener=None,
+        exchange_registry=None,
+        backtest_use_case=None,
+        ensemble_predictor=None,
     ):
         self._ai = ai_chat_port
         self._conversations = conversation_repository
@@ -189,6 +336,12 @@ class ChatUseCase:
         self._news = news_analysis_service
         self._portfolios = portfolio_repository
         self._users = user_repository
+        self._orders = order_repository
+        self._technical_analysis = technical_analysis_port
+        self._stock_screener = stock_screener
+        self._exchange_registry = exchange_registry
+        self._backtest_use_case = backtest_use_case
+        self._ensemble_predictor = ensemble_predictor
 
     def create_conversation(self, user_id: str, title: str = "New conversation") -> Conversation:
         """Create a new conversation for a user."""
@@ -394,6 +547,20 @@ class ChatUseCase:
                 return await self._tool_get_portfolio(user_id)
             elif name == "place_order":
                 return await self._tool_place_order(args, user_id)
+            elif name == "get_technical_analysis":
+                return await self._tool_get_technical_analysis(args)
+            elif name == "get_orders":
+                return await self._tool_get_orders(args, user_id)
+            elif name == "cancel_order":
+                return await self._tool_cancel_order(args, user_id)
+            elif name == "get_position_details":
+                return await self._tool_get_position_details(args, user_id)
+            elif name == "screen_stocks":
+                return await self._tool_screen_stocks(args)
+            elif name == "get_market_status":
+                return await self._tool_get_market_status()
+            elif name == "run_backtest":
+                return await self._tool_run_backtest(args)
             else:
                 return ToolResult(
                     tool_call_id=tool_call.id,
@@ -433,6 +600,26 @@ class ChatUseCase:
             return ToolResult(tool_call_id="", content="Missing required argument: symbol", is_error=True)
         symbol = Symbol(args["symbol"].upper())
         days = args.get("days", 1)
+
+        # Use ensemble predictor when available for richer results
+        if self._ensemble_predictor is not None:
+            try:
+                pred = self._ensemble_predictor.predict(symbol)
+                return ToolResult(
+                    tool_call_id="",
+                    content=json.dumps({
+                        "symbol": pred.symbol,
+                        "direction": pred.direction,
+                        "confidence": pred.confidence,
+                        "predicted_change_pct": pred.predicted_change_pct,
+                        "model_votes": pred.model_votes,
+                        "top_features": pred.top_features,
+                        "days_ahead": days,
+                    }),
+                )
+            except Exception:
+                pass
+
         prediction = self._ai_model.predict_price_movement(symbol, days)
         return ToolResult(
             tool_call_id="",
@@ -448,6 +635,32 @@ class ChatUseCase:
         if "symbol" not in args:
             return ToolResult(tool_call_id="", content="Missing required argument: symbol", is_error=True)
         symbol = Symbol(args["symbol"].upper())
+
+        # Ensemble predictor gives a richer signal with explanations
+        if self._ensemble_predictor is not None:
+            try:
+                pred = self._ensemble_predictor.predict(symbol)
+                # Map direction to trading signal
+                if pred.direction == "UP" and pred.confidence >= 0.55:
+                    signal = "BUY"
+                elif pred.direction == "DOWN" and pred.confidence >= 0.55:
+                    signal = "SELL"
+                else:
+                    signal = "HOLD"
+                return ToolResult(
+                    tool_call_id="",
+                    content=json.dumps({
+                        "symbol": pred.symbol,
+                        "signal": signal,
+                        "confidence": pred.confidence,
+                        "direction": pred.direction,
+                        "model_votes": pred.model_votes,
+                        "top_features": pred.top_features,
+                    }),
+                )
+            except Exception:
+                pass
+
         signal = self._ai_model.get_trading_signal(symbol)
         return ToolResult(
             tool_call_id="",
@@ -544,3 +757,162 @@ class ChatUseCase:
                 "message": "Trade recommendation created. Waiting for user confirmation.",
             }),
         )
+
+    # ── Phase 2: Technical Analysis ──────────────────────────────────────
+
+    async def _tool_get_technical_analysis(self, args: Dict[str, Any]) -> ToolResult:
+        if "symbol" not in args:
+            return ToolResult(tool_call_id="", content="Missing required argument: symbol", is_error=True)
+        if self._technical_analysis is None:
+            return ToolResult(tool_call_id="", content="Technical analysis service not available", is_error=True)
+
+        symbol = Symbol(args["symbol"].upper())
+        from src.domain.services.technical_analysis import generate_signal_summary
+        indicators = self._technical_analysis.compute_indicators(symbol)
+        signals = generate_signal_summary(indicators)
+
+        data = {
+            "symbol": indicators.symbol,
+            "current_price": indicators.current_price,
+            "indicators": {
+                "RSI_14": indicators.rsi_14,
+                "MACD_line": indicators.macd_line,
+                "MACD_signal": indicators.macd_signal,
+                "MACD_histogram": indicators.macd_histogram,
+                "SMA_20": indicators.sma_20,
+                "SMA_50": indicators.sma_50,
+                "SMA_200": indicators.sma_200,
+                "EMA_12": indicators.ema_12,
+                "EMA_26": indicators.ema_26,
+                "BB_upper": indicators.bb_upper,
+                "BB_middle": indicators.bb_middle,
+                "BB_lower": indicators.bb_lower,
+                "ATR_14": indicators.atr_14,
+                "Stochastic_K": indicators.stoch_k,
+                "Stochastic_D": indicators.stoch_d,
+                "ADX": indicators.adx,
+            },
+            "signals": signals,
+        }
+        return ToolResult(tool_call_id="", content=json.dumps(data))
+
+    # ── Phase 3: Order Management ────────────────────────────────────────
+
+    async def _tool_get_orders(self, args: Dict[str, Any], user_id: str) -> ToolResult:
+        if self._orders is None:
+            return ToolResult(tool_call_id="", content="Order service not available", is_error=True)
+
+        status_filter = args.get("status", "ALL")
+        orders = self._orders.get_by_user_id(user_id)
+
+        if status_filter != "ALL":
+            orders = [o for o in orders if o.status.value == status_filter]
+
+        orders_data = [
+            {
+                "id": o.id,
+                "symbol": str(o.symbol),
+                "order_type": o.order_type.value,
+                "position_type": o.position_type.value,
+                "quantity": o.quantity,
+                "status": o.status.value,
+                "price": float(o.price.amount) if o.price else None,
+                "placed_at": o.placed_at.isoformat() if o.placed_at else None,
+            }
+            for o in orders[:20]
+        ]
+        return ToolResult(
+            tool_call_id="",
+            content=json.dumps({"orders": orders_data, "total": len(orders)}),
+        )
+
+    async def _tool_cancel_order(self, args: Dict[str, Any], user_id: str) -> ToolResult:
+        if "order_id" not in args:
+            return ToolResult(tool_call_id="", content="Missing required argument: order_id", is_error=True)
+        if self._orders is None:
+            return ToolResult(tool_call_id="", content="Order service not available", is_error=True)
+
+        order = self._orders.get_by_id(args["order_id"])
+        if not order:
+            return ToolResult(tool_call_id="", content="Order not found", is_error=True)
+        if order.user_id != user_id:
+            return ToolResult(tool_call_id="", content="Unauthorized", is_error=True)
+        if order.status.value != "PENDING":
+            return ToolResult(
+                tool_call_id="",
+                content=json.dumps({"error": f"Cannot cancel order with status {order.status.value}"}),
+                is_error=True,
+            )
+
+        from src.domain.entities.trading import OrderStatus
+        updated = self._orders.update_status(args["order_id"], OrderStatus.CANCELLED)
+        if updated:
+            return ToolResult(
+                tool_call_id="",
+                content=json.dumps({
+                    "status": "cancelled",
+                    "order_id": args["order_id"],
+                    "symbol": str(updated.symbol),
+                }),
+            )
+        return ToolResult(tool_call_id="", content="Failed to cancel order", is_error=True)
+
+    async def _tool_get_position_details(self, args: Dict[str, Any], user_id: str) -> ToolResult:
+        if "symbol" not in args:
+            return ToolResult(tool_call_id="", content="Missing required argument: symbol", is_error=True)
+
+        portfolio = self._portfolios.get_by_user_id(user_id)
+        if not portfolio:
+            return ToolResult(tool_call_id="", content=json.dumps({"error": "No portfolio found"}), is_error=True)
+
+        symbol = Symbol(args["symbol"].upper())
+        position = portfolio.get_position(symbol)
+        if not position:
+            return ToolResult(
+                tool_call_id="",
+                content=json.dumps({"error": f"No position found for {symbol}"}),
+                is_error=True,
+            )
+
+        return ToolResult(
+            tool_call_id="",
+            content=json.dumps({
+                "symbol": str(position.symbol),
+                "quantity": position.quantity,
+                "position_type": position.position_type.value,
+                "avg_buy_price": float(position.average_buy_price.amount),
+                "current_price": float(position.current_price.amount),
+                "market_value": float(position.market_value.amount),
+                "unrealized_pnl": float(position.unrealized_pnl_amount.amount),
+                "total_cost": float(position.total_cost.amount),
+            }),
+        )
+
+    # ── Phase 1: Stock Screening ─────────────────────────────────────────
+
+    async def _tool_screen_stocks(self, args: Dict[str, Any]) -> ToolResult:
+        if self._stock_screener is None:
+            return ToolResult(tool_call_id="", content="Stock screener not available", is_error=True)
+
+        results = self._stock_screener.screen(args)
+        return ToolResult(tool_call_id="", content=json.dumps(results))
+
+    # ── Phase 4: Market Status ───────────────────────────────────────────
+
+    async def _tool_get_market_status(self) -> ToolResult:
+        if self._exchange_registry is None:
+            return ToolResult(tool_call_id="", content="Exchange registry not available", is_error=True)
+
+        statuses = self._exchange_registry.get_all_statuses()
+        return ToolResult(tool_call_id="", content=json.dumps(statuses))
+
+    # ── Phase 6: Backtesting ─────────────────────────────────────────────
+
+    async def _tool_run_backtest(self, args: Dict[str, Any]) -> ToolResult:
+        if "strategy" not in args or "symbol" not in args:
+            return ToolResult(tool_call_id="", content="Missing required arguments: strategy, symbol", is_error=True)
+        if self._backtest_use_case is None:
+            return ToolResult(tool_call_id="", content="Backtesting not available", is_error=True)
+
+        result = self._backtest_use_case.run(args)
+        return ToolResult(tool_call_id="", content=json.dumps(result))
