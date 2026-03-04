@@ -1,0 +1,22 @@
+# ============================================================================
+# Terraform Variables — copy to terraform.tfvars and fill in values
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#   # edit terraform.tfvars
+#   terraform plan
+# ============================================================================
+
+aws_region   = "us-east-1"
+domain       = "traderbotapp.com"
+github_repo  = "https://github.com/asmeyatsky/traderbot.git"
+
+# Paste the contents of your SSH public key (e.g. ~/.ssh/id_ed25519.pub)
+ssh_public_key = "ssh-ed25519 AAAA..."
+
+# Restrict SSH access to your IP (find yours: curl ifconfig.me)
+# Use "0.0.0.0/0" to allow from anywhere (less secure)
+ssh_allowed_cidr = "0.0.0.0/0"
+
+# Instance sizing
+instance_type = "t4g.small"
+volume_size   = 20

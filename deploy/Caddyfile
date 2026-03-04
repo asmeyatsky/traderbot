@@ -1,0 +1,48 @@
+# Caddyfile — reverse proxy with automatic HTTPS (Let's Encrypt)
+#
+# Caddy automatically obtains and renews TLS certificates.
+# The {$DOMAIN} placeholder is set via the DOMAIN env var in docker-compose.
+
+# Redirect www to root domain
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}
+
+{$DOMAIN} {
+	# ── API routes → FastAPI backend ──────────────────────────────────
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# ── WebSocket → FastAPI backend ───────────────────────────────────
+	handle /ws {
+		reverse_proxy api:8000
+	}
+
+	# ── Health check (for external monitoring) ────────────────────────
+	handle /health {
+		reverse_proxy api:8000/ready
+	}
+
+	# ── Everything else → frontend SPA (nginx) ────────────────────────
+	handle {
+		reverse_proxy frontend:80
+	}
+
+	# ── Logging ───────────────────────────────────────────────────────
+	log {
+		output stdout
+		format console
+		level WARN
+	}
+
+	# ── Security headers (supplement frontend's nginx headers) ────────
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# ── Compression ──────────────────────────────────────────────────
+	encode gzip zstd
+}

@@ -1,0 +1,56 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Run Tests"]
+    types:
+      - completed
+    branches:
+      - main
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            cd /opt/traderbot/deploy
+            bash deploy.sh
+
+      - name: Health check
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 10
+          for i in 1 2 3; do
+            if curl -sf --max-time 10 https://${{ secrets.EC2_HOST }}/health; then
+              echo ""
+              echo "Health check passed!"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 3 attempts"
+          exit 1
+
+  notify-failure:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+      - name: Tests failed — skip deploy
+        run: |
+          echo "Tests failed on main. Skipping deployment."
+          echo "Check the 'Run Tests' workflow for details."
+          exit 1

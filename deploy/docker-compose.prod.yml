@@ -1,0 +1,136 @@
+# Production Docker Compose — single EC2 t4g.small (ARM64, 2 vCPU, 2 GB RAM)
+#
+# Architecture:
+#   Caddy (reverse proxy + auto-HTTPS) → frontend (nginx SPA) + api (FastAPI)
+#   PostgreSQL 15 + KeyDB (Redis-compatible) on internal network only
+#
+# Usage:
+#   cp .env.prod.example .env.prod
+#   # edit .env.prod with real values
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+
+services:
+  # ── Caddy reverse proxy (auto-HTTPS via Let's Encrypt) ──────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: traderbot-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # TLS certificates
+      - caddy_config:/config
+    environment:
+      - DOMAIN=${DOMAIN:?Set DOMAIN (e.g. traderbot.example.com)}
+    depends_on:
+      frontend:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - web
+
+  # ── React SPA (nginx) ──────────────────────────────────────────────
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+        VITE_WS_URL: wss://${DOMAIN}
+    container_name: traderbot-frontend
+    restart: unless-stopped
+    networks:
+      - web
+
+  # ── FastAPI backend ─────────────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: traderbot-api
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=WARNING
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-trading}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-traderbot}
+      - REDIS_URL=redis://cache:6379/0
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?Set JWT_SECRET_KEY (min 32 chars)}
+      - ALLOWED_ORIGINS=https://${DOMAIN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CHAT_MODEL=${CHAT_MODEL:-claude-sonnet-4-20250514}
+      - POLYGON_API_KEY=${POLYGON_API_KEY:-}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY:-}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
+      - ALPACA_API_KEY=${ALPACA_API_KEY:-}
+      - ALPACA_SECRET_KEY=${ALPACA_SECRET_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    networks:
+      - web
+      - internal
+
+  # ── PostgreSQL 15 ───────────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: traderbot-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trading}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-traderbot}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-trading} -d ${POSTGRES_DB:-traderbot}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    # Tune for 2 GB RAM — small shared_buffers, aggressive WAL settings
+    command: >
+      postgres
+        -c shared_buffers=256MB
+        -c effective_cache_size=1GB
+        -c work_mem=4MB
+        -c maintenance_work_mem=64MB
+        -c wal_buffers=8MB
+        -c max_connections=50
+        -c checkpoint_completion_target=0.9
+    networks:
+      - internal
+
+  # ── KeyDB (Redis-compatible) ────────────────────────────────────────
+  cache:
+    image: eqalpha/keydb:latest
+    container_name: traderbot-cache
+    restart: unless-stopped
+    volumes:
+      - keydb_data:/data
+    healthcheck:
+      test: ["CMD", "keydb-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    # Limit memory to 128MB — more than enough for token blacklists and caching
+    command: keydb-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    networks:
+      - internal
+
+volumes:
+  postgres_data:
+  keydb_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  web:
+    driver: bridge
+  internal:
+    driver: bridge
+    internal: true   # No external access
