@@ -1,8 +1,8 @@
 """
-Pandas-TA Technical Analysis Adapter
+Technical Analysis Adapter (using ``ta`` library)
 
 Architectural Intent:
-- Implements TechnicalAnalysisPort using pandas-ta for real indicator computation
+- Implements TechnicalAnalysisPort using the ``ta`` library for real indicator computation
 - Fetches OHLCV data via yfinance (infrastructure concern, not domain)
 - Returns a frozen TechnicalIndicators value object to the domain layer
 """
@@ -19,19 +19,18 @@ from src.domain.value_objects import Symbol
 
 logger = logging.getLogger(__name__)
 
-# pandas-ta may not be installed in every environment; import defensively
 try:
-    import pandas_ta as ta  # noqa: F401
-    _HAS_PANDAS_TA = True
+    import ta as ta_lib  # noqa: F401
+    _HAS_TA = True
 except ImportError:
-    _HAS_PANDAS_TA = False
-    logger.warning("pandas-ta not installed; technical indicators will be unavailable")
+    _HAS_TA = False
+    logger.warning("ta library not installed; technical indicators will be unavailable")
 
 
 class PandasTATechnicalAnalysisAdapter(TechnicalAnalysisPort):
     """
     Adapter: computes RSI, MACD, SMA, EMA, Bollinger Bands, ATR, Stochastic, ADX
-    from Yahoo Finance OHLCV data using pandas-ta.
+    from Yahoo Finance OHLCV data using the ``ta`` library.
     """
 
     def __init__(self, lookback_days: int = 250):
@@ -52,7 +51,7 @@ class PandasTATechnicalAnalysisAdapter(TechnicalAnalysisPort):
     def compute_indicators(self, symbol: Symbol) -> TechnicalIndicators:
         """Compute all technical indicators for a symbol."""
         df = self._fetch_ohlcv(symbol)
-        if df is None or not _HAS_PANDAS_TA:
+        if df is None or not _HAS_TA:
             return TechnicalIndicators(symbol=str(symbol))
 
         close = df["Close"]
@@ -69,48 +68,40 @@ class PandasTATechnicalAnalysisAdapter(TechnicalAnalysisPort):
             return round(float(val), 4)
 
         # RSI
-        rsi = ta.rsi(close, length=14)
+        rsi = ta_lib.momentum.RSIIndicator(close, window=14).rsi()
 
         # MACD
-        macd_df = ta.macd(close, fast=12, slow=26, signal=9)
-        macd_line = macd_signal = macd_hist = None
-        if macd_df is not None and not macd_df.empty:
-            macd_line = _safe_last(macd_df.iloc[:, 0])
-            macd_hist = _safe_last(macd_df.iloc[:, 1])
-            macd_signal = _safe_last(macd_df.iloc[:, 2])
+        macd_ind = ta_lib.trend.MACD(close, window_slow=26, window_fast=12, window_sign=9)
+        macd_line = _safe_last(macd_ind.macd())
+        macd_signal = _safe_last(macd_ind.macd_signal())
+        macd_hist = _safe_last(macd_ind.macd_diff())
 
         # SMAs
-        sma_20 = _safe_last(ta.sma(close, length=20))
-        sma_50 = _safe_last(ta.sma(close, length=50))
-        sma_200 = _safe_last(ta.sma(close, length=200)) if len(close) >= 200 else None
+        sma_20 = _safe_last(ta_lib.trend.SMAIndicator(close, window=20).sma_indicator())
+        sma_50 = _safe_last(ta_lib.trend.SMAIndicator(close, window=50).sma_indicator())
+        sma_200 = _safe_last(ta_lib.trend.SMAIndicator(close, window=200).sma_indicator()) if len(close) >= 200 else None
 
         # EMAs
-        ema_12 = _safe_last(ta.ema(close, length=12))
-        ema_26 = _safe_last(ta.ema(close, length=26))
+        ema_12 = _safe_last(ta_lib.trend.EMAIndicator(close, window=12).ema_indicator())
+        ema_26 = _safe_last(ta_lib.trend.EMAIndicator(close, window=26).ema_indicator())
 
         # Bollinger Bands
-        bb_df = ta.bbands(close, length=20, std=2)
-        bb_lower = bb_middle = bb_upper = None
-        if bb_df is not None and not bb_df.empty:
-            bb_lower = _safe_last(bb_df.iloc[:, 0])
-            bb_middle = _safe_last(bb_df.iloc[:, 1])
-            bb_upper = _safe_last(bb_df.iloc[:, 2])
+        bb = ta_lib.volatility.BollingerBands(close, window=20, window_dev=2)
+        bb_lower = _safe_last(bb.bollinger_lband())
+        bb_middle = _safe_last(bb.bollinger_mavg())
+        bb_upper = _safe_last(bb.bollinger_hband())
 
         # ATR
-        atr = _safe_last(ta.atr(high, low, close, length=14))
+        atr = _safe_last(ta_lib.volatility.AverageTrueRange(high, low, close, window=14).average_true_range())
 
         # Stochastic
-        stoch_df = ta.stoch(high, low, close)
-        stoch_k = stoch_d = None
-        if stoch_df is not None and not stoch_df.empty:
-            stoch_k = _safe_last(stoch_df.iloc[:, 0])
-            stoch_d = _safe_last(stoch_df.iloc[:, 1])
+        stoch = ta_lib.momentum.StochasticOscillator(high, low, close)
+        stoch_k = _safe_last(stoch.stoch())
+        stoch_d = _safe_last(stoch.stoch_signal())
 
         # ADX
-        adx_df = ta.adx(high, low, close, length=14)
-        adx_val = None
-        if adx_df is not None and not adx_df.empty:
-            adx_val = _safe_last(adx_df.iloc[:, 0])
+        adx_ind = ta_lib.trend.ADXIndicator(high, low, close, window=14)
+        adx_val = _safe_last(adx_ind.adx())
 
         return TechnicalIndicators(
             symbol=str(symbol),

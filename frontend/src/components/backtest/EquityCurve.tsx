@@ -34,7 +34,7 @@ export default function EquityCurve({ trades, initialCapital }: Props) {
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
           <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: number) => `$${v.toLocaleString()}`} />
-          <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, 'Portfolio']} />
+          <Tooltip formatter={(v) => [`$${Number(v).toLocaleString()}`, 'Portfolio']} />
           <Line type="monotone" dataKey="value" stroke="#4f46e5" strokeWidth={2} dot={false} />
         </LineChart>
       </ResponsiveContainer>

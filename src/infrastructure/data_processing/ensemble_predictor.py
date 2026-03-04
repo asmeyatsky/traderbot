@@ -2,7 +2,7 @@
 Ensemble Predictor Service
 
 Architectural Intent:
-- Builds features from technical indicators (via pandas-ta)
+- Builds features from technical indicators (via ``ta`` library)
 - Trains RandomForest + GradientBoosting on historical data
 - Predicts next-day direction with SHAP TreeExplainer for feature attribution
 - Returns a PredictionResult frozen dataclass to the domain layer
@@ -24,7 +24,7 @@ from src.domain.value_objects import Symbol
 logger = logging.getLogger(__name__)
 
 try:
-    import pandas_ta as ta
+    import ta as ta_lib
     _HAS_TA = True
 except ImportError:
     _HAS_TA = False
@@ -37,7 +37,7 @@ except ImportError:
 
 
 def _build_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Compute feature columns from OHLCV data using pandas-ta."""
+    """Compute feature columns from OHLCV data using the ``ta`` library."""
     if not _HAS_TA:
         return pd.DataFrame()
 
@@ -46,29 +46,25 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     low = df["Low"]
 
     feats = pd.DataFrame(index=df.index)
-    feats["RSI_14"] = ta.rsi(close, length=14)
+    feats["RSI_14"] = ta_lib.momentum.RSIIndicator(close, window=14).rsi()
 
-    macd = ta.macd(close, fast=12, slow=26, signal=9)
-    if macd is not None:
-        feats["MACD_hist"] = macd.iloc[:, 1]
+    macd = ta_lib.trend.MACD(close, window_slow=26, window_fast=12, window_sign=9)
+    feats["MACD_hist"] = macd.macd_diff()
 
-    feats["SMA_20"] = ta.sma(close, length=20)
-    feats["SMA_50"] = ta.sma(close, length=50)
-    feats["EMA_12"] = ta.ema(close, length=12)
+    feats["SMA_20"] = ta_lib.trend.SMAIndicator(close, window=20).sma_indicator()
+    feats["SMA_50"] = ta_lib.trend.SMAIndicator(close, window=50).sma_indicator()
+    feats["EMA_12"] = ta_lib.trend.EMAIndicator(close, window=12).ema_indicator()
 
-    bb = ta.bbands(close, length=20, std=2)
-    if bb is not None:
-        feats["BB_width"] = bb.iloc[:, 2] - bb.iloc[:, 0]
+    bb = ta_lib.volatility.BollingerBands(close, window=20, window_dev=2)
+    feats["BB_width"] = bb.bollinger_hband() - bb.bollinger_lband()
 
-    feats["ATR_14"] = ta.atr(high, low, close, length=14)
+    feats["ATR_14"] = ta_lib.volatility.AverageTrueRange(high, low, close, window=14).average_true_range()
 
-    stoch = ta.stoch(high, low, close)
-    if stoch is not None:
-        feats["Stoch_K"] = stoch.iloc[:, 0]
+    stoch = ta_lib.momentum.StochasticOscillator(high, low, close)
+    feats["Stoch_K"] = stoch.stoch()
 
-    adx = ta.adx(high, low, close, length=14)
-    if adx is not None:
-        feats["ADX"] = adx.iloc[:, 0]
+    adx = ta_lib.trend.ADXIndicator(high, low, close, window=14)
+    feats["ADX"] = adx.adx()
 
     # Price-derived
     feats["Return_1d"] = close.pct_change(1)
