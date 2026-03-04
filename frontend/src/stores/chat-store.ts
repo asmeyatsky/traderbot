@@ -66,7 +66,8 @@ export const useChatStore = create<ChatState>((set) => ({
 
   clearPendingMessages: (conversationId) =>
     set((state) => {
-      const { [conversationId]: _, ...rest } = state.pendingMessages;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [conversationId]: _removed, ...rest } = state.pendingMessages;
       return { pendingMessages: rest };
     }),
 
