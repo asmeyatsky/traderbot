@@ -24,7 +24,6 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          script_stop: true
           script: |
             cd /opt/traderbot/deploy
             bash deploy.sh
@@ -34,7 +33,7 @@ jobs:
           echo "Waiting for deployment to stabilize..."
           sleep 10
           for i in 1 2 3; do
-            if curl -sf --max-time 10 https://${{ secrets.EC2_HOST }}/health; then
+            if curl -sf --max-time 10 https://traderbotapp.com/health; then
               echo ""
               echo "Health check passed!"
               exit 0
