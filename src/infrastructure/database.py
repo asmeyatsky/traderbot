@@ -63,11 +63,12 @@ class DatabaseManager:
 
     def _initialize_sync(self) -> None:
         """Initialize synchronous database engine and session factory."""
-        # Enforce SSL for non-development environments
+        # Enforce SSL for non-development environments, unless explicitly disabled in URL
         connect_args = {}
         environment = os.getenv("ENVIRONMENT", "development")
         if environment != "development" and "postgresql" in self.database_url:
-            connect_args["sslmode"] = "require"
+            if "sslmode=disable" not in self.database_url:
+                connect_args["sslmode"] = "require"
 
         self.engine = create_engine(
             self.database_url,
