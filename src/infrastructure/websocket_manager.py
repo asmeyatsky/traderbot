@@ -63,6 +63,10 @@ class WebSocketManager:
         if user_id in self._subscriptions:
             self._subscriptions[user_id].discard(channel)
 
+    def get_subscription_count(self, user_id: str) -> int:
+        """Return the number of channels a user is subscribed to."""
+        return len(self._subscriptions.get(user_id, set()))
+
     async def send_to_user(
         self, user_id: str, message: Dict[str, Any]
     ) -> None:

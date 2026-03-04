@@ -297,16 +297,14 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
 
-    # Start risk monitoring services
+    # Initialize risk services (monitoring is handled by the application scheduler)
     from src.infrastructure.di_container import container
     try:
-        risk_manager = container.adapters.risk_manager()
-        risk_manager.start_monitoring()
-        circuit_breaker = container.adapters.circuit_breaker_service()
-        circuit_breaker.start_monitoring()
-        logger.info("Risk monitoring services started")
+        container.adapters.risk_manager()
+        container.adapters.circuit_breaker_service()
+        logger.info("Risk management services initialized")
     except Exception as e:
-        logger.error(f"Failed to start risk monitoring: {e}")
+        logger.error(f"Failed to initialize risk management services: {e}")
 
     # Start autonomous trading scheduler if enabled
     if settings.AUTO_TRADING_ENABLED:
@@ -348,13 +346,8 @@ async def shutdown_event():
     except Exception as e:
         logger.error(f"Error stopping scheduler: {e}")
 
-    # Stop risk monitoring
-    from src.infrastructure.di_container import container
-    try:
-        container.adapters.risk_manager().stop_monitoring()
-        container.adapters.circuit_breaker_service().stop_monitoring()
-    except Exception as e:
-        logger.error(f"Error stopping risk monitoring: {e}")
+    # Risk services are stateless singletons; no shutdown needed
+    logger.info("Risk management services cleaned up")
 
 
 # ============================================================================

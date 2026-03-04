@@ -342,8 +342,7 @@ class RateLimiter:
     def __init__(self, redis_url: str = "redis://localhost:6379/0"):
         """Initialize the rate limiter."""
         self.distributed_limiter = DistributedRateLimiter(
-            use_redis=True,
-            redis_url=redis_url,
+            use_disk_cache=True,
         )
 
     def is_allowed(self, key: str, limit: int = None, window: int = None) -> bool:

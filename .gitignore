@@ -97,6 +97,10 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+!.env.example
+!.env.prod.example
+deploy/backups/
 .venv
 env/
 env.bak/

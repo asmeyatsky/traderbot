@@ -7,7 +7,7 @@ Following DDD principles and clean architecture patterns.
 """
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 import uuid
 
@@ -114,33 +114,12 @@ class DefaultTradingDomainService(TradingDomainService):
     def execute_order(self, order: Order, current_price: Price) -> Order:
         """
         Execute an order and return the updated order state.
+        Uses the Order entity's execute() method to maintain DDD patterns.
         """
-        import datetime
-        execution_time = datetime.datetime.now()
-        
-        # Calculate filled quantity (simplified - assumes full fill for now)
+        execution_time = datetime.now(timezone.utc)
         filled_qty = order.quantity
-        
-        # Update commission (simplified calculation)
-        commission_amount = Decimal('0.00')  # In real implementation, use broker-specific commission
-        
-        # Return updated order with execution details
-        return Order(
-            id=order.id,
-            user_id=order.user_id,
-            symbol=order.symbol,
-            order_type=order.order_type,
-            position_type=order.position_type,
-            quantity=order.quantity,
-            status=OrderStatus.EXECUTED,
-            placed_at=order.placed_at,
-            executed_at=execution_time,
-            price=Money(current_price.amount, current_price.currency),
-            stop_price=order.stop_price,
-            filled_quantity=filled_qty,
-            commission=Money(commission_amount, current_price.currency),
-            notes=order.notes
-        )
+        execution_price = Money(current_price.amount, current_price.currency)
+        return order.execute(execution_price, execution_time, filled_qty)
 
 
 class RiskManagementDomainService(ABC):

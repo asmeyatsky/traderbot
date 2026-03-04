@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 import jwt
 from jwt import PyJWTError
-from passlib.context import CryptContext
+import bcrypt
 from pydantic import BaseModel
 import logging
 
@@ -24,8 +24,8 @@ from src.infrastructure.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-# Password hashing configuration
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Bcrypt rounds — 12 is the modern minimum for security
+_BCRYPT_ROUNDS = 12
 
 # HTTP Bearer security
 security = HTTPBearer()
@@ -61,7 +61,8 @@ class SecurityManager:
         Returns:
             Hashed password
         """
-        return pwd_context.hash(password)
+        salt = bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)
+        return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -75,7 +76,10 @@ class SecurityManager:
         Returns:
             True if password matches, False otherwise
         """
-        return pwd_context.verify(plain_password, hashed_password)
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"),
+            hashed_password.encode("utf-8"),
+        )
 
     @staticmethod
     def create_access_token(
@@ -237,7 +241,11 @@ async def get_current_user(
         except HTTPException:
             raise
         except Exception:
-            pass  # Cache unavailable — allow token (fail open for availability)
+            logger.warning("Cache unavailable during token blacklist check — denying token for safety")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Authentication service temporarily unavailable",
+            )
 
         return token_payload.sub
 

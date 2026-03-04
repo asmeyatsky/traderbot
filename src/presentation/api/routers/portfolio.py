@@ -34,6 +34,10 @@ def _fetch_daily_changes(symbols: list[str]) -> dict[str, tuple[float, float]]:
     """Batch-fetch today's price change and change% for a list of symbols.
 
     Returns a dict mapping symbol -> (day_change, day_change_percent).
+
+    NOTE: This contains market-data retrieval logic that ideally belongs in
+    an application service. Kept here for now to avoid a larger refactor;
+    tracked for future extraction.
     """
     result: dict[str, tuple[float, float]] = {}
     try:

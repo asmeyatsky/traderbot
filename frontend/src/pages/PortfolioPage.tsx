@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { usePortfolio, usePortfolioAllocation } from '../hooks/use-portfolio';
 import { ArrowTrendingUpIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -6,6 +7,7 @@ import StatCard from '../components/common/StatCard';
 import PositionsTable from '../components/portfolio/PositionsTable';
 import AllocationChart from '../components/portfolio/AllocationChart';
 import CashManagement from '../components/portfolio/CashManagement';
+import TradeDialog from '../components/portfolio/TradeDialog';
 import { formatCurrency } from '../lib/format';
 import PageHeader from '../components/common/PageHeader';
 import { PAGE_DESCRIPTIONS } from '../lib/help-text';
@@ -13,6 +15,13 @@ import { PAGE_DESCRIPTIONS } from '../lib/help-text';
 export default function PortfolioPage() {
   const { data: portfolio, isLoading, error, refetch } = usePortfolio();
   const { data: allocation } = usePortfolioAllocation();
+  const [tradeOpen, setTradeOpen] = useState(false);
+  const [tradeSymbol, setTradeSymbol] = useState('');
+
+  const openTrade = (symbol = '') => {
+    setTradeSymbol(symbol);
+    setTradeOpen(true);
+  };
 
   if (isLoading) return <LoadingSpinner className="py-20" />;
   if (error) return <ErrorAlert message="Failed to load portfolio" onRetry={() => refetch()} />;
@@ -49,13 +58,24 @@ export default function PortfolioPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-900/5">
-            <div className="flex items-baseline justify-between border-b border-gray-200 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
               <h3 className="text-sm font-medium text-gray-700">Positions</h3>
-              <p className="text-xs text-gray-400">
-                Prices as of {new Date().toLocaleString()}
-              </p>
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-gray-400">
+                  Prices as of {new Date().toLocaleString()}
+                </p>
+                <button
+                  onClick={() => openTrade()}
+                  className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors"
+                >
+                  New Trade
+                </button>
+              </div>
             </div>
-            <PositionsTable positions={portfolio.positions ?? []} />
+            <PositionsTable
+              positions={portfolio.positions ?? []}
+              onTrade={(symbol) => openTrade(symbol)}
+            />
           </div>
         </div>
         <div className="space-y-6">
@@ -69,6 +89,12 @@ export default function PortfolioPage() {
           )}
         </div>
       </div>
+
+      <TradeDialog
+        open={tradeOpen}
+        onClose={() => setTradeOpen(false)}
+        initialSymbol={tradeSymbol}
+      />
     </div>
   );
 }

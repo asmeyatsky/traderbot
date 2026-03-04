@@ -1,6 +1,6 @@
 import { useAuthStore } from '../stores/auth-store';
 
-const WS_BASE = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8000';
+const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
 
 export type WSMessage = {
   type: string;
@@ -20,7 +20,7 @@ export class WebSocketClient {
     const token = useAuthStore.getState().token;
     if (!token || this.ws?.readyState === WebSocket.OPEN) return;
 
-    this.ws = new WebSocket(`${WS_BASE}/ws/${token}`);
+    this.ws = new WebSocket(`${WS_BASE}/ws?token=${encodeURIComponent(token)}`);
 
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;

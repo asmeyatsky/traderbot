@@ -245,8 +245,9 @@ def cached(
         async def async_wrapper(*args, **kwargs):
             # Build cache key
             key_parts = [key_prefix or func.__name__]
-            key_parts.extend(str(arg) for arg in args if not hasattr(arg, "__call__"))
-            key_parts.extend(f"{k}={v}" for k, v in kwargs.items())
+            # Use repr() for args to disambiguate values containing the separator
+            key_parts.extend(repr(arg) for arg in args if not hasattr(arg, "__call__"))
+            key_parts.extend(f"{k}={repr(v)}" for k, v in sorted(kwargs.items()))
             cache_k = cache_key(*key_parts)
 
             # Try to get from cache
@@ -270,8 +271,9 @@ def cached(
         def sync_wrapper(*args, **kwargs):
             # Build cache key
             key_parts = [key_prefix or func.__name__]
-            key_parts.extend(str(arg) for arg in args if not hasattr(arg, "__call__"))
-            key_parts.extend(f"{k}={v}" for k, v in kwargs.items())
+            # Use repr() for args to disambiguate values containing the separator
+            key_parts.extend(repr(arg) for arg in args if not hasattr(arg, "__call__"))
+            key_parts.extend(f"{k}={repr(v)}" for k, v in sorted(kwargs.items()))
             cache_k = cache_key(*key_parts)
 
             # Try to get from cache

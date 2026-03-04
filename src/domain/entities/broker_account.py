@@ -17,7 +17,7 @@ Key Design Decisions:
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -47,8 +47,8 @@ class BrokerAccount:
     paper_trading: bool = True
     label: Optional[str] = None
     is_active: bool = True
-    created_at: datetime = None  # type: ignore[assignment]
-    updated_at: datetime = None  # type: ignore[assignment]
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     def __post_init__(self):
         if not self.api_key or not self.api_key.strip():
@@ -58,15 +58,15 @@ class BrokerAccount:
 
     def switch_to_live(self) -> BrokerAccount:
         """Switch from paper to live trading. Returns new instance."""
-        return replace(self, paper_trading=False, updated_at=datetime.utcnow())
+        return replace(self, paper_trading=False, updated_at=datetime.now(timezone.utc))
 
     def switch_to_paper(self) -> BrokerAccount:
         """Switch from live to paper trading. Returns new instance."""
-        return replace(self, paper_trading=True, updated_at=datetime.utcnow())
+        return replace(self, paper_trading=True, updated_at=datetime.now(timezone.utc))
 
     def deactivate(self) -> BrokerAccount:
         """Deactivate the broker account. Returns new instance."""
-        return replace(self, is_active=False, updated_at=datetime.utcnow())
+        return replace(self, is_active=False, updated_at=datetime.now(timezone.utc))
 
     def update_keys(self, api_key: str, secret_key: str) -> BrokerAccount:
         """Update API credentials. Returns new instance."""
@@ -74,5 +74,5 @@ class BrokerAccount:
             self,
             api_key=api_key,
             secret_key=secret_key,
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(timezone.utc),
         )

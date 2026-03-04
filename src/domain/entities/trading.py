@@ -7,7 +7,7 @@ following DDD principles and clean architecture patterns.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
 from enum import Enum
@@ -125,7 +125,13 @@ class Position:
     updated_at: datetime
     unrealized_pnl: Optional[Money] = None
     realized_pnl: Money = Money(Decimal('0'), 'USD')
-    
+
+    def __post_init__(self):
+        if self.quantity < 0:
+            raise ValueError("Position quantity must not be negative")
+        if self.average_buy_price.amount < 0:
+            raise ValueError("Average buy price must not be negative")
+
     @property
     def market_value(self) -> Money:
         """Calculate the current market value of the position"""
@@ -160,7 +166,7 @@ class Position:
             average_buy_price=self.average_buy_price,
             current_price=new_price,
             created_at=self.created_at,
-            updated_at=datetime.now(),
+            updated_at=datetime.now(timezone.utc),
             unrealized_pnl=self.unrealized_pnl,
             realized_pnl=self.realized_pnl
         )
@@ -185,7 +191,7 @@ class Position:
                 average_buy_price=Money(Decimal('0'), 'USD'),
                 current_price=execution_price,
                 created_at=self.created_at,
-                updated_at=datetime.now(),
+                updated_at=datetime.now(timezone.utc),
                 unrealized_pnl=Money(Decimal('0'), 'USD'),
                 realized_pnl=self.realized_pnl
             )
@@ -205,7 +211,7 @@ class Position:
             average_buy_price=Money(new_avg_price, self.average_buy_price.currency),
             current_price=execution_price,
             created_at=self.created_at,
-            updated_at=datetime.now(),
+            updated_at=datetime.now(timezone.utc),
             unrealized_pnl=self.unrealized_pnl,
             realized_pnl=self.realized_pnl
         )
@@ -226,8 +232,8 @@ class Portfolio:
     id: str
     user_id: str
     positions: List[Position] = field(default_factory=list)  # Properly initialized mutable default
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     cash_balance: Money = field(default_factory=lambda: Money(Decimal('0'), 'USD'))
     
     @property
@@ -253,7 +259,7 @@ class Portfolio:
             user_id=self.user_id,
             positions=new_positions,
             created_at=self.created_at,
-            updated_at=datetime.now(),
+            updated_at=datetime.now(timezone.utc),
             cash_balance=self.cash_balance
         )
     
@@ -266,7 +272,7 @@ class Portfolio:
             user_id=self.user_id,
             positions=new_positions,
             created_at=self.created_at,
-            updated_at=datetime.now(),
+            updated_at=datetime.now(timezone.utc),
             cash_balance=self.cash_balance
         )
     
@@ -284,7 +290,7 @@ class Portfolio:
             user_id=self.user_id,
             positions=new_positions,
             created_at=self.created_at,
-            updated_at=datetime.now(),
+            updated_at=datetime.now(timezone.utc),
             cash_balance=self.cash_balance
         )
     
@@ -295,7 +301,7 @@ class Portfolio:
             user_id=self.user_id,
             positions=self.positions,
             created_at=self.created_at,
-            updated_at=datetime.now(),
+            updated_at=datetime.now(timezone.utc),
             cash_balance=new_balance
         )
     

@@ -6,6 +6,9 @@ dependencies across the application following clean architecture principles.
 """
 from __future__ import annotations
 
+from datetime import timedelta
+from decimal import Decimal
+
 from dependency_injector import containers, providers
 from dependency_injector.wiring import Provide, inject
 
@@ -46,6 +49,7 @@ from src.infrastructure.broker_integration import (
     BrokerIntegrationService,
     BrokerAdapterManager
 )
+from src.domain.entities.user import RiskTolerance
 from src.domain.services.trading import DefaultTradingDomainService, DefaultRiskManagementDomainService
 from src.domain.services.advanced_risk_management import DefaultAdvancedRiskManagementService
 from src.domain.services.dashboard_analytics import DefaultDashboardAnalyticsService
@@ -165,14 +169,33 @@ class AdapterContainer(containers.DeclarativeContainer):
     # Broker adapter manager
     broker_adapter_manager = providers.Singleton(BrokerAdapterManager)
 
-    # Risk services (singletons so monitoring threads are shared)
+    # Risk services (singletons — config injected from infrastructure settings)
     risk_manager = providers.Singleton(
         RiskManager,
         notification_service=notification_service,
+        risk_limits={
+            RiskTolerance.CONSERVATIVE: {
+                "max_drawdown": Decimal(str(settings.RISK_CONSERVATIVE_MAX_DRAWDOWN)),
+                "position_limit_percentage": Decimal(str(settings.RISK_CONSERVATIVE_POSITION_LIMIT_PCT)),
+                "volatility_threshold": Decimal(str(settings.RISK_CONSERVATIVE_VOLATILITY_THRESHOLD)),
+            },
+            RiskTolerance.MODERATE: {
+                "max_drawdown": Decimal(str(settings.RISK_MODERATE_MAX_DRAWDOWN)),
+                "position_limit_percentage": Decimal(str(settings.RISK_MODERATE_POSITION_LIMIT_PCT)),
+                "volatility_threshold": Decimal(str(settings.RISK_MODERATE_VOLATILITY_THRESHOLD)),
+            },
+            RiskTolerance.AGGRESSIVE: {
+                "max_drawdown": Decimal(str(settings.RISK_AGGRESSIVE_MAX_DRAWDOWN)),
+                "position_limit_percentage": Decimal(str(settings.RISK_AGGRESSIVE_POSITION_LIMIT_PCT)),
+                "volatility_threshold": Decimal(str(settings.RISK_AGGRESSIVE_VOLATILITY_THRESHOLD)),
+            },
+        },
     )
     circuit_breaker_service = providers.Singleton(
         CircuitBreakerService,
         notification_service=notification_service,
+        volatility_threshold=Decimal(str(settings.CIRCUIT_BREAKER_VOLATILITY_THRESHOLD)),
+        reset_after=timedelta(minutes=settings.CIRCUIT_BREAKER_RESET_MINUTES),
     )
 
     # Security and infrastructure

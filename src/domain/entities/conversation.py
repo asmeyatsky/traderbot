@@ -11,7 +11,7 @@ Architectural Intent:
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -47,6 +47,8 @@ class TradeAction:
     executed: bool = False
 
     def __post_init__(self):
+        if not self.symbol or not self.symbol.strip():
+            raise ValueError("Trade symbol must not be empty")
         if self.quantity <= 0:
             raise ValueError("Trade quantity must be positive")
         if not (0.0 <= self.confidence <= 1.0):
@@ -103,11 +105,11 @@ class Conversation:
         return replace(
             self,
             messages=new_messages,
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(timezone.utc),
         )
 
     def update_title(self, title: str) -> Conversation:
-        return replace(self, title=title, updated_at=datetime.utcnow())
+        return replace(self, title=title, updated_at=datetime.now(timezone.utc))
 
     @property
     def message_count(self) -> int:

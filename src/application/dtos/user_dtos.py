@@ -145,7 +145,7 @@ class LoginRequest(BaseModel):
     """Request DTO for user login."""
 
     email: EmailStr
-    password: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=8)
 
 
 class LoginResponse(BaseModel):

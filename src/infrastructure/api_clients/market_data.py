@@ -5,7 +5,10 @@ This module implements adapters for various data sources including
 market data providers, news APIs, and fundamental data services.
 """
 import asyncio
+import logging
 import requests
+
+logger = logging.getLogger(__name__)
 
 # External financial API clients — wrapped in try/except for environments
 # where these packages may not install cleanly (e.g. CI namespace conflicts)
@@ -61,7 +64,7 @@ class AlphaVantageAdapter(MarketDataPort):
             if not data.empty:
                 return _to_price(data.iloc[0]['05. price'])
         except Exception as e:
-            print(f"Error fetching price from Alpha Vantage for {symbol}: {e}")
+            logger.error(f"Error fetching price from Alpha Vantage for {symbol}: {e}")
             return None
 
     def get_historical_prices(self, symbol: Symbol, start_date: date, end_date: date) -> List[Price]:
@@ -77,7 +80,7 @@ class AlphaVantageAdapter(MarketDataPort):
 
             return prices
         except Exception as e:
-            print(f"Error fetching historical prices from Alpha Vantage for {symbol}: {e}")
+            logger.error(f"Error fetching historical prices from Alpha Vantage for {symbol}: {e}")
             return []
 
     def get_market_news(self, symbol: Symbol) -> List[str]:
@@ -106,7 +109,7 @@ class PolygonAdapter(MarketDataPort):
             if trades:
                 return _to_price(trades.price)
         except Exception as e:
-            print(f"Error fetching price from Polygon.io for {symbol}: {e}")
+            logger.error(f"Error fetching price from Polygon.io for {symbol}: {e}")
             return None
 
     def get_historical_prices(self, symbol: Symbol, start_date: date, end_date: date) -> List[Price]:
@@ -127,7 +130,7 @@ class PolygonAdapter(MarketDataPort):
 
             return prices
         except Exception as e:
-            print(f"Error fetching historical prices from Polygon.io for {symbol}: {e}")
+            logger.error(f"Error fetching historical prices from Polygon.io for {symbol}: {e}")
             return []
 
     def get_market_news(self, symbol: Symbol) -> List[str]:
@@ -145,7 +148,7 @@ class PolygonAdapter(MarketDataPort):
 
             return news_list
         except Exception as e:
-            print(f"Error fetching news from Polygon.io for {symbol}: {e}")
+            logger.error(f"Error fetching news from Polygon.io for {symbol}: {e}")
             return []
 
 
@@ -166,7 +169,7 @@ class YahooFinanceAdapter(MarketDataPort):
             if not hist.empty:
                 return _to_price(hist['Close'].iloc[-1])
         except Exception as e:
-            print(f"Error fetching price from Yahoo Finance for {symbol}: {e}")
+            logger.error(f"Error fetching price from Yahoo Finance for {symbol}: {e}")
             return None
 
     def get_historical_prices(self, symbol: Symbol, start_date: date, end_date: date) -> List[Price]:
@@ -181,7 +184,7 @@ class YahooFinanceAdapter(MarketDataPort):
 
             return prices
         except Exception as e:
-            print(f"Error fetching historical prices from Yahoo Finance for {symbol}: {e}")
+            logger.error(f"Error fetching historical prices from Yahoo Finance for {symbol}: {e}")
             return []
 
     def get_historical_ohlcv(self, symbol: Symbol, start_date: date, end_date: date) -> List[Dict[str, Any]]:
@@ -204,7 +207,7 @@ class YahooFinanceAdapter(MarketDataPort):
                 })
             return results
         except Exception as e:
-            print(f"Error fetching OHLCV from Yahoo Finance for {symbol}: {e}")
+            logger.error(f"Error fetching OHLCV from Yahoo Finance for {symbol}: {e}")
             return []
 
     def get_market_news(self, symbol: Symbol) -> List[str]:
@@ -216,7 +219,7 @@ class YahooFinanceAdapter(MarketDataPort):
                 return []
             return [article.get('title', '') for article in news if article.get('title')]
         except Exception as e:
-            print(f"Error fetching news from Yahoo Finance for {symbol}: {e}")
+            logger.error(f"Error fetching news from Yahoo Finance for {symbol}: {e}")
             return []
 
     def get_market_news_detailed(self, symbol: Symbol) -> List[Dict[str, Any]]:
@@ -228,7 +231,7 @@ class YahooFinanceAdapter(MarketDataPort):
                 return []
             return news
         except Exception as e:
-            print(f"Error fetching detailed news from Yahoo Finance for {symbol}: {e}")
+            logger.error(f"Error fetching detailed news from Yahoo Finance for {symbol}: {e}")
             return []
 
 
@@ -278,7 +281,7 @@ class FinnhubAdapter(MarketDataPort, NewsAnalysisPort):
             if quote and 'c' in quote:  # 'c' is current price in Finnhub response
                 return _to_price(quote['c'])
         except Exception as e:
-            print(f"Error fetching price from Finnhub for {symbol}: {e}")
+            logger.error(f"Error fetching price from Finnhub for {symbol}: {e}")
             return None
 
     def get_historical_prices(self, symbol: Symbol, start_date: date, end_date: date) -> List[Price]:
@@ -297,7 +300,7 @@ class FinnhubAdapter(MarketDataPort, NewsAnalysisPort):
 
             return prices
         except Exception as e:
-            print(f"Error fetching historical prices from Finnhub for {symbol}: {e}")
+            logger.error(f"Error fetching historical prices from Finnhub for {symbol}: {e}")
             return []
 
     def get_market_news(self, symbol: Symbol) -> List[str]:
@@ -315,7 +318,7 @@ class FinnhubAdapter(MarketDataPort, NewsAnalysisPort):
 
             return news_list
         except Exception as e:
-            print(f"Error fetching news from Finnhub for {symbol}: {e}")
+            logger.error(f"Error fetching news from Finnhub for {symbol}: {e}")
             return []
 
     def analyze_sentiment(self, text: str) -> NewsSentiment:
@@ -352,31 +355,31 @@ class MarketDataService(MarketDataPort):
             try:
                 self._adapters.append(YahooFinanceAdapter())
             except Exception as e:
-                print(f"Failed to init YahooFinanceAdapter: {e}")
+                logger.warning(f"Failed to init YahooFinanceAdapter: {e}")
 
         # Polygon — requires API key and SDK
         if RESTClient is not None and settings.POLYGON_API_KEY:
             try:
                 self._adapters.append(PolygonAdapter())
             except Exception as e:
-                print(f"Failed to init PolygonAdapter: {e}")
+                logger.warning(f"Failed to init PolygonAdapter: {e}")
 
         # Alpha Vantage — requires API key and SDK
         if TimeSeries is not None and settings.ALPHA_VANTAGE_API_KEY:
             try:
                 self._adapters.append(AlphaVantageAdapter())
             except Exception as e:
-                print(f"Failed to init AlphaVantageAdapter: {e}")
+                logger.warning(f"Failed to init AlphaVantageAdapter: {e}")
 
         # Finnhub — requires API key and SDK
         if finnhub is not None and settings.FINNHUB_API_KEY:
             try:
                 self._adapters.append(FinnhubAdapter())
             except Exception as e:
-                print(f"Failed to init FinnhubAdapter: {e}")
+                logger.warning(f"Failed to init FinnhubAdapter: {e}")
 
         if not self._adapters:
-            print("WARNING: No market data adapters available — all prices will be None")
+            logger.warning("No market data adapters available — all prices will be None")
 
     def get_current_price(self, symbol: Symbol) -> Optional[Price]:
         """Get current price using multiple fallback sources."""
@@ -386,7 +389,7 @@ class MarketDataService(MarketDataPort):
                 if price:
                     return price
             except Exception as e:
-                print(f"Error fetching price from {type(adapter).__name__} for {symbol}: {e}")
+                logger.error(f"Error fetching price from {type(adapter).__name__} for {symbol}: {e}")
         return None
 
     def get_historical_prices(self, symbol: Symbol, start_date: date, end_date: date) -> List[Price]:
@@ -397,7 +400,7 @@ class MarketDataService(MarketDataPort):
                 if prices:
                     return prices
             except Exception as e:
-                print(f"Error fetching historical prices from {type(adapter).__name__} for {symbol}: {e}")
+                logger.error(f"Error fetching historical prices from {type(adapter).__name__} for {symbol}: {e}")
         return []
 
     def get_market_news(self, symbol: Symbol) -> List[str]:
@@ -407,5 +410,5 @@ class MarketDataService(MarketDataPort):
             try:
                 news.extend(adapter.get_market_news(symbol))
             except Exception as e:
-                print(f"Error fetching news from {type(adapter).__name__} for {symbol}: {e}")
+                logger.error(f"Error fetching news from {type(adapter).__name__} for {symbol}: {e}")
         return news

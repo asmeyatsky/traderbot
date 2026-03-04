@@ -12,12 +12,12 @@ services:
     environment:
       - ENVIRONMENT=development
       - LOG_LEVEL=INFO
-      - DATABASE_URL=postgresql://trading:trading@db:5432/traderbot
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-trading}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-traderbot}
       - REDIS_URL=redis://cache:6379/0
       - TF_SERVING_HOST=ml-model
       - TF_SERVING_PORT=8501
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
-      - JWT_SECRET_KEY=dev_only_secret_key_change_in_production_at_least_32_chars
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?Set JWT_SECRET_KEY (min 32 chars). Generate with: openssl rand -hex 32}
     depends_on:
       db:
         condition: service_healthy
@@ -33,16 +33,18 @@ services:
   db:
     image: postgres:15-alpine
     container_name: trading-db
-    ports:
-      - "5432:5432"
+    # No host port exposure — access via docker network only
+    # For local debugging: uncomment the ports section below
+    # ports:
+    #   - "127.0.0.1:5432:5432"
     environment:
-      POSTGRES_USER: trading
-      POSTGRES_PASSWORD: trading
-      POSTGRES_DB: traderbot
+      POSTGRES_USER: ${POSTGRES_USER:-trading}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-traderbot}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U trading -d traderbot"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-trading} -d ${POSTGRES_DB:-traderbot}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -53,8 +55,7 @@ services:
   cache:
     image: eqalpha/keydb:latest
     container_name: trading-cache
-    ports:
-      - "6379:6379"
+    # No host port exposure — access via docker network only
     volumes:
       - keydb_data:/data
     healthcheck:
@@ -81,12 +82,15 @@ services:
   #   networks:
   #     - trading-network
 
-  # Optional: Adminer for Database Management
+  # Optional: Adminer for Database Management (DEVELOPMENT ONLY)
+  # To enable: docker compose --profile dev-tools up
   adminer:
     image: adminer:latest
     container_name: trading-adminer
+    profiles:
+      - dev-tools
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       - ADMINER_DEFAULT_SERVER=db
     depends_on:

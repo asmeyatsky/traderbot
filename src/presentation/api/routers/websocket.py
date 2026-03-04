@@ -9,13 +9,14 @@ Provides real-time bidirectional communication for:
 
 Architectural Intent:
 - Presentation layer only — delegates to WebSocketManager
-- JWT-authenticated via token parameter
+- JWT-authenticated via query parameter (not URL path, to avoid token leakage in logs)
 - Supports channel subscriptions for targeted updates
 """
 from __future__ import annotations
 
 import json
 import logging
+import re
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 import jwt
@@ -27,6 +28,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["websocket"])
 
+# Channel name must be alphanumeric with colons, hyphens, underscores
+_CHANNEL_PATTERN = re.compile(r"^[a-zA-Z0-9:_-]{1,100}$")
+
+# Max inbound message size (bytes)
+_MAX_MESSAGE_SIZE = 4096
+
+# Max subscriptions per user
+_MAX_SUBSCRIPTIONS = 50
+
 
 def _authenticate_ws_token(token: str) -> str | None:
     """Validate JWT token and return user_id, or None if invalid."""
@@ -36,18 +46,23 @@ def _authenticate_ws_token(token: str) -> str | None:
             settings.JWT_SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM],
         )
+        if payload.get("type") != "access":
+            return None
         return payload.get("sub")
     except jwt.PyJWTError as e:
         logger.warning(f"WebSocket authentication failed: {e}")
         return None
 
 
-@router.websocket("/ws/{token}")
-async def websocket_endpoint(websocket: WebSocket, token: str):
+@router.websocket("/ws")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    token: str = Query(..., description="JWT access token"),
+):
     """
     WebSocket endpoint for real-time updates.
 
-    Authentication: JWT token passed as URL path parameter.
+    Authentication: JWT token passed as query parameter (?token=...).
 
     Client messages (JSON):
     - {"action": "subscribe", "channel": "prices:AAPL"}
@@ -77,12 +92,31 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
     try:
         while True:
             data = await websocket.receive_text()
+
+            # Enforce message size limit
+            if len(data) > _MAX_MESSAGE_SIZE:
+                await websocket.send_text(
+                    json.dumps({"type": "error", "message": "Message too large"})
+                )
+                continue
+
             try:
                 message = json.loads(data)
                 action = message.get("action")
 
                 if action == "subscribe":
                     channel = message.get("channel", "")
+                    if not _CHANNEL_PATTERN.match(channel):
+                        await websocket.send_text(
+                            json.dumps({"type": "error", "message": "Invalid channel name"})
+                        )
+                        continue
+                    current_subs = manager.get_subscription_count(user_id)
+                    if current_subs >= _MAX_SUBSCRIPTIONS:
+                        await websocket.send_text(
+                            json.dumps({"type": "error", "message": "Subscription limit reached"})
+                        )
+                        continue
                     manager.subscribe(user_id, channel)
                     await websocket.send_text(
                         json.dumps({"type": "subscribed", "channel": channel})

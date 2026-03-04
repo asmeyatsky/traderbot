@@ -1,13 +1,20 @@
 import ReactMarkdown from 'react-markdown';
-import type { ChatMessage } from '../../types/chat';
+import type { ChatMessage, TradeAction } from '../../types/chat';
 import TradeActionCard from './TradeActionCard';
 
 interface MessageBubbleProps {
   message: ChatMessage;
-  onConfirmTrade?: (action: ChatMessage['trade_actions'][0]) => void;
+  onConfirmTrade?: (action: TradeAction) => void;
+  executedTradeKeys?: string[];
+  isOrderPending?: boolean;
 }
 
-export default function MessageBubble({ message, onConfirmTrade }: MessageBubbleProps) {
+export default function MessageBubble({
+  message,
+  onConfirmTrade,
+  executedTradeKeys = [],
+  isOrderPending = false,
+}: MessageBubbleProps) {
   const isUser = message.role === 'user';
 
   return (
@@ -29,13 +36,18 @@ export default function MessageBubble({ message, onConfirmTrade }: MessageBubble
 
         {message.trade_actions.length > 0 && (
           <div className="mt-3 space-y-2">
-            {message.trade_actions.map((action, i) => (
-              <TradeActionCard
-                key={`${action.symbol}-${i}`}
-                action={action}
-                onConfirm={() => onConfirmTrade?.(action)}
-              />
-            ))}
+            {message.trade_actions.map((action, i) => {
+              const tradeKey = `${action.symbol}-${action.action}-${action.quantity}`;
+              return (
+                <TradeActionCard
+                  key={`${action.symbol}-${i}`}
+                  action={action}
+                  onConfirm={() => onConfirmTrade?.(action)}
+                  isExecuted={executedTradeKeys.includes(tradeKey)}
+                  isExecuting={isOrderPending && !executedTradeKeys.includes(tradeKey) && !action.executed}
+                />
+              );
+            })}
           </div>
         )}
       </div>

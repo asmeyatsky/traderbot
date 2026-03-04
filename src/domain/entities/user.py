@@ -7,7 +7,7 @@ following DDD principles and clean architecture patterns.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
 from enum import Enum
@@ -71,12 +71,12 @@ class User:
     def update_risk_tolerance(self, new_risk_tolerance: RiskTolerance) -> 'User':
         """Update user's risk tolerance and return new instance"""
         from dataclasses import replace
-        return replace(self, risk_tolerance=new_risk_tolerance, updated_at=datetime.now())
+        return replace(self, risk_tolerance=new_risk_tolerance, updated_at=datetime.now(timezone.utc))
     
     def update_investment_goal(self, new_investment_goal: InvestmentGoal) -> 'User':
         """Update user's investment goal and return new instance"""
         from dataclasses import replace
-        return replace(self, investment_goal=new_investment_goal, updated_at=datetime.now())
+        return replace(self, investment_goal=new_investment_goal, updated_at=datetime.now(timezone.utc))
     
     def update_loss_limits(
         self,
@@ -91,7 +91,7 @@ class User:
             daily_loss_limit=daily_limit or self.daily_loss_limit,
             weekly_loss_limit=weekly_limit or self.weekly_loss_limit,
             monthly_loss_limit=monthly_limit or self.monthly_loss_limit,
-            updated_at=datetime.now(),
+            updated_at=datetime.now(timezone.utc),
         )
     
     def update_sector_preferences(self, preferred_sectors: List[str], excluded_sectors: List[str]) -> 'User':
@@ -101,13 +101,13 @@ class User:
             self,
             sector_preferences=preferred_sectors,
             sector_exclusions=excluded_sectors,
-            updated_at=datetime.now(),
+            updated_at=datetime.now(timezone.utc),
         )
     
     def toggle_approval_mode(self, enabled: bool) -> 'User':
         """Toggle approval mode and return new instance"""
         from dataclasses import replace
-        return replace(self, approval_mode_enabled=enabled, updated_at=datetime.now())
+        return replace(self, approval_mode_enabled=enabled, updated_at=datetime.now(timezone.utc))
     
     def validate(self) -> List[str]:
         """Validate the user and return a list of validation errors"""

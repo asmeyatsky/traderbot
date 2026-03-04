@@ -3,10 +3,13 @@ import type { TradeAction } from '../../types/chat';
 interface TradeActionCardProps {
   action: TradeAction;
   onConfirm?: () => void;
+  isExecuting?: boolean;
+  isExecuted?: boolean;
 }
 
-export default function TradeActionCard({ action, onConfirm }: TradeActionCardProps) {
+export default function TradeActionCard({ action, onConfirm, isExecuting, isExecuted }: TradeActionCardProps) {
   const isBuy = action.action === 'BUY';
+  const executed = isExecuted || action.executed;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
@@ -30,7 +33,7 @@ export default function TradeActionCard({ action, onConfirm }: TradeActionCardPr
         <p className="mt-1.5 text-xs text-gray-600">{action.reasoning}</p>
       )}
 
-      {!action.executed && (
+      {!executed && !isExecuting && (
         <button
           onClick={onConfirm}
           className={`mt-2 w-full rounded-lg py-1.5 text-xs font-medium text-white transition-colors ${
@@ -43,8 +46,18 @@ export default function TradeActionCard({ action, onConfirm }: TradeActionCardPr
         </button>
       )}
 
-      {action.executed && (
-        <div className="mt-2 rounded-lg bg-gray-200 py-1.5 text-center text-xs font-medium text-gray-600">
+      {isExecuting && (
+        <div className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-gray-200 py-1.5 text-xs font-medium text-gray-600">
+          <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          Placing Order...
+        </div>
+      )}
+
+      {executed && !isExecuting && (
+        <div className="mt-2 rounded-lg bg-emerald-100 py-1.5 text-center text-xs font-medium text-emerald-700">
           Order Executed
         </div>
       )}

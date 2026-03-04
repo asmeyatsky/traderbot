@@ -54,12 +54,11 @@ export function useDeleteConversation() {
 }
 
 export function useSendMessage() {
-  const {
-    addMessage,
-    appendStreamingContent,
-    setIsStreaming,
-    clearStreaming,
-  } = useChatStore.getState();
+  const addPendingMessage = useChatStore((s) => s.addPendingMessage);
+  const clearPendingMessages = useChatStore((s) => s.clearPendingMessages);
+  const appendStreamingContent = useChatStore((s) => s.appendStreamingContent);
+  const setIsStreaming = useChatStore((s) => s.setIsStreaming);
+  const clearStreaming = useChatStore((s) => s.clearStreaming);
   const queryClient = useQueryClient();
 
   const sendMessage = useCallback(
@@ -73,7 +72,7 @@ export function useSendMessage() {
         created_at: new Date().toISOString(),
         trade_actions: [],
       };
-      addMessage(conversationId, userMsg);
+      addPendingMessage(conversationId, userMsg);
 
       // Start streaming
       setIsStreaming(true);
@@ -108,7 +107,7 @@ export function useSendMessage() {
                 created_at: new Date().toISOString(),
                 trade_actions: actions,
               };
-              addMessage(conversationId, assistantMsg);
+              addPendingMessage(conversationId, assistantMsg);
               clearStreaming();
               break;
             }
@@ -123,7 +122,7 @@ export function useSendMessage() {
                 created_at: new Date().toISOString(),
                 trade_actions: [],
               };
-              addMessage(conversationId, errorMsg);
+              addPendingMessage(conversationId, errorMsg);
               break;
             }
           }
@@ -138,13 +137,18 @@ export function useSendMessage() {
           created_at: new Date().toISOString(),
           trade_actions: [],
         };
-        addMessage(conversationId, errorMsg);
+        addPendingMessage(conversationId, errorMsg);
       }
 
-      // Refresh conversations list to update titles
+      // Refresh conversations list and specific conversation
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+
+      // Clear pending once server data is refetched
+      // Small delay to let React Query refetch before clearing
+      setTimeout(() => clearPendingMessages(conversationId), 500);
     },
-    [addMessage, appendStreamingContent, setIsStreaming, clearStreaming, queryClient],
+    [addPendingMessage, clearPendingMessages, appendStreamingContent, setIsStreaming, clearStreaming, queryClient],
   );
 
   return { sendMessage };

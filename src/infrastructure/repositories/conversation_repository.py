@@ -124,7 +124,12 @@ class ConversationRepository(ConversationRepositoryPort):
         finally:
             session.close()
 
-    def get_by_id(self, conversation_id: str, user_id: str | None = None) -> Optional[Conversation]:
+    def get_by_id(
+        self,
+        conversation_id: str,
+        user_id: str | None = None,
+        message_limit: int = 200,
+    ) -> Optional[Conversation]:
         db_manager = get_database_manager()
         session = db_manager._session_factory()
         try:
@@ -136,6 +141,10 @@ class ConversationRepository(ConversationRepositoryPort):
             if user_id is not None:
                 query = query.filter(ConversationORM.user_id == user_id)
             orm = query.first()
+            if orm and len(orm.messages) > message_limit:
+                orm.messages = sorted(
+                    orm.messages, key=lambda m: m.created_at
+                )[-message_limit:]
             return self._to_domain(orm) if orm else None
         except Exception as e:
             logger.error(f"Failed to get conversation {conversation_id}: {e}")

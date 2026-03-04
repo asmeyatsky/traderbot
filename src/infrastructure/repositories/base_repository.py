@@ -120,7 +120,7 @@ class BaseRepository(Generic[Entity, ORM_Model]):
             return self._to_domain_entity(orm_obj) if orm_obj else None
         except Exception as e:
             logger.error(f"Failed to get {self.orm_model_class.__name__} by ID: {e}")
-            return None
+            raise DomainException(f"Failed to retrieve entity: {str(e)}")
         finally:
             session.close()
 

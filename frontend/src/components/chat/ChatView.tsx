@@ -7,9 +7,11 @@ import {
   useDeleteConversation,
   useSendMessage,
 } from '../../hooks/use-chat';
+import { useCreateOrder } from '../../hooks/use-orders';
 import ConversationList from './ConversationList';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
+import type { TradeAction } from '../../types/chat';
 
 export default function ChatView() {
   const {
@@ -20,11 +22,18 @@ export default function ChatView() {
     setActiveConversation,
   } = useChatStore();
 
+  const pendingMessages = useChatStore((s) =>
+    activeConversationId ? (s.pendingMessages[activeConversationId] ?? []) : []
+  );
+  const executedTradeKeys = useChatStore((s) => s.executedTradeKeys);
+  const markTradeExecuted = useChatStore((s) => s.markTradeExecuted);
+
   const { data: convData } = useConversations();
   const { data: activeConv } = useConversation(activeConversationId);
   const { mutate: createConv } = useCreateConversation();
   const { mutate: deleteConv } = useDeleteConversation();
   const { sendMessage } = useSendMessage();
+  const { mutate: createOrder, isPending: isOrderPending } = useCreateOrder();
 
   // Auto-create a conversation if none exist
   useEffect(() => {
@@ -40,7 +49,10 @@ export default function ChatView() {
     }
   }, [conversations, activeConversationId, setActiveConversation]);
 
-  const messages = activeConv?.messages ?? [];
+  // Merge server messages with pending messages (deduped by id)
+  const serverMessages = activeConv?.messages ?? [];
+  const serverIds = new Set(serverMessages.map((m) => m.id));
+  const messages = [...serverMessages, ...pendingMessages.filter((m) => !serverIds.has(m.id))];
 
   const handleSend = (content: string) => {
     if (!activeConversationId) return;
@@ -51,11 +63,25 @@ export default function ChatView() {
     createConv({});
   };
 
-  const handleConfirmTrade = (action: { symbol: string; action: string; quantity: number }) => {
+  const handleConfirmTrade = (action: TradeAction) => {
     if (!activeConversationId) return;
-    sendMessage(
-      activeConversationId,
-      `Yes, confirm the ${action.action} order for ${action.quantity} shares of ${action.symbol}.`,
+    const tradeKey = `${action.symbol}-${action.action}-${action.quantity}`;
+    createOrder(
+      {
+        symbol: action.symbol,
+        position_type: action.action === 'BUY' ? 'LONG' : 'SHORT',
+        order_type: 'MARKET',
+        quantity: action.quantity,
+      },
+      {
+        onSuccess: () => markTradeExecuted(tradeKey),
+        onError: (err) => {
+          sendMessage(
+            activeConversationId,
+            `Order failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          );
+        },
+      },
     );
   };
 
@@ -80,6 +106,8 @@ export default function ChatView() {
           isStreaming={isStreaming}
           onConfirmTrade={handleConfirmTrade}
           onSuggestionClick={handleSend}
+          executedTradeKeys={executedTradeKeys}
+          isOrderPending={isOrderPending}
         />
         <ChatInput onSend={handleSend} disabled={isStreaming} />
       </div>

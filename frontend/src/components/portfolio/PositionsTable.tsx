@@ -2,7 +2,12 @@ import DataTable from '../common/DataTable';
 import { formatCurrency, formatPercent } from '../../lib/format';
 import type { Position } from '../../types/portfolio';
 
-export default function PositionsTable({ positions }: { positions: Position[] }) {
+interface PositionsTableProps {
+  positions: Position[];
+  onTrade?: (symbol: string) => void;
+}
+
+export default function PositionsTable({ positions, onTrade }: PositionsTableProps) {
   return (
     <DataTable
       data={positions}
@@ -37,6 +42,20 @@ export default function PositionsTable({ positions }: { positions: Position[] })
             );
           },
         },
+        ...(onTrade
+          ? [{
+              key: 'trade',
+              header: '',
+              render: (p: Position) => (
+                <button
+                  onClick={() => onTrade(p.symbol)}
+                  className="rounded-md bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
+                >
+                  Trade
+                </button>
+              ),
+            }]
+          : []),
       ]}
     />
   );

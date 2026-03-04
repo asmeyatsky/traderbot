@@ -100,12 +100,12 @@ async def register(
     try:
         logger.info(f"Registering new user: {body.email}")
 
-        # Check if email already exists
+        # Check if email already exists (generic message to prevent enumeration)
         existing_user = user_repository.get_by_email(body.email)
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Registration failed. Please check your input and try again."
             )
 
         # Hash the password
@@ -508,9 +508,12 @@ async def update_auto_trading_settings(
         204: {"description": "Password changed successfully"},
         400: {"description": "Invalid current password"},
         401: {"description": "Unauthorized"},
+        429: {"description": "Rate limit exceeded"},
     }
 )
+@limiter.limit("3/minute")
 async def change_password(
+    request: Request,
     body: ChangePasswordRequest,
     user_id: str = Depends(get_current_user),
     user_repository: UserRepository = Depends(get_user_repository),
@@ -602,9 +605,12 @@ async def logout(
     responses={
         200: {"description": "User data exported as JSON"},
         401: {"description": "Unauthorized"},
+        429: {"description": "Rate limit exceeded"},
     }
 )
+@limiter.limit("2/hour")
 async def export_user_data(
+    request: Request,
     user_id: str = Depends(get_current_user),
     user_repository: UserRepository = Depends(get_user_repository),
 ):

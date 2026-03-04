@@ -4,10 +4,14 @@ Trading Engine with Broker Integration
 This module implements the trading engine that executes trades
 through various broker APIs as required by the PRD.
 """
+import logging
+
 import alpaca_trade_api as tradeapi
 from alpaca_trade_api.entity import Order as AlpacaOrder
 import threading
 import time
+
+logger = logging.getLogger(__name__)
 from typing import Dict, List, Optional
 from datetime import datetime
 
@@ -58,7 +62,7 @@ class AlpacaTradingAdapter(TradingExecutionPort):
             
             return alpaca_order.id
         except Exception as e:
-            print(f"Error placing order with Alpaca: {e}")
+            logger.error(f"Error placing order with Alpaca: {e}")
             raise
     
     def cancel_order(self, order_id: str) -> bool:
@@ -69,7 +73,7 @@ class AlpacaTradingAdapter(TradingExecutionPort):
             self.api.cancel_order(order_id)
             return True
         except Exception as e:
-            print(f"Error canceling order with Alpaca: {e}")
+            logger.error(f"Error canceling order with Alpaca: {e}")
             return False
     
     def get_order_status(self, order_id: str) -> Order:
@@ -130,7 +134,7 @@ class AlpacaTradingAdapter(TradingExecutionPort):
                 notes=alpaca_order.client_order_id
             )
         except Exception as e:
-            print(f"Error getting order status from Alpaca: {e}")
+            logger.error(f"Error getting order status from Alpaca: {e}")
             # Return a minimal order with failed status
             return Order(
                 id=order_id,
@@ -158,7 +162,7 @@ class AlpacaTradingAdapter(TradingExecutionPort):
             cash_amount = float(account.cash)
             return Money(cash_amount, 'USD')
         except Exception as e:
-            print(f"Error getting account balance from Alpaca: {e}")
+            logger.error(f"Error getting account balance from Alpaca: {e}")
             return Money(0, 'USD')
     
     def _map_order_type(self, order_type: OrderType) -> str:
@@ -223,7 +227,7 @@ class TradingEngine:
         self.running = True
         self.execution_thread = threading.Thread(target=self._run_trading_loop, daemon=True)
         self.execution_thread.start()
-        print("Trading engine started")
+        logger.info("Trading engine started")
     
     def stop_engine(self):
         """
@@ -232,7 +236,7 @@ class TradingEngine:
         self.running = False
         if self.execution_thread:
             self.execution_thread.join()
-        print("Trading engine stopped")
+        logger.info("Trading engine stopped")
     
     def _run_trading_loop(self):
         """
@@ -248,7 +252,7 @@ class TradingEngine:
                 # self._process_trading_signals()
                 
             except Exception as e:
-                print(f"Error in trading loop: {e}")
+                logger.error(f"Error in trading loop: {e}")
     
     def submit_order(self, order: Order) -> str:
         """
@@ -263,7 +267,7 @@ class TradingEngine:
             
             return broker_order_id
         except Exception as e:
-            print(f"Error submitting order: {e}")
+            logger.error(f"Error submitting order: {e}")
             raise
     
     def monitor_order(self, order_id: str) -> Order:
@@ -280,7 +284,7 @@ class TradingEngine:
             
             return current_order
         except Exception as e:
-            print(f"Error monitoring order: {e}")
+            logger.error(f"Error monitoring order: {e}")
             # Return a failed order if monitoring fails
             return Order(
                 id=order_id,
@@ -313,7 +317,7 @@ class TradingEngine:
             
             return success
         except Exception as e:
-            print(f"Error canceling order: {e}")
+            logger.error(f"Error canceling order: {e}")
             return False
     
     def get_account_balance(self, user_id: str) -> Money:
@@ -348,7 +352,7 @@ class PortfolioTracker:
         self.running = True
         self.sync_thread = threading.Thread(target=self._sync_loop, daemon=True)
         self.sync_thread.start()
-        print("Portfolio sync started")
+        logger.info("Portfolio sync started")
     
     def stop_sync(self):
         """
@@ -357,7 +361,7 @@ class PortfolioTracker:
         self.running = False
         if self.sync_thread:
             self.sync_thread.join()
-        print("Portfolio sync stopped")
+        logger.info("Portfolio sync stopped")
     
     def _sync_loop(self):
         """
@@ -369,7 +373,7 @@ class PortfolioTracker:
                 # to get actual positions and update the portfolio
                 time.sleep(self.sync_interval)
             except Exception as e:
-                print(f"Error in portfolio sync: {e}")
+                logger.error(f"Error in portfolio sync: {e}")
     
     def update_portfolio_from_order(self, order: Order):
         """

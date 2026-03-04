@@ -21,7 +21,7 @@ from src.domain.ports import (
     TradingExecutionPort, NotificationPort, AIModelPort
 )
 from src.domain.services.trading import TradingDomainService, RiskManagementDomainService
-from src.infrastructure.data_processing.sentiment_analysis import sentiment_analyzer
+from src.domain.value_objects import NewsSentiment
 
 
 class CreateOrderUseCase:
@@ -325,29 +325,28 @@ class AnalyzeNewsSentimentUseCase:
         # Get recent news for the symbol
         news_articles = self.market_data_service.get_market_news(symbol)
 
-        # Analyze sentiment for each article
+        # Analyze sentiment for each article via the port
         sentiment_results = []
         for article in news_articles:
-            sentiment = sentiment_analyzer.analyze_sentiment(article)
+            sentiment = self.news_analysis_service.analyze_sentiment(article)
             sentiment_results.append({
                 'article': article,
                 'sentiment': sentiment,
-                'timestamp': datetime.now()
+                'timestamp': datetime.utcnow()
             })
 
-        # Calculate aggregate sentiment
+        # Calculate aggregate sentiment using domain value object
         if sentiment_results:
-            avg_sentiment = sum(item['sentiment'].score for item in sentiment_results) / len(sentiment_results)
-            overall_sentiment = type('NewsSentiment', (), {
-                'score': avg_sentiment,
-                'confidence': 80,
-                'source': 'Aggregate'
-            })()
-
+            avg_score = sum(item['sentiment'].score for item in sentiment_results) / len(sentiment_results)
+            overall_sentiment = NewsSentiment(
+                score=avg_score,
+                confidence=len(sentiment_results),
+                source='Aggregate',
+            )
             sentiment_results.append({
                 'article': 'AGGREGATE',
                 'sentiment': overall_sentiment,
-                'timestamp': datetime.now()
+                'timestamp': datetime.utcnow()
             })
 
         return sentiment_results

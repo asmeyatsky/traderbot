@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { ChatMessage } from '../../types/chat';
+import type { ChatMessage, TradeAction } from '../../types/chat';
 import MessageBubble from './MessageBubble';
 import StreamingIndicator from './StreamingIndicator';
 import ReactMarkdown from 'react-markdown';
@@ -8,8 +8,10 @@ interface MessageListProps {
   messages: ChatMessage[];
   streamingContent: string;
   isStreaming: boolean;
-  onConfirmTrade?: (action: ChatMessage['trade_actions'][0]) => void;
+  onConfirmTrade?: (action: TradeAction) => void;
   onSuggestionClick?: (text: string) => void;
+  executedTradeKeys?: string[];
+  isOrderPending?: boolean;
 }
 
 export default function MessageList({
@@ -18,6 +20,8 @@ export default function MessageList({
   isStreaming,
   onConfirmTrade,
   onSuggestionClick,
+  executedTradeKeys = [],
+  isOrderPending = false,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -63,6 +67,8 @@ export default function MessageList({
           key={msg.id}
           message={msg}
           onConfirmTrade={onConfirmTrade}
+          executedTradeKeys={executedTradeKeys}
+          isOrderPending={isOrderPending}
         />
       ))}
 

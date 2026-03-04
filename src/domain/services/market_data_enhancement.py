@@ -146,22 +146,23 @@ class DefaultMarketDataEnhancementService(MarketDataEnhancementService):
             return []
         try:
             from datetime import date as date_type
-            from src.infrastructure.api_clients.market_data import YahooFinanceAdapter
             end = date_type.today()
             start = end - timedelta(days=days)
 
-            # Use OHLCV endpoint when Yahoo adapter is available
-            yahoo_adapter = None
-            if isinstance(self._provider, YahooFinanceAdapter):
-                yahoo_adapter = self._provider
+            # Use OHLCV endpoint when the provider (or one of its adapters)
+            # exposes a get_historical_ohlcv method (duck-typing, no
+            # infrastructure import required).
+            ohlcv_provider = None
+            if hasattr(self._provider, 'get_historical_ohlcv'):
+                ohlcv_provider = self._provider
             elif hasattr(self._provider, '_adapters'):
                 for adapter in self._provider._adapters:
-                    if isinstance(adapter, YahooFinanceAdapter):
-                        yahoo_adapter = adapter
+                    if hasattr(adapter, 'get_historical_ohlcv'):
+                        ohlcv_provider = adapter
                         break
 
-            if yahoo_adapter is not None:
-                ohlcv = yahoo_adapter.get_historical_ohlcv(symbol, start, end)
+            if ohlcv_provider is not None:
+                ohlcv = ohlcv_provider.get_historical_ohlcv(symbol, start, end)
                 if ohlcv:
                     points = []
                     for bar in ohlcv:
