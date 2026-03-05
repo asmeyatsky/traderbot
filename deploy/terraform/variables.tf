@@ -27,7 +27,7 @@ variable "ssh_allowed_cidr" {
 variable "instance_type" {
   description = "EC2 instance type (ARM64 Graviton)"
   type        = string
-  default     = "t4g.small"
+  default     = "t4g.medium"
 }
 
 variable "volume_size" {

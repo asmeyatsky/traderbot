@@ -75,7 +75,7 @@ domain           = "${DOMAIN}"
 github_repo      = "https://github.com/allansmeyatsky/traderbot.git"
 ssh_public_key   = "${SSH_PUB_KEY}"
 ssh_allowed_cidr = "${SSH_CIDR}"
-instance_type    = "t4g.small"
+instance_type    = "t4g.medium"
 volume_size      = 20
 EOF
 

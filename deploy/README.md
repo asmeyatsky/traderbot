@@ -16,13 +16,13 @@ Internet → Caddy (:443 auto-TLS)
 
 | Resource | Monthly Cost |
 |----------|-------------|
-| EC2 t4g.small (2 vCPU, 2 GB) | **$0** first 12 months (free trial), then ~$12/mo |
+| EC2 t4g.medium (2 vCPU, 4 GB) | ~$24/mo |
 | EBS gp3 20 GB | ~$1.60/mo |
 | Route 53 hosted zone | ~$0.50/mo |
 | Route 53 queries | ~$0.10/mo |
 | S3 state bucket | ~$0.01/mo |
 | Elastic IP (while attached) | $0 |
-| **Total** | **~$2.21/mo** (year 1), **~$14.21/mo** (after) |
+| **Total** | **~$26.21/mo** |
 
 ## Prerequisites
 

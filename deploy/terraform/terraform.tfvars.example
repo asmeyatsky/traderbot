@@ -18,5 +18,5 @@ ssh_public_key = "ssh-ed25519 AAAA..."
 ssh_allowed_cidr = "0.0.0.0/0"
 
 # Instance sizing
-instance_type = "t4g.small"
+instance_type = "t4g.medium"
 volume_size   = 20

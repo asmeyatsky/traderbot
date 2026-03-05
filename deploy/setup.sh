@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ============================================================================
-# EC2 Instance Bootstrap — Ubuntu 24.04 on t4g.small (ARM64)
+# EC2 Instance Bootstrap — Ubuntu 24.04 on t4g.medium (ARM64)
 #
 # Run once after launching the instance:
 #   ssh ubuntu@<ip> 'bash -s' < setup.sh
 #
 # Prerequisites:
-#   - EC2 t4g.small with Ubuntu 24.04 ARM64 AMI
+#   - EC2 t4g.medium with Ubuntu 24.04 ARM64 AMI
 #   - Security group allows inbound 80, 443 (and 22 for SSH)
 #   - Elastic IP attached (needed for DNS A record)
 # ============================================================================
@@ -30,8 +30,8 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plug
 echo "==> Adding ubuntu user to docker group"
 sudo usermod -aG docker ubuntu
 
-echo "==> Enabling swap (1 GB) — important for 2 GB RAM instance"
-sudo fallocate -l 1G /swapfile
+echo "==> Enabling swap (2 GB) — safety net for 4 GB RAM instance"
+sudo fallocate -l 2G /swapfile
 sudo chmod 600 /swapfile
 sudo mkswap /swapfile
 sudo swapon /swapfile

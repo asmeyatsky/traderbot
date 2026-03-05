@@ -1,7 +1,7 @@
 # ============================================================================
 # Compute — EC2 Instance, Security Group, Key Pair, Elastic IP
 #
-# Ubuntu 24.04 ARM64 on t4g.small (2 vCPU, 2 GB RAM).
+# Ubuntu 24.04 ARM64 on t4g.medium (2 vCPU, 4 GB RAM).
 # Termination protection enabled to prevent accidental destroy.
 # AMI and user_data changes are ignored to avoid instance replacement.
 # ============================================================================

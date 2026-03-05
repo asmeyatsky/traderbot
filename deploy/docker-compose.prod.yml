@@ -1,4 +1,4 @@
-# Production Docker Compose — single EC2 t4g.small (ARM64, 2 vCPU, 2 GB RAM)
+# Production Docker Compose — single EC2 t4g.medium (ARM64, 2 vCPU, 4 GB RAM)
 #
 # Architecture:
 #   Caddy (reverse proxy + auto-HTTPS) → frontend (nginx SPA) + api (FastAPI)
@@ -92,13 +92,13 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
-    # Tune for 2 GB RAM — small shared_buffers, aggressive WAL settings
+    # Tune for 4 GB RAM
     command: >
       postgres
-        -c shared_buffers=256MB
-        -c effective_cache_size=1GB
-        -c work_mem=4MB
-        -c maintenance_work_mem=64MB
+        -c shared_buffers=512MB
+        -c effective_cache_size=2GB
+        -c work_mem=8MB
+        -c maintenance_work_mem=128MB
         -c wal_buffers=8MB
         -c max_connections=50
         -c checkpoint_completion_target=0.9
@@ -117,8 +117,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
-    # Limit memory to 128MB — more than enough for token blacklists and caching
-    command: keydb-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    # Limit memory to 256MB for caching and token blacklists
+    command: keydb-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     networks:
       - internal
 
