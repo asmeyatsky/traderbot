@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from './stores/auth-store';
 import AppShell from './components/layout/AppShell';
@@ -25,7 +26,15 @@ const queryClient = new QueryClient({
 
 function RootRedirect() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  return isAuthenticated ? <Navigate to="/chat" replace /> : <LandingPage />;
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/chat', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  return isAuthenticated ? null : <LandingPage />;
 }
 
 export default function App() {

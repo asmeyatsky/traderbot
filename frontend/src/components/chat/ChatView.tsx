@@ -14,13 +14,11 @@ import ChatInput from './ChatInput';
 import type { TradeAction } from '../../types/chat';
 
 export default function ChatView() {
-  const {
-    conversations,
-    activeConversationId,
-    streamingContent,
-    isStreaming,
-    setActiveConversation,
-  } = useChatStore();
+  const conversations = useChatStore((s) => s.conversations);
+  const activeConversationId = useChatStore((s) => s.activeConversationId);
+  const streamingContent = useChatStore((s) => s.streamingContent);
+  const isStreaming = useChatStore((s) => s.isStreaming);
+  const setActiveConversation = useChatStore((s) => s.setActiveConversation);
 
   const pendingMessages = useChatStore((s) =>
     activeConversationId ? (s.pendingMessages[activeConversationId] ?? []) : []
