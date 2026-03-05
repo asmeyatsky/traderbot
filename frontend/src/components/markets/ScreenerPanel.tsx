@@ -25,7 +25,7 @@ export default function ScreenerPanel() {
 
   return (
     <div className="mt-6">
-      <h2 className="text-sm font-semibold text-gray-700">Stock Screener</h2>
+      <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Stock Screener</h2>
       <div className="mt-2 flex flex-wrap gap-2">
         {screens.map((s) => (
           <button
@@ -34,7 +34,7 @@ export default function ScreenerPanel() {
             className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
               activeScreen === s.name
                 ? SCREEN_COLORS[s.name] ?? 'bg-indigo-100 text-indigo-700'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
             {s.label}
@@ -43,14 +43,14 @@ export default function ScreenerPanel() {
       </div>
 
       {screenMutation.isPending && (
-        <p className="mt-4 text-sm text-gray-500">Loading...</p>
+        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Loading...</p>
       )}
 
       {results.length > 0 && (
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-xs text-gray-500">
+              <tr className="border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
                 <th className="pb-2 pr-4 font-medium">Symbol</th>
                 <th className="pb-2 pr-4 font-medium">Name</th>
                 <th className="pb-2 pr-4 font-medium text-right">Price</th>
@@ -60,10 +60,10 @@ export default function ScreenerPanel() {
             </thead>
             <tbody>
               {results.map((r) => (
-                <tr key={r.symbol} className="border-b border-gray-100">
-                  <td className="py-2 pr-4 font-semibold text-gray-900">{r.symbol}</td>
-                  <td className="py-2 pr-4 text-gray-600">{r.name}</td>
-                  <td className="py-2 pr-4 text-right text-gray-900">${r.price.toFixed(2)}</td>
+                <tr key={r.symbol} className="border-b border-gray-100 dark:border-gray-700">
+                  <td className="py-2 pr-4 font-semibold text-gray-900 dark:text-white">{r.symbol}</td>
+                  <td className="py-2 pr-4 text-gray-600 dark:text-gray-400">{r.name}</td>
+                  <td className="py-2 pr-4 text-right text-gray-900 dark:text-white">${r.price.toFixed(2)}</td>
                   <td
                     className={`py-2 pr-4 text-right font-medium ${
                       r.change_pct >= 0 ? 'text-green-600' : 'text-red-600'
@@ -71,7 +71,7 @@ export default function ScreenerPanel() {
                   >
                     {r.change_pct >= 0 ? '+' : ''}{r.change_pct.toFixed(2)}%
                   </td>
-                  <td className="py-2 text-right text-gray-600">
+                  <td className="py-2 text-right text-gray-600 dark:text-gray-400">
                     {r.volume.toLocaleString()}
                   </td>
                 </tr>

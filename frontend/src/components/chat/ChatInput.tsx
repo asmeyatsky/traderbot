@@ -32,7 +32,7 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <div className="border-t border-gray-200 bg-white p-3 sm:p-4">
+    <div className="border-t border-gray-200 bg-white p-3 sm:p-4 dark:border-gray-700 dark:bg-gray-800">
       <div className="flex items-end gap-2">
         <textarea
           ref={textareaRef}
@@ -42,12 +42,12 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
           placeholder="Ask about stocks, your portfolio, or trading ideas..."
           disabled={disabled}
           rows={1}
-          className="flex-1 resize-none rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+          className="flex-1 resize-none rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:bg-gray-700"
         />
         <button
           onClick={handleSubmit}
           disabled={disabled || !value.trim()}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed dark:disabled:bg-gray-600"
         >
           <PaperAirplaneIcon className="h-4 w-4" />
         </button>

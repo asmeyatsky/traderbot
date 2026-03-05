@@ -70,25 +70,25 @@ export default function TradeDialog({ open, onClose, initialSymbol = '' }: Trade
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-gray-900">New Trade</h3>
+      <div className="relative w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">New Trade</h3>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           {/* Symbol */}
           <div>
-            <label className="block text-xs font-medium text-gray-600">Symbol</label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Symbol</label>
             <input
               type="text"
               value={symbol}
               onChange={(e) => setSymbol(e.target.value.toUpperCase())}
               placeholder="AAPL"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
             />
           </div>
 
           {/* Side toggle */}
           <div>
-            <label className="block text-xs font-medium text-gray-600">Side</label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Side</label>
             <div className="mt-1 flex gap-2">
               <button
                 type="button"
@@ -96,7 +96,7 @@ export default function TradeDialog({ open, onClose, initialSymbol = '' }: Trade
                 className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
                   side === 'BUY'
                     ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 Buy
@@ -107,7 +107,7 @@ export default function TradeDialog({ open, onClose, initialSymbol = '' }: Trade
                 className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
                   side === 'SELL'
                     ? 'bg-red-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 Sell
@@ -117,20 +117,20 @@ export default function TradeDialog({ open, onClose, initialSymbol = '' }: Trade
 
           {/* Quantity */}
           <div>
-            <label className="block text-xs font-medium text-gray-600">Quantity</label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Quantity</label>
             <input
               type="number"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               min="1"
               placeholder="10"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
             />
           </div>
 
           {/* Order Type */}
           <div>
-            <label className="block text-xs font-medium text-gray-600">Order Type</label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Order Type</label>
             <div className="mt-1 flex gap-2">
               <button
                 type="button"
@@ -138,7 +138,7 @@ export default function TradeDialog({ open, onClose, initialSymbol = '' }: Trade
                 className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
                   orderType === 'MARKET'
                     ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 Market
@@ -149,7 +149,7 @@ export default function TradeDialog({ open, onClose, initialSymbol = '' }: Trade
                 className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
                   orderType === 'LIMIT'
                     ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 Limit
@@ -160,7 +160,7 @@ export default function TradeDialog({ open, onClose, initialSymbol = '' }: Trade
           {/* Limit Price (conditional) */}
           {orderType === 'LIMIT' && (
             <div>
-              <label className="block text-xs font-medium text-gray-600">Limit Price</label>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Limit Price</label>
               <input
                 type="number"
                 value={limitPrice}
@@ -168,7 +168,7 @@ export default function TradeDialog({ open, onClose, initialSymbol = '' }: Trade
                 min="0.01"
                 step="0.01"
                 placeholder="150.00"
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
               />
             </div>
           )}
@@ -184,7 +184,7 @@ export default function TradeDialog({ open, onClose, initialSymbol = '' }: Trade
               type="button"
               onClick={onClose}
               disabled={isPending}
-              className="rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-md bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm ring-1 ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
             >
               Cancel
             </button>

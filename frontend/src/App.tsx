@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from './stores/auth-store';
 import AppShell from './components/layout/AppShell';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import ToastContainer from './components/common/ToastContainer';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -13,6 +14,8 @@ import PortfolioPage from './pages/PortfolioPage';
 import MarketsPage from './pages/MarketsPage';
 import SettingsPage from './pages/SettingsPage';
 import BacktestPage from './pages/BacktestPage';
+import LeaderboardPage from './pages/LeaderboardPage';
+import { useWebSocketNotifications } from './hooks/use-notifications';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,32 +40,41 @@ function RootRedirect() {
   return isAuthenticated ? null : <LandingPage />;
 }
 
+function NotificationProvider({ children }: { children: React.ReactNode }) {
+  useWebSocketNotifications();
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<RootRedirect />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route element={<ProtectedRoute />}>
-            <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route element={<AppShell />}>
-              <Route path="/chat" element={<ChatPage />} />
-              <Route path="/portfolio" element={<PortfolioPage />} />
-              <Route path="/markets" element={<MarketsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/backtest" element={<BacktestPage />} />
-              {/* Legacy redirects */}
-              <Route path="/dashboard" element={<Navigate to="/chat" replace />} />
-              <Route path="/trading" element={<Navigate to="/chat" replace />} />
-              <Route path="/market-data" element={<Navigate to="/markets" replace />} />
-              <Route path="/predictions" element={<Navigate to="/chat" replace />} />
-              <Route path="/analytics" element={<Navigate to="/chat" replace />} />
-              <Route path="/activity" element={<Navigate to="/chat" replace />} />
+        <NotificationProvider>
+          <ToastContainer />
+          <Routes>
+            <Route path="/" element={<RootRedirect />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/onboarding" element={<OnboardingPage />} />
+              <Route element={<AppShell />}>
+                <Route path="/chat" element={<ChatPage />} />
+                <Route path="/portfolio" element={<PortfolioPage />} />
+                <Route path="/markets" element={<MarketsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/backtest" element={<BacktestPage />} />
+                <Route path="/leaderboard" element={<LeaderboardPage />} />
+                {/* Legacy redirects */}
+                <Route path="/dashboard" element={<Navigate to="/chat" replace />} />
+                <Route path="/trading" element={<Navigate to="/chat" replace />} />
+                <Route path="/market-data" element={<Navigate to="/markets" replace />} />
+                <Route path="/predictions" element={<Navigate to="/chat" replace />} />
+                <Route path="/analytics" element={<Navigate to="/chat" replace />} />
+                <Route path="/activity" element={<Navigate to="/chat" replace />} />
+              </Route>
             </Route>
-          </Route>
-        </Routes>
+          </Routes>
+        </NotificationProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );

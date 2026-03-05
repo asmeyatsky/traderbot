@@ -24,19 +24,19 @@ export default function BacktestPage() {
 
   return (
     <div className="h-full overflow-auto p-4 sm:p-6">
-      <h1 className="text-lg font-semibold text-gray-800">Backtesting</h1>
-      <p className="mt-1 text-sm text-gray-500">
+      <h1 className="text-lg font-semibold text-gray-800 dark:text-white">Backtesting</h1>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         Test trading strategies against historical data.
       </p>
 
       {/* Config form */}
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600">Strategy</label>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Strategy</label>
           <select
             value={strategy}
             onChange={(e) => setStrategy(e.target.value)}
-            className="mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            className="mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white"
           >
             {strategies.map((s) => (
               <option key={s.name} value={s.name}>
@@ -54,21 +54,21 @@ export default function BacktestPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600">Symbol</label>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Symbol</label>
           <input
             value={symbol}
             onChange={(e) => setSymbol(e.target.value)}
-            className="mt-1 w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            className="mt-1 w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600">Capital ($)</label>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Capital ($)</label>
           <input
             value={capital}
             onChange={(e) => setCapital(e.target.value)}
             type="number"
-            className="mt-1 w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            className="mt-1 w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white"
           />
         </div>
 
@@ -98,20 +98,20 @@ export default function BacktestPage() {
 
           {/* Equity Curve */}
           <div>
-            <h2 className="mb-2 text-sm font-semibold text-gray-700">Equity Curve</h2>
+            <h2 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Equity Curve</h2>
             <EquityCurve trades={result.trades} initialCapital={result.initial_capital} />
           </div>
 
           {/* Trade Log */}
           <div>
-            <h2 className="mb-2 text-sm font-semibold text-gray-700">Trade Log</h2>
+            <h2 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Trade Log</h2>
             <TradeLog trades={result.trades} />
           </div>
         </div>
       )}
 
       {result?.error && (
-        <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{result.error}</div>
+        <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-400">{result.error}</div>
       )}
     </div>
   );
@@ -119,9 +119,9 @@ export default function BacktestPage() {
 
 function Metric({ label, value, positive }: { label: string; value: string; positive?: boolean }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className={`mt-0.5 text-lg font-semibold ${positive === true ? 'text-green-600' : positive === false ? 'text-red-600' : 'text-gray-900'}`}>
+    <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+      <p className={`mt-0.5 text-lg font-semibold ${positive === true ? 'text-green-600 dark:text-green-400' : positive === false ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
         {value}
       </p>
     </div>

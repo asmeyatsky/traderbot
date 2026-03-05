@@ -14,22 +14,22 @@ export default function StepIndicator({ steps, currentStep }: StepIndicatorProps
                 i < currentStep
                   ? 'bg-indigo-600 text-white'
                   : i === currentStep
-                    ? 'bg-indigo-600 text-white ring-2 ring-indigo-300 ring-offset-2'
-                    : 'bg-gray-200 text-gray-500'
+                    ? 'bg-indigo-600 text-white ring-2 ring-indigo-300 dark:ring-indigo-700 ring-offset-2 dark:ring-offset-gray-900'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
               }`}
             >
               {i < currentStep ? '\u2713' : i + 1}
             </span>
             <span
               className={`hidden text-xs font-medium sm:inline ${
-                i <= currentStep ? 'text-indigo-600' : 'text-gray-400'
+                i <= currentStep ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500'
               }`}
             >
               {label}
             </span>
           </div>
           {i < steps.length - 1 && (
-            <div className={`h-px w-8 ${i < currentStep ? 'bg-indigo-600' : 'bg-gray-200'}`} />
+            <div className={`h-px w-8 ${i < currentStep ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
           )}
         </div>
       ))}

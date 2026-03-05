@@ -22,16 +22,16 @@ export default function WelcomeStep({ onNext }: WelcomeStepProps) {
 
   return (
     <div className="animate-fade-in text-center">
-      <h2 className="text-3xl font-bold text-gray-900">Welcome, {firstName}!</h2>
-      <p className="mt-3 text-gray-600">
+      <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome, {firstName}!</h2>
+      <p className="mt-3 text-gray-600 dark:text-gray-400">
         Let's set up your AI trading co-pilot so it can give you personalized insights.
       </p>
       <div className="mt-10 grid grid-cols-2 gap-4">
         {features.map((f) => (
-          <div key={f.title} className="rounded-lg bg-gray-50 p-4 text-center">
-            <f.icon className="mx-auto h-8 w-8 text-indigo-600" />
-            <div className="mt-2 text-sm font-semibold text-gray-900">{f.title}</div>
-            <div className="text-xs text-gray-500">{f.description}</div>
+          <div key={f.title} className="rounded-lg bg-gray-50 dark:bg-gray-800 p-4 text-center">
+            <f.icon className="mx-auto h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+            <div className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">{f.title}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">{f.description}</div>
           </div>
         ))}
       </div>

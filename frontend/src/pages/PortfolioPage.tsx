@@ -31,13 +31,13 @@ export default function PortfolioPage() {
 
   if (isEmpty) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-4 sm:p-6">
         <PageHeader title="Portfolio" description={PAGE_DESCRIPTIONS.portfolio} />
         <div className="mx-auto max-w-sm">
           <div className="flex flex-col items-center py-8 text-center">
-            <ArrowTrendingUpIcon className="h-12 w-12 text-gray-300" />
-            <h3 className="mt-4 text-lg font-semibold text-gray-900">Get started with paper trading</h3>
-            <p className="mt-2 text-sm text-gray-500">
+            <ArrowTrendingUpIcon className="h-12 w-12 text-gray-300 dark:text-gray-600" />
+            <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">Get started with paper trading</h3>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
               Deposit virtual funds below to start practicing trades risk-free. No real money involved.
             </p>
           </div>
@@ -48,7 +48,7 @@ export default function PortfolioPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader title="Portfolio" description={PAGE_DESCRIPTIONS.portfolio} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard title="Total Value" value={formatCurrency(portfolio.total_value)} />
@@ -57,11 +57,11 @@ export default function PortfolioPage() {
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-900/5">
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-              <h3 className="text-sm font-medium text-gray-700">Positions</h3>
+          <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-900/5 dark:bg-gray-800 dark:ring-white/10">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Positions</h3>
               <div className="flex items-center gap-3">
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-gray-400 dark:text-gray-500">
                   Prices as of {new Date().toLocaleString()}
                 </p>
                 <button
@@ -83,7 +83,7 @@ export default function PortfolioPage() {
           {allocation ? (
             <AllocationChart data={allocation.allocations ?? []} />
           ) : (
-            <div className="flex items-center justify-center rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
+            <div className="flex items-center justify-center rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5 dark:bg-gray-800 dark:ring-white/10">
               <LoadingSpinner />
             </div>
           )}

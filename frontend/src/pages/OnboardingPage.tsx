@@ -12,12 +12,12 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-gray-900">
       <header className="flex items-center justify-between px-6 py-4">
-        <span className="text-xl font-bold text-indigo-600">TraderBot</span>
+        <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">TraderBot</span>
         <button
           onClick={handleSkip}
-          className="text-sm font-medium text-gray-500 hover:text-gray-700"
+          className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
         >
           Skip Setup
         </button>

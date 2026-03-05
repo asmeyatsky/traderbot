@@ -55,68 +55,68 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-6">
       <PageHeader title="Settings" description={PAGE_DESCRIPTIONS.settings} />
-      <form onSubmit={handleSubmit} className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
+      <form onSubmit={handleSubmit} className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5 dark:bg-gray-800 dark:ring-white/10">
         {isSuccess && (
-          <p className="mb-4 rounded-md bg-green-50 p-3 text-sm text-green-700">Settings saved</p>
+          <p className="mb-4 rounded-md bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-400">Settings saved</p>
         )}
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">First Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">First Name</label>
               <input
                 value={form.first_name}
                 onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Last Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Last Name</label>
               <input
                 value={form.last_name}
                 onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
             <input
               type="email"
               value={user?.email ?? ''}
               disabled
-              className="mt-1 block w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-gray-500"
+              className="mt-1 block w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Risk Tolerance</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Risk Tolerance</label>
             <select
               value={form.risk_tolerance}
               onChange={(e) => setForm((f) => ({ ...f, risk_tolerance: e.target.value }))}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             >
               {RISK_TOLERANCES.map((r) => (
                 <option key={r} value={r}>{r.replace('_', ' ')}</option>
               ))}
             </select>
             {form.risk_tolerance && RISK_TOLERANCE_HELP[form.risk_tolerance] && (
-              <p className="mt-1 text-xs text-gray-500">{RISK_TOLERANCE_HELP[form.risk_tolerance]}</p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{RISK_TOLERANCE_HELP[form.risk_tolerance]}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Investment Goal</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Investment Goal</label>
             <select
               value={form.investment_goal}
               onChange={(e) => setForm((f) => ({ ...f, investment_goal: e.target.value }))}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             >
               {INVESTMENT_GOALS.map((g) => (
                 <option key={g} value={g}>{g.replace(/_/g, ' ')}</option>
               ))}
             </select>
             {form.investment_goal && INVESTMENT_GOAL_HELP[form.investment_goal] && (
-              <p className="mt-1 text-xs text-gray-500">{INVESTMENT_GOAL_HELP[form.investment_goal]}</p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{INVESTMENT_GOAL_HELP[form.investment_goal]}</p>
             )}
           </div>
         </div>
@@ -131,7 +131,7 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={handleRestartOnboarding}
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
           >
             Restart Onboarding
           </button>
@@ -241,37 +241,37 @@ function AutoTradingSection() {
   const positionValue = budgetNum > 0 ? budgetNum * (maxPosition / 100) : 0;
 
   return (
-    <div className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
+    <div className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5 dark:bg-gray-800 dark:ring-white/10">
       <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-1 text-lg font-semibold text-gray-900">
+        <h2 className="flex items-center gap-1 text-lg font-semibold text-gray-900 dark:text-white">
           Auto-Trading
           <InfoTooltip text={AUTO_TRADING_HELP} />
         </h2>
         <span
           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+            enabled ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
           }`}
         >
           {enabled ? 'Active' : 'Inactive'}
         </span>
       </div>
-      <p className="mt-1 text-xs text-gray-500">
+      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
         Automatically monitor your watchlist and execute trades based on ML signals and your risk settings.
       </p>
 
       {/* How It Works */}
-      <div className="mt-4 grid grid-cols-3 gap-2 rounded-lg bg-gray-50 p-3">
+      <div className="mt-4 grid grid-cols-3 gap-2 rounded-lg bg-gray-50 p-3 dark:bg-gray-700/50">
         {HOW_IT_WORKS_STEPS.map((step, i) => {
           const Icon = HOW_IT_WORKS_ICONS[i];
           return (
             <div key={step.title} className="relative flex flex-col items-center text-center">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100">
-                <Icon className="h-4.5 w-4.5 text-indigo-600" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/40">
+                <Icon className="h-4.5 w-4.5 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <p className="mt-1 text-xs font-semibold text-gray-900">{step.title}</p>
-              <p className="mt-0.5 text-[11px] leading-tight text-gray-500">{step.description}</p>
+              <p className="mt-1 text-xs font-semibold text-gray-900 dark:text-white">{step.title}</p>
+              <p className="mt-0.5 text-[11px] leading-tight text-gray-500 dark:text-gray-400">{step.description}</p>
               {i < HOW_IT_WORKS_STEPS.length - 1 && (
-                <span className="absolute right-0 top-2.5 translate-x-1/2 text-sm text-gray-300">&rarr;</span>
+                <span className="absolute right-0 top-2.5 translate-x-1/2 text-sm text-gray-300 dark:text-gray-600">&rarr;</span>
               )}
             </div>
           );
@@ -279,20 +279,20 @@ function AutoTradingSection() {
       </div>
 
       {isSuccess && (
-        <p className="mt-3 rounded-md bg-green-50 p-3 text-sm text-green-700">Auto-trading settings saved</p>
+        <p className="mt-3 rounded-md bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-400">Auto-trading settings saved</p>
       )}
 
       {/* Enable + Watchlist */}
       <div className="mt-4 space-y-4">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-gray-700">Enable Auto-Trading</label>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Enable Auto-Trading</label>
           <button
             type="button"
             role="switch"
             aria-checked={enabled}
             onClick={() => setEnabled((v) => !v)}
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-              enabled ? 'bg-indigo-600' : 'bg-gray-200'
+              enabled ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-600'
             }`}
           >
             <span
@@ -304,18 +304,18 @@ function AutoTradingSection() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Watchlist</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Watchlist</label>
           <div className="mt-1 flex flex-wrap gap-2">
             {watchlist.map((sym) => (
               <span
                 key={sym}
-                className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700"
+                className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
               >
                 {sym}
                 <button
                   type="button"
                   onClick={() => removeSymbol(sym)}
-                  className="ml-0.5 text-indigo-400 hover:text-indigo-600"
+                  className="ml-0.5 text-indigo-400 hover:text-indigo-600 dark:text-indigo-500 dark:hover:text-indigo-300"
                 >
                   &times;
                 </button>
@@ -328,12 +328,12 @@ function AutoTradingSection() {
               onChange={(e) => setSymbolInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Add symbol (e.g. AAPL)"
-              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
             />
             <button
               type="button"
               onClick={addSymbol}
-              className="rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+              className="rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
             >
               Add
             </button>
@@ -342,10 +342,10 @@ function AutoTradingSection() {
       </div>
 
       {/* Risk Controls */}
-      <div className="mt-6 space-y-4 border-t border-gray-200 pt-4">
+      <div className="mt-6 space-y-4 border-t border-gray-200 pt-4 dark:border-gray-700">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-800">Risk Controls</h3>
-          {riskPreset === 'CUSTOM' && <span className="text-xs font-medium text-amber-600">Custom</span>}
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Risk Controls</h3>
+          {riskPreset === 'CUSTOM' && <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Custom</span>}
         </div>
 
         {/* Risk Presets */}
@@ -358,7 +358,7 @@ function AutoTradingSection() {
               className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 riskPreset === key
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
               {key.charAt(0) + key.slice(1).toLowerCase()}
@@ -368,10 +368,10 @@ function AutoTradingSection() {
 
         <div>
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
+            <label className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
               Stop-Loss <InfoTooltip text={AUTO_TRADING_CONTROL_HELP.stop_loss} />
             </label>
-            <span className="text-sm font-semibold text-gray-900">{stopLoss}%</span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">{stopLoss}%</span>
           </div>
           <input
             type="range"
@@ -382,7 +382,7 @@ function AutoTradingSection() {
             className="mt-1 w-full accent-indigo-600"
           />
           {positionValue > 0 && (
-            <p className="text-xs text-indigo-600">
+            <p className="text-xs text-indigo-600 dark:text-indigo-400">
               On a ${positionValue.toLocaleString()} position, auto-sell below $
               {Math.round(positionValue * (1 - stopLoss / 100)).toLocaleString()}
             </p>
@@ -391,10 +391,10 @@ function AutoTradingSection() {
 
         <div>
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
+            <label className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
               Take-Profit <InfoTooltip text={AUTO_TRADING_CONTROL_HELP.take_profit} />
             </label>
-            <span className="text-sm font-semibold text-gray-900">{takeProfit}%</span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">{takeProfit}%</span>
           </div>
           <input
             type="range"
@@ -405,7 +405,7 @@ function AutoTradingSection() {
             className="mt-1 w-full accent-indigo-600"
           />
           {positionValue > 0 && (
-            <p className="text-xs text-indigo-600">
+            <p className="text-xs text-indigo-600 dark:text-indigo-400">
               On a ${positionValue.toLocaleString()} position, auto-sell above $
               {Math.round(positionValue * (1 + takeProfit / 100)).toLocaleString()}
             </p>
@@ -413,12 +413,12 @@ function AutoTradingSection() {
         </div>
 
         <div>
-          <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
+          <label className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
             Trading Budget <InfoTooltip text={AUTO_TRADING_CONTROL_HELP.budget} />
-            <span className="text-gray-400">(optional — blank uses full cash balance)</span>
+            <span className="text-gray-400 dark:text-gray-500">(optional — blank uses full cash balance)</span>
           </label>
           <div className="relative mt-1">
-            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">$</span>
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500">$</span>
             <input
               type="number"
               min={0}
@@ -426,22 +426,22 @@ function AutoTradingSection() {
               value={budget}
               onChange={(e) => setBudget(e.target.value)}
               placeholder="e.g. 10000"
-              className="block w-full rounded-md border border-gray-300 py-2 pl-7 pr-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+              className="block w-full rounded-md border border-gray-300 py-2 pl-7 pr-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
             />
           </div>
         </div>
       </div>
 
       {/* Strategy Tuning */}
-      <div className="mt-6 space-y-4 border-t border-gray-200 pt-4">
-        <h3 className="text-sm font-semibold text-gray-800">Strategy Tuning</h3>
+      <div className="mt-6 space-y-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Strategy Tuning</h3>
 
         <div>
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
+            <label className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
               Confidence Threshold <InfoTooltip text={AUTO_TRADING_CONTROL_HELP.confidence} />
             </label>
-            <span className="text-sm font-semibold text-gray-900">{confidence}%</span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">{confidence}%</span>
           </div>
           <input
             type="range"
@@ -455,10 +455,10 @@ function AutoTradingSection() {
 
         <div>
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
+            <label className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
               Max Position Size <InfoTooltip text={AUTO_TRADING_CONTROL_HELP.max_position} />
             </label>
-            <span className="text-sm font-semibold text-gray-900">{maxPosition}%</span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">{maxPosition}%</span>
           </div>
           <input
             type="range"

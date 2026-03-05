@@ -24,7 +24,7 @@ export default function EquityCurve({ trades, initialCapital }: Props) {
   }
 
   if (points.length < 2) {
-    return <p className="text-sm text-gray-500">No trades to display.</p>;
+    return <p className="text-sm text-gray-500 dark:text-gray-400">No trades to display.</p>;
   }
 
   return (

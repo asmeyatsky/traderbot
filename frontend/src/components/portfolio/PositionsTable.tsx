@@ -49,7 +49,7 @@ export default function PositionsTable({ positions, onTrade }: PositionsTablePro
               render: (p: Position) => (
                 <button
                   onClick={() => onTrade(p.symbol)}
-                  className="rounded-md bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
+                  className="rounded-md bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
                 >
                   Trade
                 </button>

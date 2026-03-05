@@ -12,7 +12,7 @@ export default function InfoTooltip({ text, position = 'top' }: InfoTooltipProps
       <button
         type="button"
         tabIndex={0}
-        className="inline-flex cursor-help text-gray-400 hover:text-gray-500"
+        className="inline-flex cursor-help text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400"
         aria-label="More info"
       >
         <QuestionMarkCircleIcon className="h-4 w-4" />

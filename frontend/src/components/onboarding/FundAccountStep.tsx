@@ -44,15 +44,15 @@ export default function FundAccountStep({ onNext }: FundAccountStepProps) {
   if (success) {
     return (
       <div className="animate-fade-in text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
           <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
         </div>
-        <h3 className="mt-4 text-lg font-semibold text-gray-900">
+        <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
           {formatCurrency(effectiveAmount)} deposited!
         </h3>
-        <p className="mt-2 text-sm text-gray-500">Your account is funded and ready to go.</p>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Your account is funded and ready to go.</p>
         <button
           onClick={onNext}
           className="mt-8 rounded-md bg-indigo-600 px-8 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
@@ -65,10 +65,10 @@ export default function FundAccountStep({ onNext }: FundAccountStepProps) {
 
   return (
     <div className="animate-fade-in text-center">
-      <h2 className="text-2xl font-bold text-gray-900">Top Up Your Paper Account</h2>
-      <p className="mt-2 text-sm text-gray-600">
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Top Up Your Paper Account</h2>
+      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
         You have{' '}
-        <span className="font-semibold text-gray-900">
+        <span className="font-semibold text-gray-900 dark:text-white">
           {portfolio ? formatCurrency(portfolio.cash_balance) : '$10,000'}
         </span>{' '}
         in virtual cash. Want more? Add extra funds below — no real money involved.
@@ -82,8 +82,8 @@ export default function FundAccountStep({ onNext }: FundAccountStepProps) {
             onClick={() => selectPreset(p)}
             className={`rounded-lg border-2 px-5 py-3 text-sm font-semibold transition-colors ${
               selectedPreset === p
-                ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
-                : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500'
             }`}
           >
             {formatCurrency(p)}
@@ -98,7 +98,7 @@ export default function FundAccountStep({ onNext }: FundAccountStepProps) {
           placeholder="Custom amount"
           value={amount}
           onChange={(e) => handleCustom(e.target.value)}
-          className="block w-full rounded-md border border-gray-300 px-3 py-2 text-center shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+          className="block w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-center shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
         />
       </div>
 
@@ -109,7 +109,7 @@ export default function FundAccountStep({ onNext }: FundAccountStepProps) {
       <div className="mt-8 flex items-center justify-center gap-4">
         <button
           onClick={onNext}
-          className="text-sm font-medium text-gray-500 hover:text-gray-700"
+          className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
         >
           Skip for Now
         </button>

@@ -59,6 +59,7 @@ from src.presentation.api.routers import (
     screening,
     backtest,
 )
+from src.presentation.api.routers import strategies
 
 # Setup logging
 logger = setup_logging()
@@ -246,6 +247,7 @@ app.include_router(websocket.router)
 app.include_router(broker_accounts.router)
 app.include_router(screening.router)
 app.include_router(backtest.router)
+app.include_router(strategies.router)
 
 
 # ============================================================================

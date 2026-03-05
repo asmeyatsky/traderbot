@@ -19,8 +19,8 @@ export default function MarketsPage() {
 
   return (
     <div className="h-full overflow-auto p-4 sm:p-6">
-      <h1 className="text-lg font-semibold text-gray-800">Markets</h1>
-      <p className="mt-1 text-sm text-gray-500">
+      <h1 className="text-lg font-semibold text-gray-800 dark:text-white">Markets</h1>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         Browse markets and discover trading opportunities.
       </p>
 
@@ -33,7 +33,7 @@ export default function MarketsPage() {
             className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
               selectedMarket === market.market_code
                 ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
             }`}
           >
             {market.market_name}
@@ -48,7 +48,7 @@ export default function MarketsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search stocks..."
-          className="mt-4 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:max-w-xs"
+          className="mt-4 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:max-w-xs dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
         />
       )}
 
@@ -57,22 +57,22 @@ export default function MarketsPage() {
         {stocks.map((stock) => (
           <div
             key={stock.symbol}
-            className="rounded-xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md"
+            className="rounded-xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
           >
-            <p className="font-semibold text-gray-900">{stock.symbol}</p>
-            <p className="text-sm text-gray-500">{stock.name}</p>
-            <p className="mt-1 text-xs text-gray-400">{stock.sector}</p>
+            <p className="font-semibold text-gray-900 dark:text-white">{stock.symbol}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{stock.name}</p>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{stock.sector}</p>
           </div>
         ))}
 
         {selectedMarket && stocks.length === 0 && (
-          <p className="col-span-full py-8 text-center text-sm text-gray-500">
+          <p className="col-span-full py-8 text-center text-sm text-gray-500 dark:text-gray-400">
             No stocks found. Try a different search.
           </p>
         )}
 
         {!selectedMarket && (
-          <p className="col-span-full py-12 text-center text-sm text-gray-500">
+          <p className="col-span-full py-12 text-center text-sm text-gray-500 dark:text-gray-400">
             Select a market to browse stocks.
           </p>
         )}

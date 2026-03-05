@@ -85,17 +85,17 @@ export default function RegisterPage() {
       </div>
 
       {/* Right form panel */}
-      <div className="flex w-full items-center justify-center px-6 py-12 md:w-1/2">
+      <div className="flex w-full items-center justify-center bg-white px-6 py-12 md:w-1/2 dark:bg-gray-900">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-indigo-600 md:hidden">TraderBot</h1>
-            <h2 className="mt-2 text-2xl font-bold text-gray-900 md:mt-0">Create your account</h2>
+            <h1 className="text-3xl font-bold text-indigo-600 md:hidden dark:text-indigo-400">TraderBot</h1>
+            <h2 className="mt-2 text-2xl font-bold text-gray-900 md:mt-0 dark:text-white">Create your account</h2>
           </div>
 
           <StepIndicator steps={stepLabels} currentStep={step} />
 
           {error && (
-            <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+            <p className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-400">
               {(error as Error).message || 'Registration failed'}
             </p>
           )}
@@ -105,39 +105,39 @@ export default function RegisterPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">First Name</label>
+                  <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">First Name</label>
                   <input
                     id="first_name"
                     value={form.first_name}
                     onChange={(e) => update('first_name', e.target.value)}
                     required
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">Last Name</label>
+                  <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Last Name</label>
                   <input
                     id="last_name"
                     value={form.last_name}
                     onChange={(e) => update('last_name', e.target.value)}
                     required
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                   />
                 </div>
               </div>
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
                 <input
                   id="email"
                   type="email"
                   value={form.email}
                   onChange={(e) => update('email', e.target.value)}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 />
               </div>
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
                 <input
                   id="password"
                   type="password"
@@ -145,9 +145,9 @@ export default function RegisterPage() {
                   onChange={(e) => update('password', e.target.value)}
                   required
                   minLength={8}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 />
-                <p className="mt-1 text-xs text-gray-400">At least 8 characters</p>
+                <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">At least 8 characters</p>
               </div>
             </div>
           )}
@@ -155,7 +155,7 @@ export default function RegisterPage() {
           {/* Step 1: Risk Profile */}
           {step === 1 && (
             <div className="space-y-4">
-              <p className="text-center text-sm text-gray-600">Select your risk tolerance</p>
+              <p className="text-center text-sm text-gray-600 dark:text-gray-400">Select your risk tolerance</p>
               <div className="grid grid-cols-1 gap-3">
                 {riskOptions.map((opt) => (
                   <button
@@ -164,14 +164,14 @@ export default function RegisterPage() {
                     onClick={() => update('risk_tolerance', opt.value)}
                     className={`flex items-center gap-4 rounded-lg border-2 p-4 text-left transition-colors ${
                       form.risk_tolerance === opt.value
-                        ? 'border-indigo-600 bg-indigo-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
+                        : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
                     }`}
                   >
-                    <opt.icon className={`h-8 w-8 shrink-0 ${form.risk_tolerance === opt.value ? 'text-indigo-600' : 'text-gray-400'}`} />
+                    <opt.icon className={`h-8 w-8 shrink-0 ${form.risk_tolerance === opt.value ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500'}`} />
                     <div>
-                      <div className="text-sm font-semibold text-gray-900">{opt.label}</div>
-                      <div className="text-xs text-gray-500">{opt.description}</div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white">{opt.label}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{opt.description}</div>
                     </div>
                   </button>
                 ))}
@@ -182,7 +182,7 @@ export default function RegisterPage() {
           {/* Step 2: Investment Goal */}
           {step === 2 && (
             <div className="space-y-4">
-              <p className="text-center text-sm text-gray-600">Choose your investment goal</p>
+              <p className="text-center text-sm text-gray-600 dark:text-gray-400">Choose your investment goal</p>
               <div className="grid grid-cols-1 gap-3">
                 {goalOptions.map((opt) => (
                   <button
@@ -191,12 +191,12 @@ export default function RegisterPage() {
                     onClick={() => update('investment_goal', opt.value)}
                     className={`rounded-lg border-2 p-4 text-left transition-colors ${
                       form.investment_goal === opt.value
-                        ? 'border-indigo-600 bg-indigo-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
+                        : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
                     }`}
                   >
-                    <div className="text-sm font-semibold text-gray-900">{opt.label}</div>
-                    <div className="text-xs text-gray-500">{opt.description}</div>
+                    <div className="text-sm font-semibold text-gray-900 dark:text-white">{opt.label}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{opt.description}</div>
                   </button>
                 ))}
               </div>
@@ -209,7 +209,7 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setStep(step - 1)}
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
               >
                 Back
               </button>
@@ -226,9 +226,9 @@ export default function RegisterPage() {
             </button>
           </div>
 
-          <p className="text-center text-sm text-gray-600">
+          <p className="text-center text-sm text-gray-600 dark:text-gray-400">
             Already have an account?{' '}
-            <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+            <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
               Sign in
             </Link>
           </p>

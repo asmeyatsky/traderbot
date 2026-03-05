@@ -39,17 +39,17 @@ export default function CashManagement({ cashBalance, totalValue }: CashManageme
   }
 
   return (
-    <div className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
-      <h3 className="text-sm font-medium text-gray-500">Cash Balance</h3>
-      <p className="mt-2 text-2xl font-semibold text-gray-900">{formatCurrency(cashBalance)}</p>
-      <p className="mt-1 text-sm text-gray-500">{cashPercent.toFixed(1)}% of portfolio</p>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-200">
+    <div className="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm ring-1 ring-gray-900/5 dark:ring-white/10">
+      <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Cash Balance</h3>
+      <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{formatCurrency(cashBalance)}</p>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{cashPercent.toFixed(1)}% of portfolio</p>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
         <div
           className="h-full rounded-full bg-indigo-600"
           style={{ width: `${Math.min(cashPercent, 100)}%` }}
         />
       </div>
-      <p className="mt-2 text-xs text-gray-400">This is virtual money for paper trading.</p>
+      <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">This is virtual money for paper trading.</p>
 
       {!action ? (
         <div className="mt-4 flex gap-2">
@@ -64,14 +64,14 @@ export default function CashManagement({ cashBalance, totalValue }: CashManageme
             type="button"
             onClick={() => setAction('withdraw')}
             disabled={cashBalance <= 0}
-            className="flex-1 rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
+            className="flex-1 rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm ring-1 ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
           >
             Withdraw
           </button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-          <p className="text-sm font-medium text-gray-700">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {action === 'deposit' ? 'Add virtual funds' : 'Withdraw funds'}
           </p>
 
@@ -85,7 +85,7 @@ export default function CashManagement({ cashBalance, totalValue }: CashManageme
                   className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                     amount === String(p)
                       ? 'bg-indigo-100 text-indigo-700'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
                   {formatCurrency(p)}
@@ -95,7 +95,7 @@ export default function CashManagement({ cashBalance, totalValue }: CashManageme
           )}
 
           <div className="relative">
-            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">$</span>
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500">$</span>
             <input
               type="number"
               min={1}
@@ -105,7 +105,7 @@ export default function CashManagement({ cashBalance, totalValue }: CashManageme
               onChange={(e) => setAmount(e.target.value)}
               placeholder="Amount"
               required
-              className="block w-full rounded-md border border-gray-300 py-2 pl-7 pr-3 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+              className="block w-full rounded-md border border-gray-300 dark:border-gray-600 py-2 pl-7 pr-3 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
             />
           </div>
 
@@ -121,7 +121,7 @@ export default function CashManagement({ cashBalance, totalValue }: CashManageme
               type="button"
               onClick={reset}
               disabled={isPending}
-              className="flex-1 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
+              className="flex-1 rounded-md bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 ring-1 ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
             >
               Cancel
             </button>

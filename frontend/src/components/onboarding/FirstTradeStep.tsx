@@ -88,13 +88,13 @@ export default function FirstTradeStep({ symbol: initialSymbol, onNext }: FirstT
   if (success) {
     return (
       <div className="animate-fade-in text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
           <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
         </div>
-        <h3 className="mt-4 text-lg font-semibold text-gray-900">Order Placed!</h3>
-        <p className="mt-2 text-sm text-gray-500">
+        <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">Order Placed!</h3>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
           Your market buy order for {quantity} share{quantity > 1 ? 's' : ''} of {tradeSymbol} has been submitted.
         </p>
         <button
@@ -109,20 +109,20 @@ export default function FirstTradeStep({ symbol: initialSymbol, onNext }: FirstT
 
   return (
     <div className="animate-fade-in text-center">
-      <h2 className="text-2xl font-bold text-gray-900">Place Your First Trade</h2>
-      <p className="mt-2 text-sm text-gray-600">
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Place Your First Trade</h2>
+      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
         Try placing a simple market buy order. You can always cancel pending orders later.
       </p>
 
-      <div className="mx-auto mt-8 max-w-xs rounded-lg bg-gray-50 p-6 text-left">
+      <div className="mx-auto mt-8 max-w-xs rounded-lg bg-gray-50 dark:bg-gray-800 p-6 text-left">
         <div className="space-y-4">
           {/* Market selector */}
           <div>
-            <div className="text-xs font-medium text-gray-500">Market</div>
+            <div className="text-xs font-medium text-gray-500 dark:text-gray-400">Market</div>
             <select
               value={selectedMarket}
               onChange={(e) => setSelectedMarket(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+              className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:bg-gray-700 dark:text-white"
             >
               <option value="">Select a market...</option>
               {markets.map((m) => (
@@ -136,16 +136,16 @@ export default function FirstTradeStep({ symbol: initialSymbol, onNext }: FirstT
           {/* Stock combobox */}
           {selectedMarket && (
             <div ref={dropdownRef}>
-              <div className="text-xs font-medium text-gray-500">Stock</div>
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400">Stock</div>
               {selectedStock ? (
                 <div className="mt-1 flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 ring-1 ring-indigo-200">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 text-sm font-medium text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-700">
                     <span className="font-semibold">{selectedStock.symbol}</span>
-                    <span className="text-indigo-500">— {selectedStock.name}</span>
+                    <span className="text-indigo-500 dark:text-indigo-400">— {selectedStock.name}</span>
                     <button
                       type="button"
                       onClick={handleClearStock}
-                      className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full text-indigo-400 hover:bg-indigo-200 hover:text-indigo-600"
+                      className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full text-indigo-400 hover:bg-indigo-200 dark:hover:bg-indigo-800 hover:text-indigo-600 dark:hover:text-indigo-300"
                     >
                       ×
                     </button>
@@ -162,23 +162,23 @@ export default function FirstTradeStep({ symbol: initialSymbol, onNext }: FirstT
                     }}
                     onFocus={() => setShowDropdown(true)}
                     placeholder="Search by symbol or name..."
-                    className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+                    className="block w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                   />
                   {showDropdown && (
-                    <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-black/5">
+                    <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md bg-white dark:bg-gray-800 py-1 text-sm shadow-lg ring-1 ring-black/5">
                       {stocksLoading ? (
-                        <li className="px-3 py-2 text-gray-400">Loading...</li>
+                        <li className="px-3 py-2 text-gray-400 dark:text-gray-500">Loading...</li>
                       ) : stocks.length === 0 ? (
-                        <li className="px-3 py-2 text-gray-400">No matches found</li>
+                        <li className="px-3 py-2 text-gray-400 dark:text-gray-500">No matches found</li>
                       ) : (
                         stocks.map((s) => (
                           <li
                             key={s.symbol}
                             onClick={() => handleSelectStock(s)}
-                            className="cursor-pointer px-3 py-2 hover:bg-indigo-50"
+                            className="cursor-pointer px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
                           >
-                            <span className="font-medium text-gray-900">{s.symbol}</span>
-                            <span className="ml-2 text-gray-500">— {s.name}</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{s.symbol}</span>
+                            <span className="ml-2 text-gray-500 dark:text-gray-400">— {s.name}</span>
                           </li>
                         ))
                       )}
@@ -190,9 +190,9 @@ export default function FirstTradeStep({ symbol: initialSymbol, onNext }: FirstT
           )}
 
           {selectedStock && marketData && (
-            <div className="rounded-md bg-white px-3 py-2 text-sm ring-1 ring-gray-200">
-              <span className="text-gray-500">Current Price: </span>
-              <span className="font-semibold text-gray-900">{formatCurrency(marketData.current_price)}</span>
+            <div className="rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm ring-1 ring-gray-200 dark:ring-gray-600">
+              <span className="text-gray-500 dark:text-gray-400">Current Price: </span>
+              <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(marketData.current_price)}</span>
               <span className={`ml-1 font-medium ${marketData.price_change_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 ({formatPercent(marketData.price_change_percent)})
               </span>
@@ -201,20 +201,20 @@ export default function FirstTradeStep({ symbol: initialSymbol, onNext }: FirstT
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <div className="text-xs font-medium text-gray-500">Side</div>
-              <div className="mt-1 rounded-md bg-green-100 px-3 py-1 text-center text-sm font-semibold text-green-700">
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400">Side</div>
+              <div className="mt-1 rounded-md bg-green-100 dark:bg-green-900/40 px-3 py-1 text-center text-sm font-semibold text-green-700 dark:text-green-400">
                 BUY
               </div>
             </div>
             <div>
-              <div className="text-xs font-medium text-gray-500">Type</div>
-              <div className="mt-1 rounded-md bg-gray-200 px-3 py-1 text-center text-sm font-semibold text-gray-700">
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400">Type</div>
+              <div className="mt-1 rounded-md bg-gray-200 dark:bg-gray-600 px-3 py-1 text-center text-sm font-semibold text-gray-700 dark:text-gray-300">
                 MARKET
               </div>
             </div>
           </div>
           <div>
-            <label htmlFor="qty" className="text-xs font-medium text-gray-500">Quantity</label>
+            <label htmlFor="qty" className="text-xs font-medium text-gray-500 dark:text-gray-400">Quantity</label>
             <input
               id="qty"
               type="number"
@@ -222,7 +222,7 @@ export default function FirstTradeStep({ symbol: initialSymbol, onNext }: FirstT
               max={1000}
               value={quantity}
               onChange={(e) => setQuantity(Math.min(1000, Math.max(1, Number(e.target.value))))}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+              className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:bg-gray-700 dark:text-white"
             />
             {quantity > 100 && (
               <p className="mt-1 text-xs text-amber-600">Large order — make sure you have sufficient balance.</p>
@@ -238,7 +238,7 @@ export default function FirstTradeStep({ symbol: initialSymbol, onNext }: FirstT
       <div className="mt-8 flex items-center justify-center gap-4">
         <button
           onClick={onNext}
-          className="text-sm font-medium text-gray-500 hover:text-gray-700"
+          className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
         >
           Skip
         </button>

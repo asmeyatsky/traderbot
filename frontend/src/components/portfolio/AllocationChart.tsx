@@ -3,8 +3,8 @@ import type { AllocationItem } from '../../types/portfolio';
 
 export default function AllocationChart({ data }: { data: AllocationItem[] }) {
   return (
-    <div className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
-      <h3 className="text-sm font-medium text-gray-500">Allocation Breakdown</h3>
+    <div className="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm ring-1 ring-gray-900/5 dark:ring-white/10">
+      <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Allocation Breakdown</h3>
       <div className="mt-4 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical">

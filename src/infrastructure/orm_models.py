@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import Column, String, DateTime, Numeric, Boolean, Enum as SQLEnum, ForeignKey, Index
+from sqlalchemy import Column, String, DateTime, Numeric, Boolean, Integer, Enum as SQLEnum, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import JSON
 
@@ -285,6 +285,75 @@ class BrokerAccountORM(Base):
     __table_args__ = (
         Index('idx_broker_account_user_id', 'user_id'),
         Index('idx_broker_account_user_broker', 'user_id', 'broker_type', unique=True),
+    )
+
+
+class SavedStrategyORM(Base):
+    """ORM model for SavedStrategy entity."""
+    __tablename__ = "saved_strategies"
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(String(1000), nullable=False, default='')
+    strategy_type = Column(String(50), nullable=False)
+    parameters = Column(JSON, nullable=False, default={})
+    symbol = Column(String(10), nullable=False, default='AAPL')
+    is_public = Column(Boolean, nullable=False, default=False)
+    fork_count = Column(Integer, nullable=False, default=0)
+
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    backtest_results = relationship("BacktestResultORM", back_populates="strategy", cascade="all, delete-orphan")
+    follows = relationship("StrategyFollowORM", back_populates="strategy", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index('idx_strategy_user_id', 'user_id'),
+        Index('idx_strategy_public', 'is_public'),
+    )
+
+
+class BacktestResultORM(Base):
+    """ORM model for persisted backtest results."""
+    __tablename__ = "backtest_results"
+
+    id = Column(String(36), primary_key=True, index=True)
+    strategy_id = Column(String(36), ForeignKey('saved_strategies.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    symbol = Column(String(10), nullable=False)
+    initial_capital = Column(Numeric(15, 2), nullable=False)
+    final_value = Column(Numeric(15, 2), nullable=False)
+    total_return_pct = Column(Numeric(8, 2), nullable=False)
+    sharpe_ratio = Column(Numeric(8, 4), nullable=False)
+    max_drawdown_pct = Column(Numeric(8, 2), nullable=False)
+    win_rate = Column(Numeric(5, 2), nullable=False)
+    total_trades = Column(Integer, nullable=False)
+    volatility = Column(Numeric(8, 2), nullable=False)
+    profit_factor = Column(Numeric(8, 4), nullable=False)
+    run_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    strategy = relationship("SavedStrategyORM", back_populates="backtest_results")
+
+    __table_args__ = (
+        Index('idx_backtest_strategy_id', 'strategy_id'),
+        Index('idx_backtest_user_id', 'user_id'),
+    )
+
+
+class StrategyFollowORM(Base):
+    """ORM model for strategy follow / copy trading."""
+    __tablename__ = "strategy_follows"
+
+    id = Column(String(36), primary_key=True, index=True)
+    follower_user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    strategy_id = Column(String(36), ForeignKey('saved_strategies.id', ondelete='CASCADE'), nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    strategy = relationship("SavedStrategyORM", back_populates="follows")
+
+    __table_args__ = (
+        Index('idx_follow_user_strategy', 'follower_user_id', 'strategy_id', unique=True),
     )
 
 

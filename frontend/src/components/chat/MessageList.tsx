@@ -33,10 +33,10 @@ export default function MessageList({
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
         <div className="mb-4 text-4xl">&#x1f4c8;</div>
-        <h2 className="text-lg font-semibold text-gray-800">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
           What would you like to know?
         </h2>
-        <p className="mt-2 max-w-sm text-sm text-gray-500">
+        <p className="mt-2 max-w-sm text-sm text-gray-500 dark:text-gray-400">
           Ask about stock prices, get ML predictions, analyze your portfolio, or
           explore trading ideas.
         </p>
@@ -49,7 +49,7 @@ export default function MessageList({
           ].map((suggestion) => (
             <button
               key={suggestion}
-              className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 transition-colors hover:border-indigo-300 hover:text-indigo-600"
+              className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 transition-colors hover:border-indigo-300 hover:text-indigo-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-indigo-500 dark:hover:text-indigo-400"
               onClick={() => onSuggestionClick?.(suggestion)}
             >
               {suggestion}
@@ -74,8 +74,8 @@ export default function MessageList({
 
       {isStreaming && streamingContent && (
         <div className="flex justify-start">
-          <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl bg-white px-4 py-3 text-sm shadow-sm ring-1 ring-gray-100">
-            <div className="prose prose-sm max-w-none">
+          <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl bg-white px-4 py-3 text-sm shadow-sm ring-1 ring-gray-100 dark:bg-gray-800 dark:ring-gray-700">
+            <div className="prose prose-sm max-w-none dark:prose-p:text-gray-300">
               <ReactMarkdown>{streamingContent}</ReactMarkdown>
             </div>
           </div>

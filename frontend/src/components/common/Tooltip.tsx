@@ -17,7 +17,7 @@ export default function Tooltip({ content, children, position = 'top' }: Tooltip
       {children}
       <span
         role="tooltip"
-        className={`pointer-events-none invisible absolute z-50 w-64 rounded-lg bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white shadow-lg opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 ${positionClasses}`}
+        className={`pointer-events-none invisible absolute z-50 w-64 rounded-lg bg-gray-900 dark:bg-gray-700 px-3 py-2 text-xs leading-relaxed text-white shadow-lg opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 ${positionClasses}`}
       >
         {content}
       </span>

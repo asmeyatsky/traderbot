@@ -79,8 +79,8 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
 
   return (
     <div className="animate-fade-in text-center">
-      <h2 className="text-2xl font-bold text-gray-900">Activate Your AI Trader</h2>
-      <p className="mt-2 text-sm text-gray-600">
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Activate Your AI Trader</h2>
+      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
         TraderBot finds opportunities, executes trades, and manages risk — all within your rules.
       </p>
 
@@ -90,13 +90,13 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
           const Icon = STEP_ICONS[i];
           return (
             <div key={step.title} className="relative flex flex-col items-center text-center">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100">
-                <Icon className="h-5 w-5 text-indigo-600" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/40">
+                <Icon className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <p className="mt-1.5 text-xs font-semibold text-gray-900">{step.title}</p>
-              <p className="mt-0.5 text-[11px] leading-tight text-gray-500">{step.description}</p>
+              <p className="mt-1.5 text-xs font-semibold text-gray-900 dark:text-white">{step.title}</p>
+              <p className="mt-0.5 text-[11px] leading-tight text-gray-500 dark:text-gray-400">{step.description}</p>
               {i < HOW_IT_WORKS_STEPS.length - 1 && (
-                <span className="absolute right-0 top-3 translate-x-1/2 text-sm text-gray-300">&rarr;</span>
+                <span className="absolute right-0 top-3 translate-x-1/2 text-sm text-gray-300 dark:text-gray-600">&rarr;</span>
               )}
             </div>
           );
@@ -107,14 +107,14 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
         {/* Section 1: Enable + Watchlist */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-700">Enable Auto-Trading</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Enable Auto-Trading</label>
             <button
               type="button"
               role="switch"
               aria-checked={enabled}
               onClick={() => setEnabled((v) => !v)}
               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                enabled ? 'bg-indigo-600' : 'bg-gray-200'
+                enabled ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-600'
               }`}
             >
               <span
@@ -126,12 +126,12 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Watchlist</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Watchlist</label>
             <div className="mt-1 flex flex-wrap gap-2">
               {watchlist.map((sym) => (
                 <span
                   key={sym}
-                  className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700"
+                  className="inline-flex items-center gap-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 text-xs font-medium text-indigo-700 dark:text-indigo-300"
                 >
                   {sym}
                   <button type="button" onClick={() => removeSymbol(sym)} className="text-indigo-400 hover:text-indigo-600">
@@ -146,12 +146,12 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
                 onChange={(e) => setSymbolInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Add symbol"
-                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+                className="block w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
               />
               <button
                 type="button"
                 onClick={addSymbol}
-                className="rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                className="rounded-md bg-gray-100 dark:bg-gray-700 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
               >
                 Add
               </button>
@@ -160,9 +160,9 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
         </div>
 
         {/* Section 2: Risk Controls */}
-        <div className="space-y-4 border-t border-gray-200 pt-4">
+        <div className="space-y-4 border-t border-gray-200 dark:border-gray-600 pt-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-800">Risk Controls</h3>
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Risk Controls</h3>
             {riskPreset === 'CUSTOM' && <span className="text-xs font-medium text-amber-600">Custom</span>}
           </div>
 
@@ -176,7 +176,7 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
                 className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   riskPreset === key
                     ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 {key.charAt(0) + key.slice(1).toLowerCase()}
@@ -186,10 +186,10 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
 
           <div>
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
+              <label className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Stop-Loss <InfoTooltip text={AUTO_TRADING_CONTROL_HELP.stop_loss} />
               </label>
-              <span className="text-sm font-semibold text-gray-900">{stopLoss}%</span>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">{stopLoss}%</span>
             </div>
             <input
               type="range"
@@ -200,7 +200,7 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
               className="mt-1 w-full accent-indigo-600"
             />
             {positionValue > 0 && (
-              <p className="text-xs text-indigo-600">
+              <p className="text-xs text-indigo-600 dark:text-indigo-400">
                 On a ${positionValue.toLocaleString()} position, auto-sell below $
                 {Math.round(positionValue * (1 - stopLoss / 100)).toLocaleString()}
               </p>
@@ -209,10 +209,10 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
 
           <div>
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
+              <label className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Take-Profit <InfoTooltip text={AUTO_TRADING_CONTROL_HELP.take_profit} />
               </label>
-              <span className="text-sm font-semibold text-gray-900">{takeProfit}%</span>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">{takeProfit}%</span>
             </div>
             <input
               type="range"
@@ -223,7 +223,7 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
               className="mt-1 w-full accent-indigo-600"
             />
             {positionValue > 0 && (
-              <p className="text-xs text-indigo-600">
+              <p className="text-xs text-indigo-600 dark:text-indigo-400">
                 On a ${positionValue.toLocaleString()} position, auto-sell above $
                 {Math.round(positionValue * (1 + takeProfit / 100)).toLocaleString()}
               </p>
@@ -231,12 +231,12 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
           </div>
 
           <div>
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
+            <label className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
               Budget <InfoTooltip text={AUTO_TRADING_CONTROL_HELP.budget} />
-              <span className="text-gray-400">(optional)</span>
+              <span className="text-gray-400 dark:text-gray-500">(optional)</span>
             </label>
             <div className="relative mt-1">
-              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">$</span>
+              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500">$</span>
               <input
                 type="number"
                 min={0}
@@ -244,22 +244,22 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
                 value={budget}
                 onChange={(e) => setBudget(e.target.value)}
                 placeholder="e.g. 10000"
-                className="block w-full rounded-md border border-gray-300 py-2 pl-7 pr-3 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+                className="block w-full rounded-md border border-gray-300 dark:border-gray-600 py-2 pl-7 pr-3 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
               />
             </div>
           </div>
         </div>
 
         {/* Section 3: Strategy Tuning */}
-        <div className="space-y-4 border-t border-gray-200 pt-4">
-          <h3 className="text-sm font-semibold text-gray-800">Strategy Tuning</h3>
+        <div className="space-y-4 border-t border-gray-200 dark:border-gray-600 pt-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Strategy Tuning</h3>
 
           <div>
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
+              <label className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Confidence Threshold <InfoTooltip text={AUTO_TRADING_CONTROL_HELP.confidence} />
               </label>
-              <span className="text-sm font-semibold text-gray-900">{confidence}%</span>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">{confidence}%</span>
             </div>
             <input
               type="range"
@@ -273,10 +273,10 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
 
           <div>
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
+              <label className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Max Position Size <InfoTooltip text={AUTO_TRADING_CONTROL_HELP.max_position} />
               </label>
-              <span className="text-sm font-semibold text-gray-900">{maxPosition}%</span>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">{maxPosition}%</span>
             </div>
             <input
               type="range"
@@ -291,7 +291,7 @@ export default function AutoTradeStep({ symbol, onNext }: AutoTradeStepProps) {
       </div>
 
       <div className="mt-8 flex items-center justify-center gap-4">
-        <button onClick={onNext} className="text-sm font-medium text-gray-500 hover:text-gray-700">
+        <button onClick={onNext} className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
           Skip for Now
         </button>
         <button

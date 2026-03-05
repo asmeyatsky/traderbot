@@ -42,22 +42,22 @@ export default function BrokerLinkForm() {
   }
 
   return (
-    <div className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
-      <h2 className="text-lg font-semibold text-gray-900">Broker Account</h2>
-      <p className="mt-1 text-xs text-gray-500">
+    <div className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-900/5 dark:bg-gray-800 dark:ring-white/10">
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Broker Account</h2>
+      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
         Link your Alpaca brokerage account to execute real trades. Your API keys are encrypted at
         rest.
       </p>
 
       {alpacaAccount ? (
         <div className="mt-4 space-y-3">
-          <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4 dark:border-gray-700">
             <div>
-              <p className="text-sm font-medium text-gray-900">Alpaca</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">Alpaca</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 API Key: {alpacaAccount.api_key_hint}
               </p>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                 Linked {new Date(alpacaAccount.created_at).toLocaleDateString()}
               </p>
             </div>
@@ -65,8 +65,8 @@ export default function BrokerLinkForm() {
               <span
                 className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                   alpacaAccount.paper_trading
-                    ? 'bg-amber-100 text-amber-700'
-                    : 'bg-green-100 text-green-700'
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                 }`}
               >
                 {alpacaAccount.paper_trading ? 'Paper' : 'Live'}
@@ -76,7 +76,7 @@ export default function BrokerLinkForm() {
 
           {/* Paper / Live toggle */}
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-700">Trading Mode</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Trading Mode</label>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -84,7 +84,7 @@ export default function BrokerLinkForm() {
                 className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   alpacaAccount.paper_trading
                     ? 'bg-amber-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
                 Paper
@@ -95,7 +95,7 @@ export default function BrokerLinkForm() {
                 className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   !alpacaAccount.paper_trading
                     ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
                 Live
@@ -107,7 +107,7 @@ export default function BrokerLinkForm() {
             <button
               type="button"
               onClick={() => setShowForm(true)}
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
             >
               Update Keys
             </button>
@@ -118,7 +118,7 @@ export default function BrokerLinkForm() {
                   remove(alpacaAccount.id);
                 }
               }}
-              className="text-sm font-medium text-red-600 hover:text-red-500"
+              className="text-sm font-medium text-red-600 hover:text-red-500 dark:text-red-400 dark:hover:text-red-300"
             >
               Unlink
             </button>
@@ -135,32 +135,32 @@ export default function BrokerLinkForm() {
       )}
 
       {showForm && (
-        <form onSubmit={handleLink} className="mt-4 space-y-3 border-t border-gray-200 pt-4">
+        <form onSubmit={handleLink} className="mt-4 space-y-3 border-t border-gray-200 pt-4 dark:border-gray-700">
           {linkSuccess && (
-            <p className="rounded-md bg-green-50 p-3 text-sm text-green-700">
+            <p className="rounded-md bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-400">
               Broker account linked successfully
             </p>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700">API Key</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">API Key</label>
             <input
               type="text"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="PK..."
               required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Secret Key</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Secret Key</label>
             <input
               type="password"
               value={secretKey}
               onChange={(e) => setSecretKey(e.target.value)}
               placeholder="Enter your secret key"
               required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -169,9 +169,9 @@ export default function BrokerLinkForm() {
               id="paper-trading"
               checked={paperTrading}
               onChange={(e) => setPaperTrading(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-gray-600"
             />
-            <label htmlFor="paper-trading" className="text-sm text-gray-700">
+            <label htmlFor="paper-trading" className="text-sm text-gray-700 dark:text-gray-300">
               Paper trading (recommended for testing)
             </label>
           </div>
@@ -186,18 +186,18 @@ export default function BrokerLinkForm() {
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+              className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
             >
               Cancel
             </button>
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-400 dark:text-gray-500">
             Get your API keys from{' '}
             <a
               href="https://app.alpaca.markets/paper/dashboard/overview"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-indigo-600 hover:text-indigo-500"
+              className="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
             >
               Alpaca Dashboard
             </a>
