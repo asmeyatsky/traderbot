@@ -66,7 +66,7 @@ class User:
     take_profit_pct: Decimal = Decimal('10')
     confidence_threshold: Decimal = Decimal('0.6')
     max_position_pct: Decimal = Decimal('20')
-    allowed_markets: List[str] = field(default_factory=lambda: ["US_NYSE", "US_NASDAQ"])
+    allowed_markets: List[str] = field(default_factory=lambda: ["US_NYSE", "US_NASDAQ", "UK_LSE", "EU_EURONEXT", "DE_XETRA", "JP_TSE", "HK_HKEX"])
 
     def update_risk_tolerance(self, new_risk_tolerance: RiskTolerance) -> 'User':
         """Update user's risk tolerance and return new instance"""

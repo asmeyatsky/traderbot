@@ -68,7 +68,7 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             take_profit_pct=orm_obj.take_profit_pct,
             confidence_threshold=orm_obj.confidence_threshold,
             max_position_pct=orm_obj.max_position_pct,
-            allowed_markets=orm_obj.allowed_markets or ["US_NYSE", "US_NASDAQ"],
+            allowed_markets=orm_obj.allowed_markets or ["US_NYSE", "US_NASDAQ", "UK_LSE", "EU_EURONEXT", "DE_XETRA", "JP_TSE", "HK_HKEX"],
         )
 
     def _to_orm_model(self, entity: User, password_hash: str = "") -> UserORM:

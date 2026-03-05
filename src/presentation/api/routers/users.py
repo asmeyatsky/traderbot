@@ -67,7 +67,7 @@ def _user_to_response(user: User) -> UserResponse:
         email_notifications_enabled=user.email_notifications_enabled if hasattr(user, 'email_notifications_enabled') else True,
         sms_notifications_enabled=user.sms_notifications_enabled if hasattr(user, 'sms_notifications_enabled') else False,
         approval_mode_enabled=user.approval_mode_enabled if hasattr(user, 'approval_mode_enabled') else False,
-        allowed_markets=user.allowed_markets if hasattr(user, 'allowed_markets') else ["US_NYSE", "US_NASDAQ"],
+        allowed_markets=user.allowed_markets if hasattr(user, 'allowed_markets') else ["US_NYSE", "US_NASDAQ", "UK_LSE", "EU_EURONEXT", "DE_XETRA", "JP_TSE", "HK_HKEX"],
         created_at=user.created_at,
         updated_at=user.updated_at,
     )
