@@ -14,7 +14,7 @@ from pydantic import BaseModel
 import uuid
 import logging
 
-from src.presentation.api.dependencies import get_current_user
+from src.infrastructure.security import get_current_user
 from src.infrastructure.database import get_database_manager
 from src.infrastructure.orm_models import (
     SavedStrategyORM,
@@ -112,13 +112,13 @@ class LeaderboardEntry(BaseModel):
 # --- Endpoints ---
 
 @router.post("", response_model=StrategyResponse)
-async def create_strategy(req: CreateStrategyRequest, user=Depends(get_current_user)):
+async def create_strategy(req: CreateStrategyRequest, user_id: str = Depends(get_current_user)):
     db = get_database_manager()
     session = db._session_factory()
     try:
         strategy = SavedStrategyORM(
             id=str(uuid.uuid4()),
-            user_id=user.id,
+            user_id=user_id,
             name=req.name,
             description=req.description,
             strategy_type=req.strategy_type,
@@ -132,7 +132,7 @@ async def create_strategy(req: CreateStrategyRequest, user=Depends(get_current_u
         session.add(strategy)
         session.commit()
         session.refresh(strategy)
-        return _to_response(strategy, user.id, session)
+        return _to_response(strategy, user_id, session)
     except Exception as e:
         session.rollback()
         logger.error(f"Failed to create strategy: {e}")
@@ -142,20 +142,20 @@ async def create_strategy(req: CreateStrategyRequest, user=Depends(get_current_u
 
 
 @router.get("", response_model=list[StrategyResponse])
-async def list_my_strategies(user=Depends(get_current_user)):
+async def list_my_strategies(user_id: str = Depends(get_current_user)):
     db = get_database_manager()
     session = db._session_factory()
     try:
         strategies = session.query(SavedStrategyORM).filter(
-            SavedStrategyORM.user_id == user.id
+            SavedStrategyORM.user_id == user_id
         ).order_by(SavedStrategyORM.updated_at.desc()).all()
-        return [_to_response(s, user.id, session) for s in strategies]
+        return [_to_response(s, user_id, session) for s in strategies]
     finally:
         session.close()
 
 
 @router.get("/marketplace", response_model=list[StrategyResponse])
-async def marketplace(user=Depends(get_current_user)):
+async def marketplace(user_id: str = Depends(get_current_user)):
     """List all public strategies (strategy marketplace)."""
     db = get_database_manager()
     session = db._session_factory()
@@ -163,13 +163,13 @@ async def marketplace(user=Depends(get_current_user)):
         strategies = session.query(SavedStrategyORM).filter(
             SavedStrategyORM.is_public == True
         ).order_by(SavedStrategyORM.fork_count.desc(), SavedStrategyORM.created_at.desc()).limit(50).all()
-        return [_to_response(s, user.id, session) for s in strategies]
+        return [_to_response(s, user_id, session) for s in strategies]
     finally:
         session.close()
 
 
 @router.get("/leaderboard", response_model=list[LeaderboardEntry])
-async def leaderboard(user=Depends(get_current_user)):
+async def leaderboard(user_id: str = Depends(get_current_user)):
     """Get the strategy leaderboard ranked by best backtest return."""
     db = get_database_manager()
     session = db._session_factory()
@@ -204,7 +204,7 @@ async def leaderboard(user=Depends(get_current_user)):
                 StrategyFollowORM.strategy_id == strategy.id
             ).count()
             is_following = session.query(StrategyFollowORM).filter(
-                StrategyFollowORM.follower_user_id == user.id,
+                StrategyFollowORM.follower_user_id == user_id,
                 StrategyFollowORM.strategy_id == strategy.id,
             ).first() is not None
 
@@ -228,7 +228,7 @@ async def leaderboard(user=Depends(get_current_user)):
 
 
 @router.get("/{strategy_id}", response_model=StrategyResponse)
-async def get_strategy(strategy_id: str, user=Depends(get_current_user)):
+async def get_strategy(strategy_id: str, user_id: str = Depends(get_current_user)):
     db = get_database_manager()
     session = db._session_factory()
     try:
@@ -237,21 +237,21 @@ async def get_strategy(strategy_id: str, user=Depends(get_current_user)):
         ).first()
         if not strategy:
             raise HTTPException(status_code=404, detail="Strategy not found")
-        if not strategy.is_public and strategy.user_id != user.id:
+        if not strategy.is_public and strategy.user_id != user_id:
             raise HTTPException(status_code=403, detail="Strategy is private")
-        return _to_response(strategy, user.id, session)
+        return _to_response(strategy, user_id, session)
     finally:
         session.close()
 
 
 @router.patch("/{strategy_id}", response_model=StrategyResponse)
-async def update_strategy(strategy_id: str, req: UpdateStrategyRequest, user=Depends(get_current_user)):
+async def update_strategy(strategy_id: str, req: UpdateStrategyRequest, user_id: str = Depends(get_current_user)):
     db = get_database_manager()
     session = db._session_factory()
     try:
         strategy = session.query(SavedStrategyORM).filter(
             SavedStrategyORM.id == strategy_id,
-            SavedStrategyORM.user_id == user.id,
+            SavedStrategyORM.user_id == user_id,
         ).first()
         if not strategy:
             raise HTTPException(status_code=404, detail="Strategy not found")
@@ -268,7 +268,7 @@ async def update_strategy(strategy_id: str, req: UpdateStrategyRequest, user=Dep
         strategy.updated_at = datetime.utcnow()
         session.commit()
         session.refresh(strategy)
-        return _to_response(strategy, user.id, session)
+        return _to_response(strategy, user_id, session)
     except HTTPException:
         raise
     except Exception as e:
@@ -280,13 +280,13 @@ async def update_strategy(strategy_id: str, req: UpdateStrategyRequest, user=Dep
 
 
 @router.delete("/{strategy_id}")
-async def delete_strategy(strategy_id: str, user=Depends(get_current_user)):
+async def delete_strategy(strategy_id: str, user_id: str = Depends(get_current_user)):
     db = get_database_manager()
     session = db._session_factory()
     try:
         strategy = session.query(SavedStrategyORM).filter(
             SavedStrategyORM.id == strategy_id,
-            SavedStrategyORM.user_id == user.id,
+            SavedStrategyORM.user_id == user_id,
         ).first()
         if not strategy:
             raise HTTPException(status_code=404, detail="Strategy not found")
@@ -303,14 +303,14 @@ async def delete_strategy(strategy_id: str, user=Depends(get_current_user)):
 
 
 @router.post("/{strategy_id}/backtest", response_model=BacktestResultResponse)
-async def save_backtest_result(strategy_id: str, req: SaveBacktestRequest, user=Depends(get_current_user)):
+async def save_backtest_result(strategy_id: str, req: SaveBacktestRequest, user_id: str = Depends(get_current_user)):
     """Save a backtest result for a strategy."""
     db = get_database_manager()
     session = db._session_factory()
     try:
         strategy = session.query(SavedStrategyORM).filter(
             SavedStrategyORM.id == strategy_id,
-            SavedStrategyORM.user_id == user.id,
+            SavedStrategyORM.user_id == user_id,
         ).first()
         if not strategy:
             raise HTTPException(status_code=404, detail="Strategy not found")
@@ -318,7 +318,7 @@ async def save_backtest_result(strategy_id: str, req: SaveBacktestRequest, user=
         result = BacktestResultORM(
             id=str(uuid.uuid4()),
             strategy_id=strategy_id,
-            user_id=user.id,
+            user_id=user_id,
             symbol=req.symbol,
             initial_capital=Decimal(str(req.initial_capital)),
             final_value=Decimal(str(req.final_value)),
@@ -346,7 +346,7 @@ async def save_backtest_result(strategy_id: str, req: SaveBacktestRequest, user=
 
 
 @router.get("/{strategy_id}/results", response_model=list[BacktestResultResponse])
-async def get_backtest_results(strategy_id: str, user=Depends(get_current_user)):
+async def get_backtest_results(strategy_id: str, user_id: str = Depends(get_current_user)):
     db = get_database_manager()
     session = db._session_factory()
     try:
@@ -359,7 +359,7 @@ async def get_backtest_results(strategy_id: str, user=Depends(get_current_user))
 
 
 @router.post("/{strategy_id}/follow")
-async def follow_strategy(strategy_id: str, user=Depends(get_current_user)):
+async def follow_strategy(strategy_id: str, user_id: str = Depends(get_current_user)):
     """Follow (copy) a public strategy."""
     db = get_database_manager()
     session = db._session_factory()
@@ -370,11 +370,11 @@ async def follow_strategy(strategy_id: str, user=Depends(get_current_user)):
         ).first()
         if not strategy:
             raise HTTPException(status_code=404, detail="Public strategy not found")
-        if strategy.user_id == user.id:
+        if strategy.user_id == user_id:
             raise HTTPException(status_code=400, detail="Cannot follow your own strategy")
 
         existing = session.query(StrategyFollowORM).filter(
-            StrategyFollowORM.follower_user_id == user.id,
+            StrategyFollowORM.follower_user_id == user_id,
             StrategyFollowORM.strategy_id == strategy_id,
         ).first()
         if existing:
@@ -382,7 +382,7 @@ async def follow_strategy(strategy_id: str, user=Depends(get_current_user)):
 
         follow = StrategyFollowORM(
             id=str(uuid.uuid4()),
-            follower_user_id=user.id,
+            follower_user_id=user_id,
             strategy_id=strategy_id,
             created_at=datetime.utcnow(),
         )
@@ -400,13 +400,13 @@ async def follow_strategy(strategy_id: str, user=Depends(get_current_user)):
 
 
 @router.delete("/{strategy_id}/follow")
-async def unfollow_strategy(strategy_id: str, user=Depends(get_current_user)):
+async def unfollow_strategy(strategy_id: str, user_id: str = Depends(get_current_user)):
     """Unfollow a strategy."""
     db = get_database_manager()
     session = db._session_factory()
     try:
         follow = session.query(StrategyFollowORM).filter(
-            StrategyFollowORM.follower_user_id == user.id,
+            StrategyFollowORM.follower_user_id == user_id,
             StrategyFollowORM.strategy_id == strategy_id,
         ).first()
         if follow:
@@ -424,7 +424,7 @@ async def unfollow_strategy(strategy_id: str, user=Depends(get_current_user)):
 
 
 @router.post("/{strategy_id}/fork", response_model=StrategyResponse)
-async def fork_strategy(strategy_id: str, user=Depends(get_current_user)):
+async def fork_strategy(strategy_id: str, user_id: str = Depends(get_current_user)):
     """Fork (copy) a public strategy into your own collection."""
     db = get_database_manager()
     session = db._session_factory()
@@ -438,7 +438,7 @@ async def fork_strategy(strategy_id: str, user=Depends(get_current_user)):
 
         forked = SavedStrategyORM(
             id=str(uuid.uuid4()),
-            user_id=user.id,
+            user_id=user_id,
             name=f"{original.name} (forked)",
             description=original.description,
             strategy_type=original.strategy_type,
@@ -453,7 +453,7 @@ async def fork_strategy(strategy_id: str, user=Depends(get_current_user)):
         original.fork_count = original.fork_count + 1
         session.commit()
         session.refresh(forked)
-        return _to_response(forked, user.id, session)
+        return _to_response(forked, user_id, session)
     except HTTPException:
         raise
     except Exception as e:
