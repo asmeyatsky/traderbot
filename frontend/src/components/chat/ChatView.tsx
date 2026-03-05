@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useChatStore } from '../../stores/chat-store';
 import {
   useConversations,
@@ -11,7 +11,9 @@ import { useCreateOrder } from '../../hooks/use-orders';
 import ConversationList from './ConversationList';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
-import type { TradeAction } from '../../types/chat';
+import type { TradeAction, ChatMessage } from '../../types/chat';
+
+const EMPTY_MESSAGES: ChatMessage[] = [];
 
 export default function ChatView() {
   const conversations = useChatStore((s) => s.conversations);
@@ -20,8 +22,10 @@ export default function ChatView() {
   const isStreaming = useChatStore((s) => s.isStreaming);
   const setActiveConversation = useChatStore((s) => s.setActiveConversation);
 
-  const pendingMessages = useChatStore((s) =>
-    activeConversationId ? (s.pendingMessages[activeConversationId] ?? []) : []
+  const allPendingMessages = useChatStore((s) => s.pendingMessages);
+  const pendingMessages = useMemo(
+    () => (activeConversationId ? (allPendingMessages[activeConversationId] ?? EMPTY_MESSAGES) : EMPTY_MESSAGES),
+    [activeConversationId, allPendingMessages],
   );
   const executedTradeKeys = useChatStore((s) => s.executedTradeKeys);
   const markTradeExecuted = useChatStore((s) => s.markTradeExecuted);
