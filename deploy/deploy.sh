@@ -30,28 +30,20 @@ case "${1:-deploy}" in
     cd "$SCRIPT_DIR"
 
     # Prune BEFORE the build. On a t4g.medium the pip install of the
-    # full ML stack (~2GB of packages) needs ~6GB of working space;
-    # accumulated layers from past deploys eat that fast. A single
-    # disk-full build error wedges prod until an operator SSHes in.
+    # full ML stack (tensorflow + torch + transformers) needs ~4-5GB of
+    # working space for intermediate layers. Even with 30% of the root
+    # volume free, that can ENOSPC mid-build.
     #
-    # When the root filesystem is over 80% full we run an AGGRESSIVE
-    # prune that removes every image not in use by a running container
-    # and the full build cache — no age filter. Deploys run ~30s longer
-    # because everything rebuilds from base, but the alternative is a
-    # failed deploy that needs manual SSH intervention.
-    echo "==> Pre-build cleanup"
-    USED_PCT=$(df --output=pcent / | tail -1 | tr -d ' %')
-    echo "    Disk usage before prune: ${USED_PCT}%"
-    if [ "${USED_PCT:-0}" -gt 80 ]; then
-      echo "    Disk over 80% — running AGGRESSIVE prune (no age filter)"
-      docker image prune -af || true
-      docker builder prune -af || true
-    else
-      echo "    Disk under 80% — running routine prune (7-day filter)"
-      docker image prune -f
-      docker image prune -af --filter "until=168h" || true
-      docker builder prune -f --filter "until=168h" || true
-    fi
+    # We ALWAYS run aggressive prune: remove every image not currently
+    # held by a running container and the full build cache. We're about
+    # to rebuild from scratch anyway (BuildKit layer cache is gone after
+    # this), so preserving stale cache buys us nothing. Extra ~30s per
+    # deploy trades for "the deploy reliably has space."
+    echo "==> Pre-build cleanup (aggressive — full image + cache prune)"
+    echo "    Disk usage before prune: $(df --output=pcent / | tail -1 | tr -d ' %')%"
+    docker image prune -af || true
+    docker builder prune -af || true
+    echo "    Disk usage after prune:  $(df --output=pcent / | tail -1 | tr -d ' %')%"
     df -h / | tail -1
 
     echo "==> Building and starting containers"
