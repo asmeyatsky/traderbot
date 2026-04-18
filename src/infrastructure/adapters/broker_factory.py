@@ -24,6 +24,7 @@ from typing import Optional
 from src.domain.entities.user import TradingMode, User
 from src.domain.ports.broker_routing import BrokerRoutingPort
 from src.domain.ports.daily_loss_tracker import DailyLossTrackerPort
+from src.domain.services.broker_circuit_breaker import BrokerCircuitBreaker
 from src.infrastructure.broker_integration import (
     AlpacaBrokerService,
     BrokerAuthenticationError,
@@ -57,14 +58,25 @@ class BrokerServiceFactory(BrokerRoutingPort):
     def __init__(
         self,
         loss_tracker: Optional[DailyLossTrackerPort] = None,
+        circuit_breaker: Optional[BrokerCircuitBreaker] = None,
     ) -> None:
         self._api_key = settings.ALPACA_API_KEY
         self._secret_key = settings.ALPACA_SECRET_KEY
         self._loss_tracker = loss_tracker
+        # One breaker per factory instance (= per process). The breaker is
+        # shared across every LIVE user routing through this factory; one
+        # user's broker outage should halt live orders for everyone until it
+        # clears, which matches how we'd want to behave in practice.
+        self._breaker = circuit_breaker or BrokerCircuitBreaker()
         # Lazy singletons: constructing a broker is cheap but we reuse the
         # HTTPS session for connection pooling.
         self._paper_broker: AlpacaBrokerService | None = None
-        self._live_broker: AlpacaBrokerService | None = None
+        self._live_broker: TradingExecutionPort | None = None
+
+    @property
+    def broker_circuit_breaker(self) -> BrokerCircuitBreaker:
+        """Expose the breaker for operator tooling (e.g. `/admin/reset-breaker`)."""
+        return self._breaker
 
     # ------------------------------------------------------------------
     # Public API
@@ -97,8 +109,17 @@ class BrokerServiceFactory(BrokerRoutingPort):
         if user.trading_mode == TradingMode.PAPER:
             return self._get_paper()
 
-        # User is in live mode — enforce the cap.
+        # User is in live mode — enforce the cap AND the broker breaker.
         self._assert_under_daily_loss_cap(user)
+        if self._breaker.is_open():
+            logger.warning(
+                "broker_routed_to_paper reason=circuit_breaker_open user_id=%s",
+                user.id,
+            )
+            raise LiveTradingHaltedError(
+                "Broker circuit breaker open — live trading paused after "
+                "consecutive failures. Retry after the cool-off window."
+            )
 
         logger.info("broker_routed_to_live user_id=%s", user.id)
         return self._get_live()
@@ -155,11 +176,17 @@ class BrokerServiceFactory(BrokerRoutingPort):
             )
         return self._paper_broker
 
-    def _get_live(self) -> AlpacaBrokerService:
+    def _get_live(self) -> TradingExecutionPort:
         if self._live_broker is None:
-            self._live_broker = AlpacaBrokerService(
+            from src.infrastructure.adapters.circuit_broken_broker import (
+                CircuitBrokenBrokerAdapter,
+            )
+            raw = AlpacaBrokerService(
                 api_key=self._api_key,
                 secret_key=self._secret_key,
                 paper_trading=False,
             )
+            # Wrap so place_order outcomes feed the breaker; pass-through for
+            # everything else (status polling, balance reads).
+            self._live_broker = CircuitBrokenBrokerAdapter(raw, self._breaker)
         return self._live_broker

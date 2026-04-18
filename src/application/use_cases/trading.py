@@ -122,6 +122,25 @@ class CreateOrderUseCase:
                     "to simulate the order. Contact support."
                 )
             broker = self.broker_routing.for_user(user)
+
+            # Pre-trade check against live account (not the cached Portfolio).
+            # Prevents the subtle failure where app-side Portfolio looks flush
+            # but Alpaca's real account has been debited via another channel.
+            # Sells (SHORT on a closing position) don't require buying power,
+            # so the cash-side check only applies to LONG opens.
+            if position_type_enum == PT.LONG:
+                account_info = broker.get_account_info(user_id)
+                if not account_info or account_info.get("trading_blocked"):
+                    raise ValueError(
+                        "Broker account unavailable or trading blocked — refusing live order."
+                    )
+                buying_power = Decimal(str(account_info.get("buying_power", 0)))
+                order_cost = (order.price.amount if order.price else current_price.amount) * Decimal(quantity)
+                if buying_power < order_cost:
+                    raise ValueError(
+                        f"Insufficient broker buying power: have ${buying_power}, need ${order_cost}."
+                    )
+
             saved_order = self.order_repository.save(order)
             broker_response = broker.place_order(saved_order)
             # Reflect broker-side state on the order we persist. Whether the

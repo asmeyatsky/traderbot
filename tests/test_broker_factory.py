@@ -62,7 +62,11 @@ def factory():
     tell which branch was taken without touching AlpacaBrokerService.__init__
     (which would try to hit the network).
     """
-    f = BrokerServiceFactory(loss_tracker=None)
+    from src.domain.services.broker_circuit_breaker import BrokerCircuitBreaker
+    f = BrokerServiceFactory(
+        loss_tracker=None,
+        circuit_breaker=BrokerCircuitBreaker(),
+    )
     f._paper_broker = "PAPER_SENTINEL"  # type: ignore[assignment]
     f._live_broker = "LIVE_SENTINEL"  # type: ignore[assignment]
     return f
@@ -152,3 +156,40 @@ class TestAssertLiveAllowed:
     def test_flag_off_raises(self, env_clean, factory):
         with pytest.raises(LiveTradingHaltedError, match="ENABLE_LIVE_TRADING"):
             factory.assert_live_trading_allowed()
+
+
+class TestBrokerCircuitBreakerIntegration:
+    """The factory must refuse the live broker when the breaker is open."""
+
+    def test_live_routing_refused_when_breaker_open(self, env_clean, factory):
+        env_clean.setenv("ENABLE_LIVE_TRADING", "true")
+        # Trip the breaker by recording errors up to the threshold.
+        breaker = factory.broker_circuit_breaker
+        for _ in range(breaker.max_consecutive_errors):
+            breaker.record_error()
+        assert breaker.is_open()
+
+        user = _user(trading_mode=TradingMode.LIVE)
+        with pytest.raises(LiveTradingHaltedError, match="circuit breaker"):
+            factory.for_user(user)
+
+    def test_live_routing_recovers_when_breaker_closes(self, env_clean, factory):
+        env_clean.setenv("ENABLE_LIVE_TRADING", "true")
+        breaker = factory.broker_circuit_breaker
+        # Errors below threshold → still closed.
+        breaker.record_error()
+        breaker.record_error()
+        assert not breaker.is_open()
+
+        user = _user(trading_mode=TradingMode.LIVE)
+        assert factory.for_user(user) == "LIVE_SENTINEL"
+
+    def test_successful_call_resets_counter(self, env_clean, factory):
+        breaker = factory.broker_circuit_breaker
+        breaker.record_error()
+        breaker.record_error()
+        breaker.record_success()
+        breaker.record_error()
+        breaker.record_error()
+        # Counter was reset by the success — still below 3, not tripped.
+        assert not breaker.is_open()

@@ -17,8 +17,24 @@ if 'requests' not in sys.modules:
     requests_mock = types.ModuleType('requests')
     requests_mock.Session = MagicMock  # type: ignore[attr-defined]
     requests_mock.exceptions = types.ModuleType('requests.exceptions')  # type: ignore[assignment]
-    requests_mock.exceptions.HTTPError = Exception  # type: ignore[attr-defined]
-    requests_mock.exceptions.RequestException = Exception  # type: ignore[attr-defined]
+    # Build a faithful exception hierarchy so code that relies on
+    # `except HTTPError` not catching ConnectionError still behaves correctly.
+    class _RequestException(Exception):
+        pass
+
+    class _HTTPError(_RequestException):
+        pass
+
+    class _ConnectionError(_RequestException):
+        pass
+
+    class _Timeout(_RequestException):
+        pass
+
+    requests_mock.exceptions.RequestException = _RequestException  # type: ignore[attr-defined]
+    requests_mock.exceptions.HTTPError = _HTTPError  # type: ignore[attr-defined]
+    requests_mock.exceptions.ConnectionError = _ConnectionError  # type: ignore[attr-defined]
+    requests_mock.exceptions.Timeout = _Timeout  # type: ignore[attr-defined]
     sys.modules['requests'] = requests_mock
     sys.modules['requests.exceptions'] = requests_mock.exceptions  # type: ignore[assignment]
     adapters_mod = types.ModuleType('requests.adapters')

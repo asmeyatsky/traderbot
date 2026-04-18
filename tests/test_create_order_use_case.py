@@ -302,16 +302,30 @@ class TestLiveModeRouting:
                 quantity=10,
             )
 
-    def test_live_user_routes_to_broker_and_mirrors_status(self):
+    def _live_broker_mock(self, buying_power: float = 100_000.0, trading_blocked: bool = False):
+        """A broker mock that satisfies the new pre-trade balance check."""
         from types import SimpleNamespace
 
         broker = MagicMock()
+        broker.get_account_info.return_value = {
+            "account_number": "ACC-1",
+            "buying_power": buying_power,
+            "cash": buying_power,
+            "portfolio_value": buying_power,
+            "status": "ACTIVE",
+            "trading_blocked": trading_blocked,
+            "transfers_blocked": False,
+        }
         broker.place_order.return_value = SimpleNamespace(
             broker_order_id="alpaca-123",
             status="filled",
             filled_qty=10,
             avg_fill_price=150.00,
         )
+        return broker
+
+    def test_live_user_routes_to_broker_and_mirrors_status(self):
+        broker = self._live_broker_mock()
         routing = MagicMock()
         routing.for_user.return_value = broker
 
@@ -331,6 +345,62 @@ class TestLiveModeRouting:
         assert order.status == OrderStatus.EXECUTED
         assert order.filled_quantity == 10
         assert "broker_order_id=alpaca-123" in (order.notes or "")
+
+    def test_live_user_refused_when_account_unavailable(self):
+        """Empty account_info → treat as failed preflight, refuse the order."""
+        broker = MagicMock()
+        broker.get_account_info.return_value = {}
+        routing = MagicMock()
+        routing.for_user.return_value = broker
+
+        user = _make_user(trading_mode=TradingMode.LIVE)
+        uc, _ = _build_use_case(user=user)
+        uc.broker_routing = routing
+
+        with pytest.raises(ValueError, match="Broker account unavailable"):
+            uc.execute("user-1", Symbol("AAPL"), "MARKET", "LONG", 10)
+        broker.place_order.assert_not_called()
+
+    def test_live_user_refused_when_trading_blocked(self):
+        broker = self._live_broker_mock(trading_blocked=True)
+        routing = MagicMock()
+        routing.for_user.return_value = broker
+
+        user = _make_user(trading_mode=TradingMode.LIVE)
+        uc, _ = _build_use_case(user=user)
+        uc.broker_routing = routing
+
+        with pytest.raises(ValueError, match="trading blocked"):
+            uc.execute("user-1", Symbol("AAPL"), "MARKET", "LONG", 10)
+        broker.place_order.assert_not_called()
+
+    def test_live_user_refused_when_buying_power_insufficient(self):
+        """Portfolio cash looks flush but real account doesn't cover the order."""
+        broker = self._live_broker_mock(buying_power=50.0)  # order costs $1500
+        routing = MagicMock()
+        routing.for_user.return_value = broker
+
+        user = _make_user(trading_mode=TradingMode.LIVE)
+        uc, _ = _build_use_case(user=user)
+        uc.broker_routing = routing
+
+        with pytest.raises(ValueError, match="Insufficient broker buying power"):
+            uc.execute("user-1", Symbol("AAPL"), "MARKET", "LONG", 10)
+        broker.place_order.assert_not_called()
+
+    def test_live_short_skips_buying_power_check(self):
+        """Closing a SHORT doesn't need buying power."""
+        broker = self._live_broker_mock(buying_power=0.0)
+        routing = MagicMock()
+        routing.for_user.return_value = broker
+
+        user = _make_user(trading_mode=TradingMode.LIVE)
+        uc, _ = _build_use_case(user=user)
+        uc.broker_routing = routing
+
+        # Must not raise on buying power — the sell path skips it entirely.
+        uc.execute("user-1", Symbol("AAPL"), "MARKET", "SHORT", 10)
+        broker.place_order.assert_called_once()
 
     def test_paper_user_bypasses_broker_routing(self):
         """A PAPER user must keep going through the in-memory auto-fill path."""
