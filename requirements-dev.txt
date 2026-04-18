@@ -2,11 +2,15 @@
 -r requirements.txt
 
 # Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
-pytest-mock==3.12.0
-pytest-cov==4.1.0
-factory-boy==3.3.0
+# pytest >= 9.0.3 fixes CVE-2025-71176 (reported 2026-02).
+pytest>=9.0.3,<10.0.0
+# pytest-asyncio 1.0+ required for pytest 9 support (older lines cap pytest
+# at <8). 1.x is the stable line that ships with FUTURE_DEFAULT fixture loop
+# scope, aligning with our existing asyncio_mode=auto in pytest.ini.
+pytest-asyncio>=1.0.0,<2.0.0
+pytest-mock>=3.14.0,<4.0.0
+pytest-cov>=7.0.0,<8.0.0
+factory-boy>=3.3.0,<4.0.0
 httpx>=0.24.0
 
 # Architecture enforcement (2026 rules §2 — "rule not in CI = rule not real")
@@ -16,7 +20,8 @@ import-linter==2.11
 hypothesis>=6.100.0,<7.0.0
 
 # Additional dev tools
-Pillow==10.1.0
+# Pillow >= 10.3.0 fixes CVE-2024-28219; 10.2.0 fixed CVE-2023-50447.
+Pillow>=10.3.0,<12.0.0
 spacy==3.7.2
 celery==5.3.4
 kafka-python==2.0.2

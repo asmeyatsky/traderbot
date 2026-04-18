@@ -1,5 +1,7 @@
 # Core dependencies
-setuptools>=69.0.0,<75.0.0
+# setuptools pinned below 81.0.0 because pkg_resources (used by
+# polygon-api-client) is removed in setuptools 81. 78.1.1 fixes PYSEC-2025-49.
+setuptools>=78.1.1,<81.0.0
 python-dotenv>=1.0.0,<2.0.0
 requests>=2.32.0,<3.0.0
 pandas>=2.2.0,<3.0.0
@@ -58,7 +60,8 @@ boto3>=1.35.0,<2.0.0
 
 # Utilities
 python-slugify>=8.0.1,<9.0.0
-cryptography>=42.0.0,<44.0.0
+# cryptography >= 44.0.1 fixes CVE-2024-12797, CVE-2026-26007, CVE-2026-34073.
+cryptography>=44.0.1,<47.0.0
 
 # Rate Limiting
 slowapi>=0.1.8,<1.0.0
