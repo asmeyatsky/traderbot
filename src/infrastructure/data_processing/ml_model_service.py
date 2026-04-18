@@ -25,13 +25,10 @@ from src.domain.entities.user import User
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class TradingSignal:
-    """Represents a trading signal with confidence and explanation."""
-    signal: str  # BUY, SELL, HOLD
-    confidence: float  # 0.0 to 1.0
-    explanation: str
-    score: float  # -1.0 to 1.0 (negative = sell, positive = buy)
+# TradingSignal moved to domain (src.domain.ports.prediction) so the value
+# object lives where the port contract lives. Re-exported here to keep the
+# public name stable for any call site that still imports it from this module.
+from src.domain.ports.prediction import TradingSignal  # noqa: E402,F401
 
 
 @dataclass
@@ -900,7 +897,10 @@ class RLTradingAgentService(ReinforcementLearningAgent):
         )
 
 
-class EnsembleModelService(MLModelService):
+from src.domain.ports.prediction import PredictionPort  # noqa: E402
+
+
+class EnsembleModelService(MLModelService, PredictionPort):
     """
     Ensemble model combining LSTM, XGBoost, and FinBERT sentiment.
 

@@ -43,6 +43,25 @@ class OrderRepositoryPort(ABC):
         """Retrieve all active orders for a user."""
         pass
 
+    @abstractmethod
+    def get_pending_with_broker_id(self) -> List[Order]:
+        """Retrieve every pending order that has a broker_order_id assigned.
+
+        Used by AutonomousTradingService to poll broker status for orders
+        already sent to the broker but not yet reported filled/cancelled.
+        """
+        pass
+
+    @abstractmethod
+    def update_order(self, order: Order) -> Optional[Order]:
+        """Update the status of an existing order by id.
+
+        Distinct from `save()` in that `update_order()` expects the record
+        to exist and returns `None` if it does not. Implementations may
+        alias this to `save()` if their upsert semantics match.
+        """
+        pass
+
 
 class PositionRepositoryPort(ABC):
     """
@@ -90,20 +109,31 @@ class UserRepositoryPort(ABC):
     """
     Port for user persistence operations.
     """
-    
+
     @abstractmethod
     def save(self, user: User) -> User:
         """Save a user to persistent storage."""
         pass
-    
+
     @abstractmethod
     def get_by_id(self, user_id: str) -> Optional[User]:
         """Retrieve a user by ID."""
         pass
-    
+
     @abstractmethod
     def get_by_email(self, email: str) -> Optional[User]:
         """Retrieve a user by email."""
+        pass
+
+    @abstractmethod
+    def get_auto_trading_users(self) -> List[User]:
+        """Retrieve every active user with auto-trading enabled.
+
+        Used by AutonomousTradingService to enumerate cycle participants.
+        The concrete implementation filters on `is_active=True` AND
+        `auto_trading_enabled=True`; implementations without the latter
+        flag should return an empty list rather than all active users.
+        """
         pass
 
 

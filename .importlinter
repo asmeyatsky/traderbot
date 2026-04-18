@@ -8,10 +8,10 @@ include_external_packages = True
 # The 2026 rules (§2) mandate: domain ← application ← infrastructure ← presentation
 # Higher layers import lower ones; never the reverse.
 #
-# TECH DEBT (burn down by rewrite181226.md Phase 4):
-#   `autonomous_trading_service`, `backtest`, and `broker_account` reach into
-#   infrastructure directly. They must be refactored to accept ports via DI.
-#   Until then, their specific violations are listed in ignore_imports.
+# All previously grandfathered violations (autonomous_trading_service)
+# were refactored in commit be8b6f6+ to go through domain ports
+# (UserRepositoryPort, OrderRepositoryPort, ActivityLogPort, PredictionPort,
+# TradingExecutionPort, MarketDataPort).
 # ---------------------------------------------------------------------------
 [importlinter:contract:1]
 name = Hexagonal layer direction
@@ -22,15 +22,6 @@ layers =
     src.application
     src.domain
 exhaustive = false
-ignore_imports =
-    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.user_repository
-    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.portfolio_repository
-    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.position_repository
-    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.order_repository
-    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.activity_log_repository
-    src.application.services.autonomous_trading_service -> src.infrastructure.data_processing.ml_model_service
-    src.application.services.autonomous_trading_service -> src.infrastructure.broker_integration
-    src.application.services.autonomous_trading_service -> src.infrastructure.api_clients.market_data
 
 # ---------------------------------------------------------------------------
 # Contract 2 — Domain purity (no SDKs, no frameworks)
@@ -79,8 +70,6 @@ ignore_imports =
 #
 # Application use cases orchestrate domain logic through ports. They must not
 # reach into infrastructure, presentation, or SDKs directly.
-#
-# TECH DEBT: same three files as Contract 1 — grandfathered until Phase 4.
 # ---------------------------------------------------------------------------
 [importlinter:contract:3]
 name = Application purity — may import domain only
@@ -98,12 +87,3 @@ forbidden_modules =
     requests
     aiohttp
     boto3
-ignore_imports =
-    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.user_repository
-    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.portfolio_repository
-    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.position_repository
-    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.order_repository
-    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.activity_log_repository
-    src.application.services.autonomous_trading_service -> src.infrastructure.data_processing.ml_model_service
-    src.application.services.autonomous_trading_service -> src.infrastructure.broker_integration
-    src.application.services.autonomous_trading_service -> src.infrastructure.api_clients.market_data

@@ -11,20 +11,21 @@ from decimal import Decimal
 import logging
 import uuid
 
+from src.domain.ports.activity_log import ActivityLogPort
 from src.infrastructure.orm_models import TradingActivityLogORM
 from src.infrastructure.database import get_database_manager
 
 logger = logging.getLogger(__name__)
 
 
-class ActivityLogRepository:
+class ActivityLogRepository(ActivityLogPort):
     """Repository for trading activity log persistence."""
 
     def log_event(
         self,
         user_id: str,
         event_type: str,
-        message: str,
+        message: str = "",
         symbol: Optional[str] = None,
         signal: Optional[str] = None,
         confidence: Optional[float] = None,

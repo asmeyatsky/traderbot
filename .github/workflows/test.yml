@@ -51,28 +51,30 @@ jobs:
           DATABASE_URL: sqlite:///./test.db
           JWT_SECRET_KEY: test_secret_key_for_ci_at_least_32_characters_long
           ENVIRONMENT: development
-        # Measures coverage of src/domain/ across the full test suite.
-        # Baseline ~41% locally; floor 35% to stay stable across skip conditions.
-        # TODO(phase-8): raise to 95% as domain services get direct tests.
-        run: pytest tests/ --tb=short --cov=src/domain --cov-report=term --cov-fail-under=35
+        # CI observed 42% on the last green run; floor is 40% for a 2pp
+        # safety margin. Ratchet up each time we add domain tests.
+        # TODO(phase-8): raise to 95% per the 2026 rules.
+        run: pytest tests/ --tb=short --cov=src/domain --cov-report=term --cov-fail-under=40
 
       - name: Application-layer coverage (2026 rules §5 — target ≥85%)
         env:
           DATABASE_URL: sqlite:///./test.db
           JWT_SECRET_KEY: test_secret_key_for_ci_at_least_32_characters_long
           ENVIRONMENT: development
-        # Baseline ~39% locally; floor 30%. TODO(phase-8): raise to 85%.
-        run: pytest tests/ --tb=short --cov=src/application --cov-report=term --cov-fail-under=30
+        # CI observed 41% on the last green run; floor is 38% for a 3pp
+        # margin. TODO(phase-8): raise to 85%.
+        run: pytest tests/ --tb=short --cov=src/application --cov-report=term --cov-fail-under=38
 
       - name: Overall test coverage (2026 rules §5 — target ≥80%)
         env:
           DATABASE_URL: sqlite:///./test.db
           JWT_SECRET_KEY: test_secret_key_for_ci_at_least_32_characters_long
           ENVIRONMENT: development
-        # Floor raised from 15% → 15% (unchanged — CI has pandas so coverage
-        # runs slightly higher than local; floor ramps up over time).
-        # TODO(phase-8): raise to 80%.
-        run: pytest tests/ -v --tb=short --cov=src --cov-report=term-missing --cov-fail-under=15
+        # CI observed 19% on the last green run; floor is 17% for a 2pp
+        # margin. Overall is dragged down by infrastructure files that
+        # aren't exercised without external services (Alpaca, Polygon, TF).
+        # TODO(phase-8): raise to 80% as integration harness comes online.
+        run: pytest tests/ -v --tb=short --cov=src --cov-report=term-missing --cov-fail-under=17
 
   test-frontend:
     runs-on: ubuntu-latest

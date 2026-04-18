@@ -23,19 +23,24 @@ from src.domain.entities.trading import (
     Order, OrderType, OrderStatus, PositionType, Position,
 )
 from src.domain.entities.user import User
+from src.domain.ports import (
+    MarketDataPort,
+    OrderRepositoryPort,
+    PortfolioRepositoryPort,
+    PositionRepositoryPort,
+    TradingExecutionPort,
+    UserRepositoryPort,
+)
+from src.domain.ports.activity_log import ActivityLogPort
 from src.domain.ports.broker_routing import BrokerRoutingPort
+from src.domain.ports.prediction import PredictionPort
 from src.domain.value_objects import Symbol, Money
 
 if TYPE_CHECKING:
-    from src.infrastructure.repositories.user_repository import UserRepository
-    from src.infrastructure.repositories.portfolio_repository import PortfolioRepository
-    from src.infrastructure.repositories.position_repository import PositionRepository
-    from src.infrastructure.repositories.order_repository import OrderRepository
-    from src.infrastructure.repositories.activity_log_repository import ActivityLogRepository
-    from src.infrastructure.data_processing.ml_model_service import EnsembleModelService
-    from src.infrastructure.broker_integration import AlpacaBrokerService
+    # Only the domain-service types remain in TYPE_CHECKING; they live in the
+    # domain layer so the static linter is satisfied. Everything else now
+    # comes through the ports imported above at runtime.
     from src.domain.services.risk_management import RiskManager, CircuitBreakerService
-    from src.infrastructure.api_clients.market_data import MarketDataService
 
 logger = logging.getLogger(__name__)
 
@@ -61,16 +66,16 @@ class AutonomousTradingService:
 
     def __init__(
         self,
-        user_repository: UserRepository,
-        portfolio_repository: PortfolioRepository,
-        position_repository: PositionRepository,
-        order_repository: OrderRepository,
-        activity_log_repository: ActivityLogRepository,
-        ml_model_service: EnsembleModelService,
-        broker_service: AlpacaBrokerService,
-        risk_manager: RiskManager,
-        circuit_breaker: CircuitBreakerService,
-        market_data_service: MarketDataService,
+        user_repository: UserRepositoryPort,
+        portfolio_repository: PortfolioRepositoryPort,
+        position_repository: PositionRepositoryPort,
+        order_repository: OrderRepositoryPort,
+        activity_log_repository: ActivityLogPort,
+        ml_model_service: PredictionPort,
+        broker_service: TradingExecutionPort,
+        risk_manager: "RiskManager",
+        circuit_breaker: "CircuitBreakerService",
+        market_data_service: MarketDataPort,
         broker_routing: Optional[BrokerRoutingPort] = None,
     ):
         self.user_repo = user_repository
