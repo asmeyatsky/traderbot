@@ -25,9 +25,11 @@ fi
 
 case "${1:-deploy}" in
   deploy)
-    echo "==> Pulling latest code"
-    cd "$SCRIPT_DIR/.." && git pull --ff-only
-    cd "$SCRIPT_DIR"
+    # Note: git pull is done by the Deploy workflow BEFORE invoking this
+    # script, so that fixes to deploy.sh itself take effect on the first
+    # deploy that ships them. Kept a git-status for visibility.
+    echo "==> Git status:"
+    (cd "$SCRIPT_DIR/.." && git log -1 --oneline)
 
     # Prune BEFORE the build. On a t4g.medium the pip install of the
     # full ML stack (tensorflow + torch + transformers) needs ~4-5GB of

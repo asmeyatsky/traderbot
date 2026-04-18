@@ -24,8 +24,15 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          # git pull runs BEFORE deploy.sh is invoked so every deploy uses
+          # the latest version of the script. Previously the pull was
+          # inside deploy.sh, which meant the in-memory bash kept running
+          # the previous version — fixes to deploy.sh took two deploys
+          # to take effect.
           script: |
-            cd /opt/traderbot/deploy
+            cd /opt/traderbot
+            git pull --ff-only
+            cd deploy
             bash deploy.sh
 
       - name: Health check
