@@ -188,6 +188,31 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod exec db psql -U t
 
 ---
 
+## 10b. When deploy is stuck: "Production refusing to boot: AWS_SECRETS_NAME is unset"
+
+Symptom in the Deploy workflow logs:
+```
+RuntimeError: Production refusing to boot: AWS_SECRETS_NAME is unset and
+ALLOW_ENV_SECRETS is not 'true'.
+```
+
+Phase 3 added a boot guard (`src/infrastructure/config/aws_secrets.py:79`) that refuses to start the API in `ENVIRONMENT=production` unless one of:
+- `AWS_SECRETS_NAME` is set and the container has IAM read access to that secret, OR
+- `ALLOW_ENV_SECRETS=true` (the transitional opt-out — we're using `.env.prod` on disk).
+
+Until the AWS Secrets Manager migration lands, add the opt-out:
+
+```bash
+ssh ubuntu@traderbotapp.com
+cd /opt/traderbot/deploy
+grep -q '^ALLOW_ENV_SECRETS=' .env.prod || echo 'ALLOW_ENV_SECRETS=true' >> .env.prod
+bash deploy.sh restart
+```
+
+The `.env.prod.example` in the repo already documents this; add the line once on each host and future deploys pass.
+
+---
+
 ## 11. When deploy is stuck: "No space left on device"
 
 Symptom in the Deploy workflow logs:

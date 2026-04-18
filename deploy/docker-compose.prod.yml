@@ -67,6 +67,13 @@ services:
       - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
       - ALPACA_API_KEY=${ALPACA_API_KEY:-}
       - ALPACA_SECRET_KEY=${ALPACA_SECRET_KEY:-}
+      # Phase 3 secrets guard — one of these must be set for prod boot.
+      - ALLOW_ENV_SECRETS=${ALLOW_ENV_SECRETS:-}
+      - AWS_SECRETS_NAME=${AWS_SECRETS_NAME:-}
+      - AWS_REGION=${AWS_REGION:-eu-west-2}
+      # Phase 6 kill switches — both default off so LIVE users stay paper.
+      - EMERGENCY_HALT=${EMERGENCY_HALT:-false}
+      - ENABLE_LIVE_TRADING=${ENABLE_LIVE_TRADING:-false}
     depends_on:
       db:
         condition: service_healthy
