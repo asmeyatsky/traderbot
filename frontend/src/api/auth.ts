@@ -24,3 +24,15 @@ export async function updateMe(payload: UpdateUserRequest): Promise<User> {
 export async function logout(): Promise<void> {
   await apiClient.post('/users/logout');
 }
+
+/** Phase 10.1 — update the user's discipline rules and/or trading philosophy.
+ *  Either field is optional; `null` or `undefined` leaves it unchanged.
+ *  Sending `discipline_rules: []` explicitly clears all rules.
+ *  Sending `trading_philosophy: ''` clears the philosophy. */
+export async function updateDisciplineRules(payload: {
+  discipline_rules?: string[];
+  trading_philosophy?: string;
+}): Promise<User> {
+  const { data } = await apiClient.put<User>('/users/me/discipline', payload);
+  return data;
+}

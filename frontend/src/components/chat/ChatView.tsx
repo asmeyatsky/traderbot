@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useChatStore } from '../../stores/chat-store';
 import {
   useConversations,
@@ -8,10 +8,13 @@ import {
   useSendMessage,
 } from '../../hooks/use-chat';
 import { useCreateOrder } from '../../hooks/use-orders';
+import { extractDisciplineVeto } from '../../api/orders';
 import ConversationList from './ConversationList';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
+import DisciplineVetoModal from './DisciplineVetoModal';
 import type { TradeAction, ChatMessage } from '../../types/chat';
+import type { CreateOrderRequest, DisciplineVeto } from '../../types/order';
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
@@ -65,27 +68,57 @@ export default function ChatView() {
     createConv({});
   };
 
+  // Phase 10.1 — veto modal state. When the backend refuses a trade with
+  // a discipline_veto body, we pause the order, show the rules, and offer
+  // the user an explicit override path. Cancel just drops the request.
+  const [vetoState, setVetoState] = useState<
+    { pendingOrder: CreateOrderRequest; tradeKey: string; vetoes: DisciplineVeto[] } | null
+  >(null);
+
+  const submitOrder = (payload: CreateOrderRequest, tradeKey: string) => {
+    if (!activeConversationId) return;
+    createOrder(payload, {
+      onSuccess: () => {
+        markTradeExecuted(tradeKey);
+        setVetoState(null);
+      },
+      onError: (err) => {
+        const veto = extractDisciplineVeto(err);
+        if (veto) {
+          setVetoState({ pendingOrder: payload, tradeKey, vetoes: veto.vetoes });
+          return;
+        }
+        sendMessage(
+          activeConversationId,
+          `Order failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        );
+      },
+    });
+  };
+
   const handleConfirmTrade = (action: TradeAction) => {
     if (!activeConversationId) return;
     const tradeKey = `${action.symbol}-${action.action}-${action.quantity}`;
-    createOrder(
+    submitOrder(
       {
         symbol: action.symbol,
         position_type: action.action === 'BUY' ? 'LONG' : 'SHORT',
         order_type: 'MARKET',
         quantity: action.quantity,
       },
-      {
-        onSuccess: () => markTradeExecuted(tradeKey),
-        onError: (err) => {
-          sendMessage(
-            activeConversationId,
-            `Order failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-          );
-        },
-      },
+      tradeKey,
     );
   };
+
+  const handleVetoOverride = () => {
+    if (!vetoState) return;
+    submitOrder(
+      { ...vetoState.pendingOrder, override_discipline_vetoes: true },
+      vetoState.tradeKey,
+    );
+  };
+
+  const handleVetoCancel = () => setVetoState(null);
 
   return (
     <div className="flex h-full">
@@ -113,6 +146,13 @@ export default function ChatView() {
         />
         <ChatInput onSend={handleSend} disabled={isStreaming} />
       </div>
+      <DisciplineVetoModal
+        open={vetoState !== null}
+        vetoes={vetoState?.vetoes ?? []}
+        isOverriding={isOrderPending}
+        onOverride={handleVetoOverride}
+        onCancel={handleVetoCancel}
+      />
     </div>
   );
 }

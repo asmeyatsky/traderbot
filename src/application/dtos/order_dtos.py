@@ -64,6 +64,19 @@ class CreateOrderRequest(BaseModel):
         description="TOTP 6-digit code (required for live-mode users)",
         example="123456"
     )
+    # Phase 10.1 — Discipline coach override.
+    # When a prior request was refused with a `discipline_veto` response,
+    # the client re-submits the identical order with this flag set to
+    # acknowledge the violation. Setting this bypasses the AI check and
+    # emits an `OrderVetoOverrideRequested` audit event.
+    override_discipline_vetoes: bool = Field(
+        default=False,
+        description=(
+            "Acknowledge and override a previous discipline_veto response. "
+            "Every use is audited. Do not set unless the user explicitly "
+            "confirmed they want to break their own rule."
+        ),
+    )
 
     class Config:
         json_schema_extra = {

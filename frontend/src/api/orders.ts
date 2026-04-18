@@ -1,5 +1,25 @@
+import { isAxiosError } from 'axios';
 import apiClient from './client';
-import type { CreateOrderRequest, Order, OrderListResponse } from '../types/order';
+import type {
+  CreateOrderRequest,
+  DisciplineVetoErrorBody,
+  Order,
+  OrderListResponse,
+} from '../types/order';
+
+/** Parse a thrown error from `createOrder` and return the structured
+ *  discipline-veto body when the server refused the trade with HTTP 400 +
+ *  `{error: 'discipline_veto', vetoes: [...]}`. Returns null for any other
+ *  error shape so callers can fall through to their generic error branch. */
+export function extractDisciplineVeto(err: unknown): DisciplineVetoErrorBody | null {
+  if (!isAxiosError(err)) return null;
+  if (err.response?.status !== 400) return null;
+  const detail = err.response.data?.detail;
+  if (detail && typeof detail === 'object' && detail.error === 'discipline_veto') {
+    return detail as DisciplineVetoErrorBody;
+  }
+  return null;
+}
 
 export async function createOrder(payload: CreateOrderRequest): Promise<Order> {
   const { data } = await apiClient.post<Order>('/orders/create', payload);

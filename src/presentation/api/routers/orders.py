@@ -19,7 +19,7 @@ from src.presentation.api.dependencies import (
     get_create_order_use_case,
     get_order_repository,
 )
-from src.application.use_cases.trading import CreateOrderUseCase
+from src.application.use_cases.trading import CreateOrderUseCase, DisciplineVetoError
 from src.infrastructure.repositories import OrderRepository
 from src.domain.value_objects import Symbol
 from src.domain.entities.trading import OrderStatus
@@ -112,6 +112,13 @@ async def create_order(
 
         logger.info(f"Creating order for user {user_id}: {request.symbol}")
 
+        # Phase 10.1 — if the client is explicitly overriding a prior
+        # discipline veto, audit the intent BEFORE the order runs so we
+        # have a record even if the order later fails. Every override is
+        # append-only; operators can review overrides per user over time.
+        if request.override_discipline_vetoes:
+            _emit_override_audit(user_id, request)
+
         order = use_case.execute(
             user_id=user_id,
             symbol=Symbol(request.symbol),
@@ -120,6 +127,7 @@ async def create_order(
             quantity=request.quantity,
             limit_price=request.limit_price,
             stop_price=request.stop_price,
+            override_discipline_vetoes=request.override_discipline_vetoes,
         )
 
         if not order:
@@ -130,6 +138,30 @@ async def create_order(
 
         return _order_to_response(order)
 
+    except DisciplineVetoError as e:
+        # Phase 10.1 — render a structured body the client can parse to
+        # show the "break this rule?" modal. The HTTP 400 is intentional:
+        # this is a client-fixable situation (resubmit with override) not
+        # a server fault.
+        logger.info(
+            "discipline_veto_refused user_id=%s symbol=%s vetoes=%d",
+            user_id, request.symbol, len(e.vetoes),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "discipline_veto",
+                "message": "This order breaks one or more of your discipline rules.",
+                "vetoes": [
+                    {
+                        "rule_id": v.rule_id,
+                        "rule_text": v.rule_text,
+                        "evidence": v.evidence,
+                    }
+                    for v in e.vetoes
+                ],
+            },
+        )
     except ValueError as e:
         logger.warning(f"Order validation failed: {e}")
         raise HTTPException(
@@ -144,6 +176,45 @@ async def create_order(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create order"
         )
+
+
+def _emit_override_audit(user_id: str, request: CreateOrderRequest) -> None:
+    """Emit an OrderVetoOverrideRequested audit event (Phase 10.1).
+
+    We capture the order shape but intentionally not the vetoes themselves —
+    they were already audited on the prior refused request, and we don't
+    want to duplicate that payload when the user's only new action is
+    acknowledging them. Operators can correlate via `correlation_id` if
+    they need the full chain.
+    """
+    try:
+        from src.infrastructure.adapters.audit_event_sink import audit_event_sink
+        from src.domain.ports.audit_event_sink import AuditEvent
+        from src.infrastructure.observability import get_correlation_id
+        from datetime import datetime as _dt
+        import uuid as _uuid
+
+        audit_event_sink.append(
+            AuditEvent(
+                id=str(_uuid.uuid4()),
+                actor_user_id=user_id,
+                action="OrderVetoOverrideRequested",
+                aggregate_type="order",
+                aggregate_id=f"{user_id}:{request.symbol}",
+                before_hash=None,
+                after_hash=None,
+                payload_json={
+                    "symbol": request.symbol,
+                    "action": request.position_type,
+                    "quantity": request.quantity,
+                    "order_type": request.order_type,
+                },
+                occurred_at=_dt.utcnow(),
+                correlation_id=get_correlation_id() or None,
+            )
+        )
+    except Exception:  # noqa: BLE001 — audit must never break the order path
+        logger.exception("audit emission failed for OrderVetoOverrideRequested")
 
 
 @router.get(

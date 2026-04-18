@@ -16,6 +16,10 @@ export interface User {
   sms_notifications_enabled: boolean;
   approval_mode_enabled: boolean;
   allowed_markets: string[];
+  /** Phase 10.1 — pre-trade AI veto layer. Empty list + null philosophy
+   *  means the check is a no-op for this user. */
+  discipline_rules: string[];
+  trading_philosophy: string | null;
   created_at: string;
   updated_at: string;
 }

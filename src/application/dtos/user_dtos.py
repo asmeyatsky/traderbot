@@ -62,6 +62,50 @@ class UpdateSectorPreferencesRequest(BaseModel):
     excluded_sectors: List[str] = Field(default_factory=list)
 
 
+class UpdateDisciplineRulesRequest(BaseModel):
+    """Request DTO for updating discipline rules and trading philosophy (Phase 10.1).
+
+    Both fields are independently optional so the client can update either
+    without round-tripping the other. Setting `discipline_rules` to an empty
+    list clears all rules; setting `trading_philosophy` to an empty string or
+    None clears the philosophy.
+    """
+
+    discipline_rules: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "Free-form user-written rules; each is evaluated independently "
+            "by the pre-trade AI veto. Max 50 rules, 500 chars each."
+        ),
+        max_length=50,
+    )
+    trading_philosophy: Optional[str] = Field(
+        default=None,
+        max_length=4000,
+        description=(
+            "Paragraph describing your trading approach. Used as additional "
+            "context by the pre-trade AI veto for ambiguous orders."
+        ),
+    )
+
+    @field_validator("discipline_rules")
+    @classmethod
+    def validate_rule_shape(cls, v):
+        if v is None:
+            return v
+        cleaned = []
+        for rule in v:
+            if not isinstance(rule, str):
+                raise ValueError("Every rule must be a string")
+            stripped = rule.strip()
+            if not stripped:
+                continue  # silently drop blanks
+            if len(stripped) > 500:
+                raise ValueError("Each rule is limited to 500 characters")
+            cleaned.append(stripped)
+        return cleaned
+
+
 class UserResponse(BaseModel):
     """Response DTO for user details."""
 
@@ -82,6 +126,10 @@ class UserResponse(BaseModel):
     sms_notifications_enabled: bool
     approval_mode_enabled: bool
     allowed_markets: List[str]
+    # Phase 10.1 — discipline coach state. Defaults keep existing users at
+    # zero rules / no philosophy, so the check is a no-op until they opt in.
+    discipline_rules: List[str] = []
+    trading_philosophy: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

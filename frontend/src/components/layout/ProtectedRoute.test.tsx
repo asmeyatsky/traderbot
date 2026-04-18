@@ -38,6 +38,8 @@ const testUser = {
   sms_notifications_enabled: false,
   approval_mode_enabled: false,
   allowed_markets: ['US_NYSE', 'US_NASDAQ'],
+  discipline_rules: [] as string[],
+  trading_philosophy: null as string | null,
   created_at: '',
   updated_at: '',
 };

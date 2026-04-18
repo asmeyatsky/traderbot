@@ -30,7 +30,7 @@ from src.application.dtos.user_dtos import (
     CreateUserRequest, UpdateUserRequest, UserResponse,
     UpdateRiskSettingsRequest, UpdateSectorPreferencesRequest,
     LoginRequest, LoginResponse, ChangePasswordRequest,
-    UpdateAutoTradingRequest,
+    UpdateAutoTradingRequest, UpdateDisciplineRulesRequest,
 )
 from src.presentation.api.dependencies import (
     get_user_repository,
@@ -70,6 +70,8 @@ def _user_to_response(user: User) -> UserResponse:
         sms_notifications_enabled=user.sms_notifications_enabled if hasattr(user, 'sms_notifications_enabled') else False,
         approval_mode_enabled=user.approval_mode_enabled if hasattr(user, 'approval_mode_enabled') else False,
         allowed_markets=user.allowed_markets if hasattr(user, 'allowed_markets') else ["US_NYSE", "US_NASDAQ", "UK_LSE", "EU_EURONEXT", "DE_XETRA", "JP_TSE", "HK_HKEX"],
+        discipline_rules=getattr(user, 'discipline_rules', []) or [],
+        trading_philosophy=getattr(user, 'trading_philosophy', None),
         created_at=user.created_at,
         updated_at=user.updated_at,
     )
@@ -752,6 +754,51 @@ async def delete_user_data(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete user data"
         )
+
+
+# ============================================================================
+# Discipline coach — rules + philosophy (Phase 10.1)
+# ============================================================================
+
+
+@router.put(
+    "/me/discipline",
+    response_model=UserResponse,
+    summary="Update discipline rules and trading philosophy",
+    responses={
+        200: {"description": "Rules updated"},
+        401: {"description": "Unauthorized"},
+        422: {"description": "Validation error (rule length, count)"},
+    },
+)
+async def update_discipline_rules(
+    body: UpdateDisciplineRulesRequest,
+    user_id: str = Depends(get_current_user),
+    user_repository: UserRepository = Depends(get_user_repository),
+) -> UserResponse:
+    """Update the user's discipline rules and/or trading philosophy.
+
+    Either field is optional — only the fields present in the request body
+    are updated. Setting `discipline_rules` to `[]` explicitly clears all
+    rules. Setting `trading_philosophy` to an empty string clears it.
+    """
+    user = user_repository.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    from dataclasses import replace
+    updates = {"updated_at": datetime.utcnow()}
+    if body.discipline_rules is not None:
+        updates["discipline_rules"] = body.discipline_rules
+    if body.trading_philosophy is not None:
+        # Treat the empty string as an explicit clear — the UI sends "" when
+        # the user deletes the textarea content, and None when they haven't
+        # touched the field at all.
+        updates["trading_philosophy"] = body.trading_philosophy.strip() or None
+
+    updated = replace(user, **updates)
+    saved = user_repository.update(updated)
+    return _user_to_response(saved)
 
 
 # ============================================================================
