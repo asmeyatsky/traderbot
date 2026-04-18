@@ -343,3 +343,66 @@ class TestPortfolioPositionsLoaded:
         svc.broker.place_order.assert_called_once()
         placed = svc.broker.place_order.call_args[0][0]
         assert placed.quantity == 20
+
+
+class TestBrokerRouting:
+    """ADR-002: the autonomous loop must route orders per-user when
+    broker_routing is wired. Without it, the hardcoded `broker` is used
+    (paper in prod DI) — fail-safe default for tests.
+    """
+
+    def test_routed_broker_is_used_when_wired(self):
+        from src.domain.entities.user import TradingMode
+
+        user = _make_user()
+        user = replace(user, trading_mode=TradingMode.LIVE)
+
+        routed_broker = MagicMock()
+        routed_broker.place_order.return_value = BrokerOrderResponse(
+            broker_order_id="live-42", status="pending"
+        )
+        routing = MagicMock()
+        routing.for_user.return_value = routed_broker
+
+        svc = _make_service(broker_routing=routing)
+        svc.circuit_breaker.is_trading_allowed.return_value = True
+        svc.user_repo.get_auto_trading_users.return_value = [user]
+        svc.portfolio_repo.get_by_user_id.return_value = _make_portfolio(user.id)
+        svc.risk_manager.should_pause_trading.return_value = False
+        svc.risk_manager.validate_order.return_value = []
+        svc.ml_service.predict_price_direction.return_value = TradingSignal(
+            signal="BUY", confidence=0.9, explanation="strong", score=0.9
+        )
+        from src.domain.value_objects import Price
+        svc.market_data.get_current_price.return_value = Price(amount=Decimal("100"), currency="USD")
+
+        svc.run_trading_cycle()
+
+        routing.for_user.assert_called_with(user)
+        routed_broker.place_order.assert_called_once()
+        # The fallback broker (from constructor) must NOT have been used.
+        svc.broker.place_order.assert_not_called()
+
+    def test_fallback_broker_used_when_routing_unwired(self):
+        """broker_routing=None → legacy path preserved."""
+        user = _make_user()
+        svc = _make_service()  # broker_routing defaults to None
+        assert svc.broker_routing is None
+
+        svc.circuit_breaker.is_trading_allowed.return_value = True
+        svc.user_repo.get_auto_trading_users.return_value = [user]
+        svc.portfolio_repo.get_by_user_id.return_value = _make_portfolio(user.id)
+        svc.risk_manager.should_pause_trading.return_value = False
+        svc.risk_manager.validate_order.return_value = []
+        svc.ml_service.predict_price_direction.return_value = TradingSignal(
+            signal="BUY", confidence=0.9, explanation="", score=0.9
+        )
+        from src.domain.value_objects import Price
+        svc.market_data.get_current_price.return_value = Price(amount=Decimal("100"), currency="USD")
+        svc.broker.place_order.return_value = BrokerOrderResponse(
+            broker_order_id="paper-1", status="pending"
+        )
+
+        svc.run_trading_cycle()
+
+        svc.broker.place_order.assert_called_once()

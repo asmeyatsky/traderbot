@@ -16,15 +16,15 @@ import logging
 from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 import uuid
 
 from src.domain.entities.trading import (
     Order, OrderType, OrderStatus, PositionType, Position,
 )
 from src.domain.entities.user import User
+from src.domain.ports.broker_routing import BrokerRoutingPort
 from src.domain.value_objects import Symbol, Money
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.infrastructure.repositories.user_repository import UserRepository
@@ -71,6 +71,7 @@ class AutonomousTradingService:
         risk_manager: RiskManager,
         circuit_breaker: CircuitBreakerService,
         market_data_service: MarketDataService,
+        broker_routing: Optional[BrokerRoutingPort] = None,
     ):
         self.user_repo = user_repository
         self.portfolio_repo = portfolio_repository
@@ -78,10 +79,23 @@ class AutonomousTradingService:
         self.order_repo = order_repository
         self.activity_log = activity_log_repository
         self.ml_service = ml_model_service
-        self.broker = broker_service
+        self.broker = broker_service  # fallback for tests and when routing is unwired
         self.risk_manager = risk_manager
         self.circuit_breaker = circuit_breaker
         self.market_data = market_data_service
+        self.broker_routing = broker_routing
+
+    def _broker_for(self, user: User):
+        """Return the per-user broker when routing is wired, else the fallback.
+
+        The autonomous loop runs headless (no TOTP challenge), so LIVE-mode
+        users still hit the routing port — the port applies EMERGENCY_HALT,
+        ENABLE_LIVE_TRADING, and daily-loss-cap gates itself. If routing is
+        unavailable we fall back to the injected broker (paper in prod DI).
+        """
+        if self.broker_routing is None:
+            return self.broker
+        return self.broker_routing.for_user(user)
 
     # ------------------------------------------------------------------
     # Trading cycle
@@ -245,7 +259,7 @@ class AutonomousTradingService:
         )
 
         try:
-            response = self.broker.place_order(order)
+            response = self._broker_for(user).place_order(order)
             order = replace(order, broker_order_id=response.broker_order_id)
             self.order_repo.save(order)
 
@@ -340,7 +354,7 @@ class AutonomousTradingService:
     def _submit_order(self, user, order, signal) -> None:
         """Place order with broker and persist."""
         try:
-            response = self.broker.place_order(order)
+            response = self._broker_for(user).place_order(order)
             order = replace(order, broker_order_id=response.broker_order_id)
             self.order_repo.save(order)
 
@@ -385,8 +399,16 @@ class AutonomousTradingService:
                 )
 
     def _check_order_status(self, order: Order) -> None:
-        """Check a single order's status with the broker and update accordingly."""
-        status = self.broker.get_order_status(order.broker_order_id)
+        """Check a single order's status with the broker and update accordingly.
+
+        For polling we resolve the user to route the status query to the same
+        broker environment (paper vs live) the order was placed against.
+        If the user record is missing (anonymised), fall back to the injected
+        broker rather than dropping the poll — status reads are read-only.
+        """
+        poll_user = self.user_repo.get_by_id(order.user_id)
+        broker = self._broker_for(poll_user) if poll_user is not None else self.broker
+        status = broker.get_order_status(order.broker_order_id)
 
         if status == "filled":
             filled_order = replace(

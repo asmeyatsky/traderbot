@@ -342,7 +342,7 @@ async def startup_event():
                 risk_manager=container.adapters.risk_manager(),
                 circuit_breaker=container.adapters.circuit_breaker_service(),
                 market_data_service=container.adapters.market_data_service(),
-                confidence_threshold=settings.AUTO_TRADING_CONFIDENCE_THRESHOLD,
+                broker_routing=container.adapters.broker_service_factory(),
             )
             start_scheduler(trading_service, cycle_minutes=settings.AUTO_TRADING_CYCLE_MINUTES)
             logger.info("Autonomous trading scheduler started")

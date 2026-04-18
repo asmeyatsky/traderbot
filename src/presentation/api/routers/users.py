@@ -15,9 +15,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 import uuid
 import logging
 
+from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
