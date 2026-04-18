@@ -32,12 +32,26 @@ case "${1:-deploy}" in
     # Prune BEFORE the build. On a t4g.medium the pip install of the
     # full ML stack (~2GB of packages) needs ~6GB of working space;
     # accumulated layers from past deploys eat that fast. A single
-    # disk-full build error wedges prod until an operator SSHes in, so
-    # we spend a few seconds here reclaiming space every deploy.
-    echo "==> Pre-build cleanup (dangling + old images + build cache)"
-    docker image prune -f
-    docker image prune -af --filter "until=168h" || true
-    docker builder prune -f --filter "until=168h" || true
+    # disk-full build error wedges prod until an operator SSHes in.
+    #
+    # When the root filesystem is over 80% full we run an AGGRESSIVE
+    # prune that removes every image not in use by a running container
+    # and the full build cache — no age filter. Deploys run ~30s longer
+    # because everything rebuilds from base, but the alternative is a
+    # failed deploy that needs manual SSH intervention.
+    echo "==> Pre-build cleanup"
+    USED_PCT=$(df --output=pcent / | tail -1 | tr -d ' %')
+    echo "    Disk usage before prune: ${USED_PCT}%"
+    if [ "${USED_PCT:-0}" -gt 80 ]; then
+      echo "    Disk over 80% — running AGGRESSIVE prune (no age filter)"
+      docker image prune -af || true
+      docker builder prune -af || true
+    else
+      echo "    Disk under 80% — running routine prune (7-day filter)"
+      docker image prune -f
+      docker image prune -af --filter "until=168h" || true
+      docker builder prune -f --filter "until=168h" || true
+    fi
     df -h / | tail -1
 
     echo "==> Building and starting containers"
