@@ -25,10 +25,13 @@ bcrypt>=4.1.2,<5.0.0
 passlib>=1.7.4,<2.0.0
 python-multipart>=0.0.6,<1.0.0
 
-# ML/AI — on x86 these pull CPU-only builds; on ARM64 they're CPU-only by default
-tensorflow>=2.15.0,<2.18.0
-torch>=2.0.0,<3.0.0
-transformers>=4.35.0,<5.0.0
+# ML/AI — LEAN default (xgboost only). Heavy neural-network stack
+# (tensorflow, torch, transformers) lives in requirements-ml.txt because
+# the t4g.medium 19 GB root can't accommodate a single pip-install layer
+# of all of them together (~9 GB extracted). Enable the heavy stack by
+# building with `docker build --build-arg INCLUDE_HEAVY_ML=true` when a
+# deploy needs LSTM / sentiment / RL features — autonomous trading
+# (AUTO_TRADING_ENABLED=true) is the only consumer, and it's off in prod.
 xgboost>=2.0.0,<3.0.0
 
 # NLP and Sentiment Analysis

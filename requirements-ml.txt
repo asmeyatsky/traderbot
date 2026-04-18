@@ -1,0 +1,19 @@
+# Heavy ML stack — NOT installed by the default Dockerfile build.
+#
+# Only required for:
+# - LSTMPricePredictionService  (torch)
+# - TransformerSentimentAnalysisService  (transformers + torch)
+# - Some parts of EnsembleModelService consumed by AutonomousTradingService
+#
+# AUTO_TRADING_ENABLED=false in prod so these are cold-path today.
+# Each has a try/except ImportError fallback at its import site, so the
+# app still starts without them — features just no-op.
+#
+# To build an image WITH this stack:
+#   docker build --build-arg INCLUDE_HEAVY_ML=true -t traderbot-api .
+#
+# Requires >= 25 GB free on the Docker host root FS. On t4g.medium that
+# means resizing the EBS volume from 19 GB to at least 40 GB first.
+tensorflow>=2.15.0,<2.18.0
+torch>=2.0.0,<3.0.0
+transformers>=4.35.0,<5.0.0
