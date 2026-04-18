@@ -50,10 +50,22 @@ case "${1:-deploy}" in
 
     echo "==> Building and starting containers"
     $COMPOSE build --pull
-    $COMPOSE up -d --remove-orphans
+    if ! $COMPOSE up -d --remove-orphans; then
+      echo "==> compose up FAILED — dumping last 200 lines from api + frontend + db"
+      $COMPOSE logs --tail=200 api || true
+      echo "---- frontend ----"
+      $COMPOSE logs --tail=50 frontend || true
+      echo "---- db ----"
+      $COMPOSE logs --tail=50 db || true
+      exit 1
+    fi
 
     echo "==> Running database migrations"
-    $COMPOSE exec -T api python -m alembic upgrade head
+    if ! $COMPOSE exec -T api python -m alembic upgrade head; then
+      echo "==> Alembic failed — dumping api logs"
+      $COMPOSE logs --tail=200 api || true
+      exit 1
+    fi
 
     echo "==> Post-build cleanup (dangling layers from this build)"
     docker image prune -f
