@@ -20,8 +20,9 @@ import-linter==2.11
 hypothesis>=6.100.0,<7.0.0
 
 # Additional dev tools
-# Pillow >= 10.3.0 fixes CVE-2024-28219; 10.2.0 fixed CVE-2023-50447.
-Pillow>=10.3.0,<12.0.0
+# Pillow >= 12.2.0 fixes CVE-2023-50447, CVE-2024-28219, CVE-2026-25990,
+# CVE-2026-40192. Upper bound is the next major to leave breathing room.
+Pillow>=12.2.0,<13.0.0
 spacy==3.7.2
 celery==5.3.4
 kafka-python==2.0.2
