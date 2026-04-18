@@ -278,7 +278,11 @@ async def send_message(
         event_generator(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            # `no-transform` tells intermediaries (Caddy, CDNs) not to gzip
+            # or otherwise reframe the body — SSE breaks when the encoder
+            # buffers chunks. X-Accel-Buffering guards the nginx path if
+            # we ever add one. The Caddyfile also excludes SSE from encode.
+            "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },

@@ -47,5 +47,12 @@ www.{$DOMAIN} {
 	}
 
 	# ── Compression ──────────────────────────────────────────────────
-	encode gzip zstd
+	# Skip compression for text/event-stream: the gzip encoder buffers
+	# output until its window fills, which stalls SSE streaming until the
+	# response ends. The SSE response also carries Cache-Control:
+	# no-transform (set in the router) as a second layer of insurance.
+	@compressible {
+		not header Content-Type text/event-stream*
+	}
+	encode @compressible gzip zstd
 }
