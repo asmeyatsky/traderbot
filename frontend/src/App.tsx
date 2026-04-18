@@ -15,6 +15,7 @@ import MarketsPage from './pages/MarketsPage';
 import SettingsPage from './pages/SettingsPage';
 import BacktestPage from './pages/BacktestPage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import LiveModePage from './pages/LiveModePage';
 import { useWebSocketNotifications } from './hooks/use-notifications';
 
 const queryClient = new QueryClient({
@@ -64,6 +65,7 @@ export default function App() {
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/backtest" element={<BacktestPage />} />
                 <Route path="/leaderboard" element={<LeaderboardPage />} />
+                <Route path="/live-mode" element={<LiveModePage />} />
                 {/* Legacy redirects */}
                 <Route path="/dashboard" element={<Navigate to="/chat" replace />} />
                 <Route path="/trading" element={<Navigate to="/chat" replace />} />

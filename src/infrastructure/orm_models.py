@@ -68,6 +68,15 @@ class UserORM(Base):
     max_position_pct = Column(Numeric(5, 2), nullable=False, default=Decimal('20'))
     allowed_markets = Column(JSON, nullable=False, default=["US_NYSE", "US_NASDAQ", "UK_LSE", "EU_EURONEXT", "DE_XETRA", "JP_TSE", "HK_HKEX"])
 
+    # ── Live-trading state (migration 009, ADR-002) ─────────────────────
+    # trading_mode defaults to 'paper'; 'live' requires KYC + TOTP + cap set.
+    # Values constrained to ('paper', 'live') by CHECK ck_users_trading_mode.
+    trading_mode = Column(String(10), nullable=False, default='paper', server_default='paper')
+    daily_loss_cap_usd = Column(Numeric(12, 2), nullable=True)
+    kyc_attestation_hash = Column(String(64), nullable=True)
+    totp_secret_encrypted = Column(String(255), nullable=True)
+    live_mode_enabled_at = Column(DateTime, nullable=True)
+
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -378,4 +387,37 @@ class DomainEventORM(Base):
         Index('idx_event_type', 'event_type'),
         Index('idx_event_user_id', 'user_id'),
         Index('idx_event_occurred_at', 'occurred_at'),
+    )
+
+
+class AuditEventORM(Base):
+    """Append-only security audit log (2026 rules §4).
+
+    Distinct from `domain_events`: this table is INSERT-only (no UPDATE/DELETE
+    grants), carries before/after hashes for tamper evidence, and records the
+    correlation ID so every write can be traced back to its originating HTTP
+    request. Read access is restricted via a separate DB role (see migration
+    008_audit_events.py).
+    """
+    __tablename__ = "audit_events"
+
+    id = Column(String(36), primary_key=True, index=True)
+    actor_user_id = Column(String(36), nullable=True, index=True)
+    action = Column(String(100), nullable=False, index=True)
+    aggregate_type = Column(String(100), nullable=False, index=True)
+    aggregate_id = Column(String(100), nullable=False, index=True)
+    before_hash = Column(String(64), nullable=True)  # sha256 hex of pre-change state, if any
+    after_hash = Column(String(64), nullable=True)   # sha256 hex of post-change state
+    payload_json = Column(JSON, nullable=False)
+    occurred_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    correlation_id = Column(String(64), nullable=True, index=True)
+    client_ip = Column(String(45), nullable=True)  # v4 or v6
+    user_agent = Column(String(500), nullable=True)
+
+    __table_args__ = (
+        Index('idx_audit_actor', 'actor_user_id'),
+        Index('idx_audit_action', 'action'),
+        Index('idx_audit_aggregate', 'aggregate_type', 'aggregate_id'),
+        Index('idx_audit_occurred_at', 'occurred_at'),
+        Index('idx_audit_correlation', 'correlation_id'),
     )

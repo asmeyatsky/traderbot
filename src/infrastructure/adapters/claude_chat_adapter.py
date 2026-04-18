@@ -8,8 +8,10 @@ Architectural Intent:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import time
 from typing import AsyncIterator, Dict, List, Any
 
 import anthropic
@@ -27,6 +29,46 @@ from src.infrastructure.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
+# Per-million-token pricing (USD). Update when model or pricing changes.
+# Source: Anthropic pricing, Haiku 4.5 as of 2026-04.
+_MODEL_PRICING_USD_PER_MTOK: Dict[str, Dict[str, float]] = {
+    "claude-haiku-4-5-20251001": {
+        "input": 1.00,
+        "output": 5.00,
+        "cache_read": 0.08,
+        "cache_write": 1.25,
+    },
+    "claude-sonnet-4-6": {
+        "input": 3.00,
+        "output": 15.00,
+        "cache_read": 0.30,
+        "cache_write": 3.75,
+    },
+    "claude-opus-4-7": {
+        "input": 15.00,
+        "output": 75.00,
+        "cache_read": 1.50,
+        "cache_write": 18.75,
+    },
+}
+
+
+def _compute_cost_usd(model: str, usage: Any) -> float:
+    """Compute USD cost for a single Claude call from Anthropic usage object."""
+    pricing = _MODEL_PRICING_USD_PER_MTOK.get(model)
+    if not pricing:
+        return 0.0
+    input_tokens = getattr(usage, "input_tokens", 0) or 0
+    output_tokens = getattr(usage, "output_tokens", 0) or 0
+    cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
+    cache_write = getattr(usage, "cache_creation_input_tokens", 0) or 0
+    return (
+        input_tokens * pricing["input"]
+        + output_tokens * pricing["output"]
+        + cache_read * pricing["cache_read"]
+        + cache_write * pricing["cache_write"]
+    ) / 1_000_000
+
 
 class ClaudeChatAdapter(AIChatPort):
     """
@@ -39,7 +81,14 @@ class ClaudeChatAdapter(AIChatPort):
     def __init__(self, api_key: str = None, model: str = None):
         self._api_key = api_key or settings.ANTHROPIC_API_KEY
         self._model = model or settings.CHAT_MODEL
-        self._client = anthropic.AsyncAnthropic(api_key=self._api_key)
+        # Explicit timeout prevents hung streams from leaking workers.
+        # The Anthropic SDK accepts seconds as a float; connect guard is tighter
+        # than the overall cap so a dead server fails fast rather than slow.
+        self._client = anthropic.AsyncAnthropic(
+            api_key=self._api_key,
+            timeout=anthropic.Timeout(60.0, connect=5.0),
+            max_retries=0,  # we do our own retry with visibility — see generate_response
+        )
 
     def _build_tools(self, tools: List[ToolDefinition]) -> List[Dict[str, Any]]:
         """Convert domain ToolDefinitions to Claude API tool format."""
@@ -84,6 +133,14 @@ class ClaudeChatAdapter(AIChatPort):
         if user_context.portfolio_summary:
             system_with_context += f"\nPortfolio: {user_context.portfolio_summary}"
 
+        prompt_hash = hashlib.sha256(
+            json.dumps(
+                {"system": system_with_context, "messages": api_messages, "tools": api_tools},
+                sort_keys=True,
+                default=str,
+            ).encode("utf-8")
+        ).hexdigest()[:16]
+
         max_retries = 3
         for attempt in range(max_retries):
             try:
@@ -102,6 +159,7 @@ class ClaudeChatAdapter(AIChatPort):
                 if api_tools:
                     kwargs["tools"] = api_tools
 
+                started_at = time.perf_counter()
                 async with self._client.messages.stream(**kwargs) as stream:
                     async for event in stream:
                         if event.type == "content_block_start":
@@ -120,6 +178,33 @@ class ClaudeChatAdapter(AIChatPort):
                             pass
 
                     final_message = await stream.get_final_message()
+                    latency_ms = int((time.perf_counter() - started_at) * 1000)
+                    usage = getattr(final_message, "usage", None)
+                    if usage is not None:
+                        try:
+                            from src.infrastructure.observability import get_correlation_id
+                            correlation_id = get_correlation_id()
+                        except Exception:
+                            correlation_id = ""
+                        logger.info(
+                            "claude_api_call",
+                            extra={
+                                "event": "claude_api_call",
+                                "model": self._model,
+                                "prompt_hash": prompt_hash,
+                                "input_tokens": getattr(usage, "input_tokens", 0),
+                                "output_tokens": getattr(usage, "output_tokens", 0),
+                                "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0),
+                                "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0),
+                                "latency_ms": latency_ms,
+                                "cost_usd": round(_compute_cost_usd(self._model, usage), 6),
+                                "user_id": user_context.user_id,
+                                "correlation_id": correlation_id,
+                                "stop_reason": getattr(final_message, "stop_reason", None),
+                                "attempt": attempt + 1,
+                            },
+                        )
+
                     for block in final_message.content:
                         if block.type == "tool_use":
                             yield ChatStreamEvent(

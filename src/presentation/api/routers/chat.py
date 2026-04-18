@@ -16,15 +16,42 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from src.infrastructure.security import get_current_user
 from src.presentation.api.dependencies import get_chat_use_case
 from src.application.use_cases.chat import ChatUseCase
 
 logger = logging.getLogger(__name__)
+
+
+def _chat_rate_limit_key(request: Request) -> str:
+    """Rate-limit key: authenticated user_id when available, else client IP.
+
+    Claude API cost scales with volume, so we cap per-user rather than per-IP —
+    otherwise one user on a NAT could burn the whole org's quota. Decoding the
+    JWT without signature check is fine here: the actual auth runs later in the
+    dependency chain. Worst case of a forged token: the attacker rate-limits
+    themselves under a fake user bucket, which is exactly what we want.
+    """
+    auth = request.headers.get("authorization", "")
+    if auth.startswith("Bearer "):
+        try:
+            import jwt as pyjwt
+            payload = pyjwt.decode(auth[7:], options={"verify_signature": False})
+            sub = payload.get("sub")
+            if sub:
+                return f"user:{sub}"
+        except Exception:
+            pass
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=_chat_rate_limit_key)
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
@@ -186,9 +213,11 @@ def get_conversation(
     "/conversations/{conversation_id}/messages",
     summary="Send a message and receive SSE stream",
 )
+@limiter.limit("60/minute")
 async def send_message(
+    request: Request,
     conversation_id: str,
-    request: SendMessageRequest,
+    body: SendMessageRequest,
     current_user=Depends(get_current_user),
     chat_use_case: ChatUseCase = Depends(get_chat_use_case),
 ):
@@ -219,7 +248,7 @@ async def send_message(
         async for event in chat_use_case.send_message(
             conversation_id=conversation_id,
             user_id=current_user,
-            content=request.content,
+            content=body.content,
         ):
             data = {"type": event.type}
 

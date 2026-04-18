@@ -54,7 +54,7 @@ from src.domain.entities.user import RiskTolerance
 from src.domain.services.trading import DefaultTradingDomainService, DefaultRiskManagementDomainService
 from src.domain.services.advanced_risk_management import DefaultAdvancedRiskManagementService
 from src.domain.services.dashboard_analytics import DefaultDashboardAnalyticsService
-from src.domain.services.market_data_enhancement import DefaultMarketDataEnhancementService
+from src.infrastructure.services.market_data_enhancement import DefaultMarketDataEnhancementService
 from src.domain.services.exchange_registry import ExchangeRegistry
 from src.domain.services.risk_management import RiskManager, CircuitBreakerService
 from src.infrastructure.adapters.notification import LoggingNotificationAdapter
@@ -64,6 +64,54 @@ from src.infrastructure.adapters.stock_screener import YahooFinanceScreenerAdapt
 from src.infrastructure.repositories.activity_log_repository import ActivityLogRepository
 from src.infrastructure.repositories.conversation_repository import ConversationRepository
 from src.infrastructure.repositories.broker_account_repository import BrokerAccountRepository
+from src.infrastructure.adapters.audit_event_sink import SqlAlchemyAuditEventSink
+from src.infrastructure.mcp import McpRegistry
+from src.infrastructure.mcp.market_data import MarketDataMcpServer
+from src.infrastructure.mcp.portfolio import PortfolioMcpServer
+from src.infrastructure.mcp.research import ResearchMcpServer
+
+
+def _build_mcp_registry(
+    market_data_service,
+    ai_model_service,
+    news_analysis_service,
+    portfolio_repository,
+    user_repository,
+    order_repository,
+    technical_analysis_port,
+    stock_screener,
+    exchange_registry,
+    ensemble_predictor,
+    backtest_use_case,
+):
+    """Assemble the MCP registry with one server per bounded context.
+
+    Factory function rather than a provider so each server is constructed with
+    its direct collaborators and the registry carries the wiring rules in one
+    place (2026 rules §3.5).
+    """
+    registry = McpRegistry()
+    registry.register(
+        MarketDataMcpServer(
+            market_data_service=market_data_service,
+            ai_model_service=ai_model_service,
+            news_analysis_service=news_analysis_service,
+            technical_analysis_port=technical_analysis_port,
+            stock_screener=stock_screener,
+            exchange_registry=exchange_registry,
+            ensemble_predictor=ensemble_predictor,
+        )
+    )
+    registry.register(
+        PortfolioMcpServer(
+            portfolio_repository=portfolio_repository,
+            user_repository=user_repository,
+            audit_sink=SqlAlchemyAuditEventSink(),
+            order_repository=order_repository,
+        )
+    )
+    registry.register(ResearchMcpServer(backtest_use_case=backtest_use_case))
+    return registry
 
 
 class RepositoryContainer(containers.DeclarativeContainer):
@@ -161,12 +209,28 @@ class AdapterContainer(containers.DeclarativeContainer):
     # Data provider for backtesting and market data
     data_provider_service = providers.Factory(YahooFinanceDataProvider)
 
-    # Broker integration
+    # Broker integration — per-user paper/live routing via factory (ADR-002).
+    # Live routing is gated by EMERGENCY_HALT and ENABLE_LIVE_TRADING env vars
+    # AND the daily-loss-cap tracker; never call AlpacaBrokerService directly.
+    from src.infrastructure.adapters.broker_factory import BrokerServiceFactory
+    from src.infrastructure.adapters.daily_loss_tracker import RedisDailyLossTracker
+    daily_loss_tracker = providers.Singleton(
+        RedisDailyLossTracker,
+        redis_client=cache_manager.provided.client,
+    )
+    broker_service_factory = providers.Singleton(
+        BrokerServiceFactory,
+        loss_tracker=daily_loss_tracker,
+    )
+
+    # Legacy provider kept for compatibility with callers that haven't moved to
+    # the factory yet. This intentionally returns a paper broker — any caller
+    # that should be live-aware must be migrated to `broker_service_factory`.
     alpaca_broker_service = providers.Factory(
         AlpacaBrokerService,
         api_key=settings.ALPACA_API_KEY,
         secret_key=settings.ALPACA_SECRET_KEY,
-        paper_trading=True  # Default to paper trading
+        paper_trading=True,  # legacy callers — paper only. See broker_service_factory for per-user routing.
     )
 
     broker_integration_service = providers.Factory(
@@ -307,12 +371,16 @@ class UseCaseContainer(containers.DeclarativeContainer):
         broker_account_repository=repositories.broker_account_repository,
     )
 
-    backtest_use_case = providers.Factory(RunBacktestUseCase)
+    # Backtest pipeline — the use case takes a port; the adapter owns the
+    # data-provider + strategy wiring (Phase 4 burn-down of ignore_imports).
+    from src.infrastructure.adapters.backtest_runner import YahooBacktestRunner
+    backtest_runner = providers.Singleton(YahooBacktestRunner)
+    backtest_use_case = providers.Factory(
+        RunBacktestUseCase, runner=backtest_runner,
+    )
 
-    chat_use_case = providers.Factory(
-        ChatUseCase,
-        ai_chat_port=adapters.claude_chat_adapter,
-        conversation_repository=repositories.conversation_repository,
+    mcp_registry = providers.Factory(
+        _build_mcp_registry,
         market_data_service=adapters.market_data_service,
         ai_model_service=services.ml_model_service,
         news_analysis_service=services.news_aggregation_service,
@@ -324,6 +392,14 @@ class UseCaseContainer(containers.DeclarativeContainer):
         exchange_registry=services.exchange_registry,
         ensemble_predictor=services.ensemble_predictor,
         backtest_use_case=backtest_use_case,
+    )
+
+    chat_use_case = providers.Factory(
+        ChatUseCase,
+        ai_chat_port=adapters.claude_chat_adapter,
+        conversation_repository=repositories.conversation_repository,
+        user_repository=repositories.user_repository,
+        tool_registry=mcp_registry,
     )
 
 

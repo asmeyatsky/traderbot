@@ -129,3 +129,50 @@ When you outgrow a single instance:
 2. **Database out**: migrate PostgreSQL to RDS ($15-30/mo) to free RAM
 3. **CDN**: put CloudFront in front of Caddy for global static asset caching (~$1/mo)
 4. **Full split**: move to ECS Fargate when you need horizontal scaling (~$50+/mo)
+
+## Secrets Management — Migrating Off `.env.prod`
+
+**Status:** As of 2026-04, `.env.prod` on the EC2 disk is the transitional
+fallback. 2026 rules §4 mandate a secret manager. Migrate before Phase 8 launch.
+
+**Why:** A file on disk is readable by any process that escapes the container,
+shows up in debug dumps, and is easy to leak in backups. AWS Secrets Manager
+scopes access via IAM and supports rotation.
+
+**Migration steps (one-time, ~15 minutes):**
+
+```bash
+# 1. Create the secret from your existing .env.prod values
+aws secretsmanager create-secret \
+  --name traderbot/prod \
+  --region eu-west-2 \
+  --description "TraderBot production secrets"
+
+# Then populate it — easiest is to feed a JSON blob built from .env.prod.
+
+# 2. Attach an IAM instance role policy allowing
+#    secretsmanager:GetSecretValue on
+#    arn:aws:secretsmanager:eu-west-2:<acct>:secret:traderbot/prod-*
+#    (add deploy/terraform/iam-secrets.tf alongside this migration).
+
+# 3. On the EC2 host, switch to the secret-manager path:
+sudo sed -i 's/^AWS_SECRETS_NAME=.*/AWS_SECRETS_NAME=traderbot\/prod/' \
+  /opt/traderbot/deploy/.env.prod
+sudo sed -i '/^ALLOW_ENV_SECRETS=/d' /opt/traderbot/deploy/.env.prod
+cd /opt/traderbot/deploy && bash deploy.sh restart
+
+# 4. Verify — you should see "Successfully loaded N secrets from AWS Secrets Manager"
+docker logs traderbot-api | grep -i "secrets manager" | tail -5
+
+# 5. Delete secrets from .env.prod, keeping only AWS_SECRETS_NAME and
+#    non-secret tunables like ENVIRONMENT and ALLOWED_ORIGINS.
+```
+
+**Guardrail:** If `ENVIRONMENT=production` and neither `AWS_SECRETS_NAME` nor
+`ALLOW_ENV_SECRETS=true` is set, the app refuses to boot. This prevents
+accidentally launching with secrets-in-env once Phase 3 is live.
+
+**Rotation:** AWS Secrets Manager supports automatic rotation via a Lambda
+function. For JWT_SECRET_KEY, manual rotation is fine: update the secret,
+restart the container, and all existing JWTs invalidate within 30 minutes
+(access-token TTL).

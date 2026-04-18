@@ -65,3 +65,20 @@ slowapi>=0.1.8,<1.0.0
 
 # Scheduling
 apscheduler>=3.10.0,<4.0.0
+
+# Observability (2026 rules §6 — tracing, metrics, structured logs)
+opentelemetry-api>=1.27.0,<2.0.0
+opentelemetry-sdk>=1.27.0,<2.0.0
+opentelemetry-instrumentation-fastapi>=0.48b0,<1.0.0
+opentelemetry-instrumentation-sqlalchemy>=0.48b0,<1.0.0
+opentelemetry-instrumentation-httpx>=0.48b0,<1.0.0
+opentelemetry-exporter-otlp-proto-http>=1.27.0,<2.0.0
+prometheus-fastapi-instrumentator>=7.0.0,<8.0.0
+
+# MCP — bounded-context servers (2026 rules §3.5)
+# jsonschema validates tool input/output at every boundary.
+jsonschema>=4.17.0,<5.0.0
+
+# Live trading — per-user TOTP for 2FA on live-mode enable + per-order challenge
+# (ADR-002). Pinned to the current 2.x stable.
+pyotp>=2.9.0,<3.0.0

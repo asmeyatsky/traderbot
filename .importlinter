@@ -1,0 +1,109 @@
+[importlinter]
+root_package = src
+include_external_packages = True
+
+# ---------------------------------------------------------------------------
+# Contract 1 — Hexagonal layer direction
+#
+# The 2026 rules (§2) mandate: domain ← application ← infrastructure ← presentation
+# Higher layers import lower ones; never the reverse.
+#
+# TECH DEBT (burn down by rewrite181226.md Phase 4):
+#   `autonomous_trading_service`, `backtest`, and `broker_account` reach into
+#   infrastructure directly. They must be refactored to accept ports via DI.
+#   Until then, their specific violations are listed in ignore_imports.
+# ---------------------------------------------------------------------------
+[importlinter:contract:1]
+name = Hexagonal layer direction
+type = layers
+layers =
+    src.presentation
+    src.infrastructure
+    src.application
+    src.domain
+exhaustive = false
+ignore_imports =
+    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.user_repository
+    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.portfolio_repository
+    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.position_repository
+    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.order_repository
+    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.activity_log_repository
+    src.application.services.autonomous_trading_service -> src.infrastructure.data_processing.ml_model_service
+    src.application.services.autonomous_trading_service -> src.infrastructure.broker_integration
+    src.application.services.autonomous_trading_service -> src.infrastructure.api_clients.market_data
+
+# ---------------------------------------------------------------------------
+# Contract 2 — Domain purity (no SDKs, no frameworks)
+#
+# The domain layer must not import any infrastructure SDK or framework.
+# This is the single most important invariant in the codebase. A violation here
+# means business logic is bound to a vendor or framework detail.
+# ---------------------------------------------------------------------------
+[importlinter:contract:2]
+name = Domain purity — no SDK imports
+type = forbidden
+source_modules =
+    src.domain
+forbidden_modules =
+    anthropic
+    alpaca_trade_api
+    sqlalchemy
+    fastapi
+    starlette
+    httpx
+    requests
+    aiohttp
+    redis
+    keydb
+    boto3
+    botocore
+    polygon
+    finnhub
+    yfinance
+    alpha_vantage
+    pandas_ta
+    shap
+    tensorflow
+    torch
+    sklearn
+    jose
+    passlib
+    bcrypt
+    pyotp
+ignore_imports =
+    # Domain may reference framework types in docstrings/typing only if unavoidable.
+    # Add specific exemptions here with a comment explaining why.
+
+# ---------------------------------------------------------------------------
+# Contract 3 — Application purity (may import domain only)
+#
+# Application use cases orchestrate domain logic through ports. They must not
+# reach into infrastructure, presentation, or SDKs directly.
+#
+# TECH DEBT: same three files as Contract 1 — grandfathered until Phase 4.
+# ---------------------------------------------------------------------------
+[importlinter:contract:3]
+name = Application purity — may import domain only
+type = forbidden
+source_modules =
+    src.application
+forbidden_modules =
+    src.infrastructure
+    src.presentation
+    anthropic
+    alpaca_trade_api
+    sqlalchemy
+    fastapi
+    starlette
+    requests
+    aiohttp
+    boto3
+ignore_imports =
+    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.user_repository
+    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.portfolio_repository
+    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.position_repository
+    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.order_repository
+    src.application.services.autonomous_trading_service -> src.infrastructure.repositories.activity_log_repository
+    src.application.services.autonomous_trading_service -> src.infrastructure.data_processing.ml_model_service
+    src.application.services.autonomous_trading_service -> src.infrastructure.broker_integration
+    src.application.services.autonomous_trading_service -> src.infrastructure.api_clients.market_data

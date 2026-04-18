@@ -16,7 +16,6 @@ from typing import List, Optional
 
 from src.domain.entities.broker_account import BrokerAccount, BrokerType
 from src.domain.ports.broker_account_repository_port import BrokerAccountRepositoryPort
-from src.infrastructure.broker_integration import AlpacaBrokerService
 
 logger = logging.getLogger(__name__)
 
@@ -128,20 +127,8 @@ class DeleteBrokerAccountUseCase:
         return self._repo.delete(account_id)
 
 
-class GetUserBrokerServiceUseCase:
-    """Create a per-user AlpacaBrokerService with the user's own keys."""
-
-    def __init__(self, broker_account_repository: BrokerAccountRepositoryPort):
-        self._repo = broker_account_repository
-
-    def execute(self, user_id: str, broker_type: str = "alpaca") -> Optional[AlpacaBrokerService]:
-        broker = BrokerType(broker_type)
-        account = self._repo.get_by_user_and_broker(user_id, broker)
-        if not account or not account.is_active:
-            return None
-
-        return AlpacaBrokerService(
-            api_key=account.api_key,
-            secret_key=account.secret_key,
-            paper_trading=account.paper_trading,
-        )
+# GetUserBrokerServiceUseCase removed 2026-04 — it had zero callers and its
+# only reason to exist was to construct an AlpacaBrokerService from a stored
+# BrokerAccount. If that flow is needed later, put the factory in
+# `src/infrastructure/adapters/broker_factory.py` alongside the system-level
+# factory rather than reintroducing this cross-layer import.

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 import logging
 import uuid
 
-from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
+from src.domain.entities.user import User, RiskTolerance, InvestmentGoal, TradingMode
 from src.domain.value_objects import Money
 from src.domain.ports import UserRepositoryPort
 from src.infrastructure.orm_models import UserORM
@@ -20,6 +20,13 @@ from src.infrastructure.repositories.base_repository import BaseRepository
 from src.infrastructure.database import get_database_manager
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_trading_mode(raw: Optional[str]) -> TradingMode:
+    """Defensive parse — treat unknown / missing as PAPER (safe default)."""
+    if raw == "live":
+        return TradingMode.LIVE
+    return TradingMode.PAPER
 
 
 class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
@@ -69,6 +76,11 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             confidence_threshold=orm_obj.confidence_threshold,
             max_position_pct=orm_obj.max_position_pct,
             allowed_markets=orm_obj.allowed_markets or ["US_NYSE", "US_NASDAQ", "UK_LSE", "EU_EURONEXT", "DE_XETRA", "JP_TSE", "HK_HKEX"],
+            trading_mode=_parse_trading_mode(getattr(orm_obj, "trading_mode", None)),
+            daily_loss_cap_usd=getattr(orm_obj, "daily_loss_cap_usd", None),
+            kyc_attestation_hash=getattr(orm_obj, "kyc_attestation_hash", None),
+            totp_secret_encrypted=getattr(orm_obj, "totp_secret_encrypted", None),
+            live_mode_enabled_at=getattr(orm_obj, "live_mode_enabled_at", None),
         )
 
     def _to_orm_model(self, entity: User, password_hash: str = "") -> UserORM:
@@ -104,6 +116,11 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             confidence_threshold=entity.confidence_threshold,
             max_position_pct=entity.max_position_pct,
             allowed_markets=entity.allowed_markets,
+            trading_mode=entity.trading_mode.value,
+            daily_loss_cap_usd=entity.daily_loss_cap_usd,
+            kyc_attestation_hash=entity.kyc_attestation_hash,
+            totp_secret_encrypted=entity.totp_secret_encrypted,
+            live_mode_enabled_at=entity.live_mode_enabled_at,
         )
 
     def save(self, entity: User, password_hash: str = "") -> User:
@@ -130,6 +147,44 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             session.rollback()
             logger.error(f"Failed to save user: {e}")
             raise DomainException(f"Failed to save entity: {str(e)}")
+        finally:
+            session.close()
+
+    def update_totp_secret(self, user_id: str, encrypted_secret: str) -> None:
+        """Overwrite the encrypted TOTP secret in-place. Never returned."""
+        session = self._get_session()
+        try:
+            orm = session.query(UserORM).filter(UserORM.id == user_id).first()
+            if orm is None:
+                return
+            orm.totp_secret_encrypted = encrypted_secret
+            orm.updated_at = datetime.utcnow()
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    def save_live_mode_state(self, entity: User) -> None:
+        """Persist only the live-mode fields — avoids round-tripping the full
+        user payload (which would reset password_hash).
+        """
+        session = self._get_session()
+        try:
+            orm = session.query(UserORM).filter(UserORM.id == entity.id).first()
+            if orm is None:
+                return
+            orm.trading_mode = entity.trading_mode.value
+            orm.daily_loss_cap_usd = entity.daily_loss_cap_usd
+            orm.kyc_attestation_hash = entity.kyc_attestation_hash
+            orm.totp_secret_encrypted = entity.totp_secret_encrypted
+            orm.live_mode_enabled_at = entity.live_mode_enabled_at
+            orm.updated_at = datetime.utcnow()
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
         finally:
             session.close()
 

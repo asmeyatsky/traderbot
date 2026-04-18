@@ -55,6 +55,15 @@ class CreateOrderRequest(BaseModel):
         description="Optional notes about the order",
         example="Buy on dip"
     )
+    # Live-trading only: 6-digit TOTP code from the user's authenticator app.
+    # Required when the user's trading_mode is 'live'; ignored in paper mode.
+    # See ADR-002 — per-order TOTP re-challenge.
+    totp_code: Optional[str] = Field(
+        default=None,
+        pattern=r"^\d{6}$",
+        description="TOTP 6-digit code (required for live-mode users)",
+        example="123456"
+    )
 
     class Config:
         json_schema_extra = {

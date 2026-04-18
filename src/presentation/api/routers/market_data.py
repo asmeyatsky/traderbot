@@ -13,7 +13,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from src.infrastructure.security import get_current_user
-from src.domain.services.market_data_enhancement import (
+from src.infrastructure.services.market_data_enhancement import (
     DefaultMarketDataEnhancementService, MarketDataSource, EnhancedMarketData
 )
 from src.domain.value_objects import Symbol

@@ -61,16 +61,33 @@ def load_secrets_to_environment(secret_name: Optional[str] = None) -> None:
     Load secrets from AWS Secrets Manager and set as environment variables.
     Call this before loading application settings.
 
+    Production guardrail (2026 rules §4 — "no secrets in config, env defaults,
+    or repo history"): when ENVIRONMENT=production, the app refuses to boot
+    without either `AWS_SECRETS_NAME` set (preferred) or the opt-out
+    `ALLOW_ENV_SECRETS=true` (transitional, to be removed once Phase 6 ships).
+
     Args:
         secret_name: Name of the secret. If None, reads from AWS_SECRETS_NAME env var.
+
+    Raises:
+        RuntimeError: in production when no secret source is configured.
     """
     secret_name = secret_name or os.environ.get("AWS_SECRETS_NAME")
+    environment = os.environ.get("ENVIRONMENT", "development")
 
     if not secret_name:
+        if environment == "production" and os.environ.get("ALLOW_ENV_SECRETS", "").lower() != "true":
+            raise RuntimeError(
+                "Production refusing to boot: AWS_SECRETS_NAME is unset and "
+                "ALLOW_ENV_SECRETS is not 'true'. Provision an AWS Secrets "
+                "Manager secret and set AWS_SECRETS_NAME, or set "
+                "ALLOW_ENV_SECRETS=true to continue using .env.prod "
+                "(transitional — see rewrite181226.md Phase 3)."
+            )
         logger.debug("No AWS secret name configured, using environment variables")
         return
 
-    if os.environ.get("ENVIRONMENT") == "development":
+    if environment == "development":
         logger.debug("Running in development mode, skipping Secrets Manager")
         return
 
@@ -101,6 +118,7 @@ def get_required_secrets() -> list[str]:
         "FINNHUB_API_KEY",
         "ALPACA_API_KEY",
         "ALPACA_SECRET_KEY",
+        "ANTHROPIC_API_KEY",
         "JWT_SECRET_KEY",
         "DATABASE_URL",
     ]

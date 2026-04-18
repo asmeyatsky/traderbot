@@ -39,7 +39,6 @@ from src.application.use_cases.broker_account import (
     GetBrokerAccountsUseCase,
     UpdateBrokerSettingsUseCase,
     DeleteBrokerAccountUseCase,
-    GetUserBrokerServiceUseCase,
 )
 
 
@@ -317,58 +316,9 @@ class TestDeleteBrokerAccountUseCase:
         assert result is False
 
 
-class TestGetUserBrokerServiceUseCase:
-    """Test GetUserBrokerServiceUseCase."""
-
-    def test_returns_service_for_active_account(self):
-        repo = Mock(spec=BrokerAccountRepositoryPort)
-        account = BrokerAccount(
-            id="ba-1",
-            user_id="user-1",
-            broker_type=BrokerType.ALPACA,
-            api_key="PK_LIVE_KEY",
-            secret_key="SK_LIVE_SECRET",
-            paper_trading=False,
-            is_active=True,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-        )
-        repo.get_by_user_and_broker.return_value = account
-
-        use_case = GetUserBrokerServiceUseCase(broker_account_repository=repo)
-        service = use_case.execute("user-1")
-
-        assert service is not None
-        assert service.api_key == "PK_LIVE_KEY"
-        assert service.paper_trading is False
-
-    def test_returns_none_for_inactive_account(self):
-        repo = Mock(spec=BrokerAccountRepositoryPort)
-        account = BrokerAccount(
-            id="ba-1",
-            user_id="user-1",
-            broker_type=BrokerType.ALPACA,
-            api_key="key",
-            secret_key="secret",
-            is_active=False,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-        )
-        repo.get_by_user_and_broker.return_value = account
-
-        use_case = GetUserBrokerServiceUseCase(broker_account_repository=repo)
-        result = use_case.execute("user-1")
-
-        assert result is None
-
-    def test_returns_none_when_no_account(self):
-        repo = Mock(spec=BrokerAccountRepositoryPort)
-        repo.get_by_user_and_broker.return_value = None
-
-        use_case = GetUserBrokerServiceUseCase(broker_account_repository=repo)
-        result = use_case.execute("user-1")
-
-        assert result is None
+# TestGetUserBrokerServiceUseCase removed — GetUserBrokerServiceUseCase deleted
+# 2026-04 (Phase 4 burn-down). If a per-user broker factory returns, test it in
+# tests/test_broker_factory.py alongside BrokerServiceFactory.
 
 
 # ============================================================================

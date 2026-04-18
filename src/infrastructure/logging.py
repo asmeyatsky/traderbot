@@ -44,6 +44,18 @@ class JSONFormatter(Formatter):
         if hasattr(record, "user_id"):
             log_data["user_id"] = record.user_id
 
+        # Pull correlation ID from contextvar set by CorrelationIdMiddleware.
+        # Explicit record.correlation_id wins if set (e.g. background jobs).
+        correlation_id = getattr(record, "correlation_id", None)
+        if not correlation_id:
+            try:
+                from src.infrastructure.observability import get_correlation_id
+                correlation_id = get_correlation_id()
+            except Exception:
+                correlation_id = ""
+        if correlation_id:
+            log_data["correlation_id"] = correlation_id
+
         # Include audit-specific fields if present
         for field in (
             "client_ip", "method", "path", "status_code",

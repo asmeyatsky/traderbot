@@ -178,13 +178,49 @@ async def login(
 
     Rate limited to 5 requests per minute per IP.
     Verifies password hash before issuing JWT token.
+    Emits an audit event on every outcome (success or failure) per 2026 rules §4.
     """
+    from src.infrastructure.adapters.audit_event_sink import audit_event_sink
+    from src.domain.ports.audit_event_sink import AuditEvent
+    from src.infrastructure.observability import get_correlation_id
+    from datetime import datetime as _dt
+    import uuid as _uuid
+
+    client_ip = (
+        request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        or (request.client.host if request.client else "unknown")
+    )
+    user_agent = request.headers.get("user-agent", "")
+    correlation_id = get_correlation_id() or None
+
+    def _emit(action: str, actor: str | None, aggregate_id: str, payload: dict) -> None:
+        try:
+            audit_event_sink.append(
+                AuditEvent(
+                    id=str(_uuid.uuid4()),
+                    actor_user_id=actor,
+                    action=action,
+                    aggregate_type="user",
+                    aggregate_id=aggregate_id,
+                    before_hash=None,
+                    after_hash=None,
+                    payload_json=payload,
+                    occurred_at=_dt.utcnow(),
+                    correlation_id=correlation_id,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                )
+            )
+        except Exception:  # noqa: BLE001 — audit must never break login
+            logger.exception("audit event emission failed for %s", action)
+
     try:
         logger.info(f"Login attempt for user: {body.email}")
 
         # Find user by email
         user = user_repository.get_by_email(body.email)
         if not user:
+            _emit("LoginFailed", None, body.email, {"reason": "unknown_email"})
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials"
@@ -194,6 +230,7 @@ async def login(
         password_hash = user_repository.get_password_hash(body.email)
         if not password_hash or not SecurityManager.verify_password(body.password, password_hash):
             logger.warning(f"Failed login attempt for: {body.email}")
+            _emit("LoginFailed", user.id, body.email, {"reason": "invalid_credentials"})
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials"
@@ -201,6 +238,7 @@ async def login(
 
         # Create access token
         access_token, expire = SecurityManager.create_access_token(user.id)
+        _emit("LoginSucceeded", user.id, user.id, {"email": body.email})
 
         return LoginResponse(
             access_token=access_token,
@@ -712,3 +750,270 @@ async def delete_user_data(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete user data"
         )
+
+
+# ============================================================================
+# Live Trading — per-user mode flip (ADR-002)
+# ============================================================================
+
+
+class EnableLiveModeRequest(BaseModel):
+    """All four gates in one request. Any missing field → 400."""
+    # KYC attestation — the user confirms they are the account holder, over 18,
+    # and trading their own money. Frontend collects, hashes, and sends.
+    kyc_attestation_payload: str = Field(..., min_length=20, max_length=4096)
+    # The daily-loss cap in USD. At launch the UI restricts this to ≤ 1000.
+    daily_loss_cap_usd: float = Field(..., gt=0, le=10000)
+    # The user's 6-digit TOTP code from their authenticator app, proving they
+    # can reproduce the secret they were shown during TOTP enrollment.
+    totp_code: str = Field(..., pattern=r"^\d{6}$")
+    # Verbatim risk acknowledgement — MUST match the phrase defined below.
+    risk_acknowledgement: str = Field(...)
+
+
+REQUIRED_RISK_PHRASE = "I understand I will lose real money."
+
+
+class TotpEnrollmentResponse(BaseModel):
+    secret: str  # plaintext — shown once during enrollment
+    provisioning_uri: str
+    issuer: str = "TraderBot"
+
+
+class LiveModeStatusResponse(BaseModel):
+    trading_mode: str
+    daily_loss_cap_usd: Optional[float] = None
+    live_mode_enabled_at: Optional[datetime] = None
+    has_totp: bool
+
+
+@router.post(
+    "/me/totp/enroll",
+    response_model=TotpEnrollmentResponse,
+    summary="Generate a TOTP secret for live-trading 2FA",
+    responses={
+        200: {"description": "TOTP secret generated; show QR code to user"},
+        401: {"description": "Unauthorized"},
+    },
+)
+@limiter.limit("5/minute")
+async def enroll_totp(
+    request: Request,
+    user_id: str = Depends(get_current_user),
+    user_repository: UserRepository = Depends(get_user_repository),
+) -> TotpEnrollmentResponse:
+    """Start TOTP enrollment. The plaintext secret is returned ONCE for the
+    client to render as a QR code; only the encrypted form is stored."""
+    from src.infrastructure.services.totp_service import (
+        generate_totp_secret,
+        provisioning_uri,
+    )
+
+    user = user_repository.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    plaintext, encrypted = generate_totp_secret()
+    # Persist the encrypted secret so we can verify the user's code in the
+    # enable-live-mode step. Overwrites any previous enrollment.
+    user_repository.update_totp_secret(user_id, encrypted)
+
+    return TotpEnrollmentResponse(
+        secret=plaintext,
+        provisioning_uri=provisioning_uri(plaintext, user.email),
+    )
+
+
+@router.post(
+    "/me/enable-live-mode",
+    response_model=LiveModeStatusResponse,
+    summary="Switch the authenticated user from paper to live trading",
+    responses={
+        200: {"description": "Live mode enabled"},
+        400: {"description": "Validation failed (KYC, TOTP, or phrase mismatch)"},
+        401: {"description": "Unauthorized"},
+        403: {"description": "ENABLE_LIVE_TRADING is off at the platform level"},
+    },
+)
+@limiter.limit("3/minute")
+async def enable_live_mode(
+    request: Request,
+    body: EnableLiveModeRequest,
+    user_id: str = Depends(get_current_user),
+    user_repository: UserRepository = Depends(get_user_repository),
+) -> LiveModeStatusResponse:
+    """Flip the user from paper to live (ADR-002).
+
+    Gates (all must pass, in order):
+    1. Platform feature flag `ENABLE_LIVE_TRADING=true`.
+    2. User has enrolled TOTP (/me/totp/enroll first).
+    3. TOTP code verifies.
+    4. KYC attestation payload is non-trivial.
+    5. Daily-loss cap is in range (already Pydantic-validated).
+    6. Risk acknowledgement phrase matches exactly.
+    Emits a `LiveModeEnabled` audit event regardless of success or failure.
+    """
+    from src.infrastructure.adapters.audit_event_sink import audit_event_sink
+    from src.domain.ports.audit_event_sink import AuditEvent, hash_state
+    from src.infrastructure.services.totp_service import verify_totp
+    from src.infrastructure.observability import get_correlation_id
+    from decimal import Decimal as _Dec
+    import hashlib as _hashlib
+    import uuid as _uuid
+    import os as _os
+
+    client_ip = (
+        request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        or (request.client.host if request.client else "unknown")
+    )
+    user_agent = request.headers.get("user-agent", "")
+    correlation_id = get_correlation_id() or None
+
+    def _emit(action: str, payload: dict) -> None:
+        try:
+            audit_event_sink.append(
+                AuditEvent(
+                    id=str(_uuid.uuid4()),
+                    actor_user_id=user_id,
+                    action=action,
+                    aggregate_type="user",
+                    aggregate_id=user_id,
+                    before_hash=None,
+                    after_hash=hash_state(payload),
+                    payload_json=payload,
+                    occurred_at=datetime.utcnow(),
+                    correlation_id=correlation_id,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                )
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("audit emission failed for %s", action)
+
+    # Gate 1: platform-level kill switch
+    if _os.getenv("ENABLE_LIVE_TRADING", "false").lower() != "true":
+        _emit("LiveModeEnableRejected", {"reason": "feature_flag_off"})
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Live trading is currently disabled at the platform level.",
+        )
+
+    user = user_repository.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Gate 2 + 3: TOTP enrolled + verifies
+    if not user.totp_secret_encrypted:
+        _emit("LiveModeEnableRejected", {"reason": "totp_not_enrolled"})
+        raise HTTPException(status_code=400, detail="Enrol TOTP first (POST /users/me/totp/enroll).")
+    if not verify_totp(user.totp_secret_encrypted, body.totp_code):
+        _emit("LiveModeEnableRejected", {"reason": "totp_invalid"})
+        raise HTTPException(status_code=400, detail="Invalid TOTP code.")
+
+    # Gate 6: exact phrase match
+    if body.risk_acknowledgement != REQUIRED_RISK_PHRASE:
+        _emit("LiveModeEnableRejected", {"reason": "risk_phrase_mismatch"})
+        raise HTTPException(
+            status_code=400,
+            detail=f'Risk acknowledgement must be exactly: "{REQUIRED_RISK_PHRASE}"',
+        )
+
+    # Gate 4: non-trivial KYC payload → hash it for the audit trail
+    kyc_payload = body.kyc_attestation_payload.strip()
+    kyc_hash = _hashlib.sha256(kyc_payload.encode("utf-8")).hexdigest()
+
+    updated = user.enable_live_mode(
+        kyc_attestation_hash=kyc_hash,
+        daily_loss_cap_usd=_Dec(str(body.daily_loss_cap_usd)),
+        totp_secret_encrypted=user.totp_secret_encrypted,
+    )
+    user_repository.save_live_mode_state(updated)
+    _emit(
+        "LiveModeEnabled",
+        {
+            "daily_loss_cap_usd": body.daily_loss_cap_usd,
+            "kyc_hash_prefix": kyc_hash[:16],
+        },
+    )
+
+    return LiveModeStatusResponse(
+        trading_mode=updated.trading_mode.value,
+        daily_loss_cap_usd=float(updated.daily_loss_cap_usd),
+        live_mode_enabled_at=updated.live_mode_enabled_at,
+        has_totp=True,
+    )
+
+
+@router.post(
+    "/me/disable-live-mode",
+    response_model=LiveModeStatusResponse,
+    summary="Revert the authenticated user from live to paper (no gate)",
+)
+async def disable_live_mode(
+    request: Request,
+    user_id: str = Depends(get_current_user),
+    user_repository: UserRepository = Depends(get_user_repository),
+) -> LiveModeStatusResponse:
+    """Immediate, always-allowed flip back to paper mode. ADR-002 mandates this
+    remains free — never impose a cooldown on the off-ramp from real money."""
+    from src.infrastructure.adapters.audit_event_sink import audit_event_sink
+    from src.domain.ports.audit_event_sink import AuditEvent
+    from src.infrastructure.observability import get_correlation_id
+    import uuid as _uuid
+
+    user = user_repository.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    updated = user.revert_to_paper()
+    user_repository.save_live_mode_state(updated)
+
+    try:
+        audit_event_sink.append(
+            AuditEvent(
+                id=str(_uuid.uuid4()),
+                actor_user_id=user_id,
+                action="LiveModeDisabled",
+                aggregate_type="user",
+                aggregate_id=user_id,
+                before_hash=None,
+                after_hash=None,
+                payload_json={"reason": "user_requested"},
+                occurred_at=datetime.utcnow(),
+                correlation_id=get_correlation_id() or None,
+            )
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("audit emission failed for LiveModeDisabled")
+
+    return LiveModeStatusResponse(
+        trading_mode=updated.trading_mode.value,
+        daily_loss_cap_usd=(
+            float(updated.daily_loss_cap_usd)
+            if updated.daily_loss_cap_usd is not None else None
+        ),
+        live_mode_enabled_at=updated.live_mode_enabled_at,
+        has_totp=bool(updated.totp_secret_encrypted),
+    )
+
+
+@router.get(
+    "/me/live-mode-status",
+    response_model=LiveModeStatusResponse,
+    summary="Report whether the user is in paper or live mode",
+)
+async def live_mode_status(
+    user_id: str = Depends(get_current_user),
+    user_repository: UserRepository = Depends(get_user_repository),
+) -> LiveModeStatusResponse:
+    user = user_repository.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return LiveModeStatusResponse(
+        trading_mode=user.trading_mode.value,
+        daily_loss_cap_usd=(
+            float(user.daily_loss_cap_usd)
+            if user.daily_loss_cap_usd is not None else None
+        ),
+        live_mode_enabled_at=user.live_mode_enabled_at,
+        has_totp=bool(user.totp_secret_encrypted),
+    )

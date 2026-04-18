@@ -39,6 +39,7 @@ from slowapi.errors import RateLimitExceeded
 from src.infrastructure.config.settings import settings
 from src.infrastructure.logging import setup_logging
 from src.infrastructure.middleware.audit_logging import AuditLoggingMiddleware
+from src.infrastructure.observability import setup_observability
 from src.presentation.api.routers import (
     orders,
     portfolio,
@@ -94,13 +95,19 @@ allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split("
 # HTTPSRedirectMiddleware would cause infinite redirects behind ALB.
 
 # 2. Trusted Host middleware in production
+# Whitelist the live domains so a reflected-Host attack can't slip past even if
+# the ALB is misconfigured. Extra hosts (health-check paths, staging) can be
+# added via the ALLOWED_HOSTS env var (comma-separated).
 if is_production:
-    allowed_hosts = [h for h in allowed_origins if "://" not in h]
-    # Also allow ALB health checks (no Host header filtering for those)
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=["*"],  # ALB handles host validation; tighten when domain is set
+    extra_hosts = [
+        h.strip()
+        for h in os.getenv("ALLOWED_HOSTS", "").split(",")
+        if h.strip()
+    ]
+    allowed_hosts = list(
+        {"traderbotapp.com", "www.traderbotapp.com", *extra_hosts}
     )
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 # 3. CORS middleware
 app.add_middleware(
@@ -114,6 +121,13 @@ app.add_middleware(
 
 # 4. Audit logging middleware
 app.add_middleware(AuditLoggingMiddleware)
+
+# 5. Observability — correlation IDs, OTel tracing, Prometheus /metrics.
+# Must come AFTER AuditLoggingMiddleware is added but the correlation middleware
+# it installs runs OUTERMOST (Starlette applies middleware in reverse order of
+# addition), so audit logs pick up the same correlation_id that leaves on the
+# response header and flows into Claude call telemetry.
+setup_observability(app)
 
 
 # 5. Security headers middleware

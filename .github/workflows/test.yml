@@ -26,11 +26,44 @@ jobs:
           pip install torch==2.0.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
           pip install -r requirements-dev.txt
 
-      - name: Run backend tests with coverage
+      - name: Enforce hexagonal architecture (import-linter)
+        run: lint-imports
+
+      - name: Supply-chain audit (pip-audit, fail on HIGH/CRITICAL)
+        # pip-audit checks installed packages against the PyPA Advisory
+        # Database. --strict surfaces vulnerabilities with no known fix so we
+        # at least track them; --ignore-vuln can be used to whitelist a CVE
+        # with an ADR, but we add no entries at launch time.
+        run: |
+          pip install pip-audit
+          pip-audit --strict
+
+      - name: Domain-layer coverage (2026 rules §5 — target ≥95%)
         env:
           DATABASE_URL: sqlite:///./test.db
           JWT_SECRET_KEY: test_secret_key_for_ci_at_least_32_characters_long
           ENVIRONMENT: development
+        # Measures coverage of src/domain/ across the full test suite.
+        # Baseline ~41% locally; floor 35% to stay stable across skip conditions.
+        # TODO(phase-8): raise to 95% as domain services get direct tests.
+        run: pytest tests/ --tb=short --cov=src/domain --cov-report=term --cov-fail-under=35
+
+      - name: Application-layer coverage (2026 rules §5 — target ≥85%)
+        env:
+          DATABASE_URL: sqlite:///./test.db
+          JWT_SECRET_KEY: test_secret_key_for_ci_at_least_32_characters_long
+          ENVIRONMENT: development
+        # Baseline ~39% locally; floor 30%. TODO(phase-8): raise to 85%.
+        run: pytest tests/ --tb=short --cov=src/application --cov-report=term --cov-fail-under=30
+
+      - name: Overall test coverage (2026 rules §5 — target ≥80%)
+        env:
+          DATABASE_URL: sqlite:///./test.db
+          JWT_SECRET_KEY: test_secret_key_for_ci_at_least_32_characters_long
+          ENVIRONMENT: development
+        # Floor raised from 15% → 15% (unchanged — CI has pandas so coverage
+        # runs slightly higher than local; floor ramps up over time).
+        # TODO(phase-8): raise to 80%.
         run: pytest tests/ -v --tb=short --cov=src --cov-report=term-missing --cov-fail-under=15
 
   test-frontend:
@@ -50,14 +83,24 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      - name: Supply-chain audit (npm audit, fail on HIGH/CRITICAL)
+        run: npm audit --audit-level=high --production
+        working-directory: frontend
+
       - name: TypeScript type check
         run: npx tsc -b --noEmit
         working-directory: frontend
 
-      - name: Lint
+      - name: Lint (ESLint + boundaries plugin)
+        # `boundaries/dependencies` is set to 'error' in eslint.config.js, so any
+        # layer violation fails the build. Pre-existing `react-hooks` warnings
+        # are intentionally left as warnings (tracked as tech debt) and do not
+        # block CI. Tighten to --max-warnings 0 when those are burned down.
         run: npm run lint
         working-directory: frontend
 
-      - name: Run frontend tests
-        run: npx vitest run
+      - name: Run frontend tests with coverage
+        # Coverage floor enforced in vitest.config.ts — stores/ and api/ at 70%.
+        # UI components excluded; tested via integration in Phase 7 (staging soak).
+        run: npx vitest run --coverage
         working-directory: frontend

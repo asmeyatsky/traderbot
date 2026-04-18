@@ -26,6 +26,17 @@ class InvestmentGoal(Enum):
     MAXIMUM_RETURNS = "MAXIMUM_RETURNS"
 
 
+class TradingMode(Enum):
+    """Per-user trading mode (ADR-002).
+
+    `PAPER` routes every order to Alpaca paper — no real money. `LIVE` requires
+    the full enable-live-mode flow (KYC + TOTP + daily loss cap + risk
+    acknowledgement) and every order carries a TOTP re-challenge.
+    """
+    PAPER = "paper"
+    LIVE = "live"
+
+
 @dataclass(frozen=True)
 class User:
     """
@@ -67,6 +78,59 @@ class User:
     confidence_threshold: Decimal = Decimal('0.6')
     max_position_pct: Decimal = Decimal('20')
     allowed_markets: List[str] = field(default_factory=lambda: ["US_NYSE", "US_NASDAQ", "UK_LSE", "EU_EURONEXT", "DE_XETRA", "JP_TSE", "HK_HKEX"])
+
+    # ── Live-trading state (ADR-002) ────────────────────────────────────
+    # Defaults keep every existing user in paper mode until they explicitly
+    # complete the enable-live-mode flow. All fields below are None for
+    # paper-mode users.
+    trading_mode: TradingMode = TradingMode.PAPER
+    daily_loss_cap_usd: Optional[Decimal] = None
+    kyc_attestation_hash: Optional[str] = None
+    totp_secret_encrypted: Optional[str] = None
+    live_mode_enabled_at: Optional[datetime] = None
+
+    def enable_live_mode(
+        self,
+        kyc_attestation_hash: str,
+        daily_loss_cap_usd: Decimal,
+        totp_secret_encrypted: str,
+    ) -> 'User':
+        """Return a new User with live mode enabled.
+
+        Caller is responsible for having validated all four gates (KYC
+        attestation, TOTP setup, daily loss cap set, risk acknowledgement).
+        The entity enforces the shape, not the policy — the policy lives in
+        the use case / router that assembles these arguments.
+        """
+        from dataclasses import replace
+        if daily_loss_cap_usd <= 0:
+            raise ValueError("daily_loss_cap_usd must be positive")
+        if not kyc_attestation_hash:
+            raise ValueError("kyc_attestation_hash required")
+        if not totp_secret_encrypted:
+            raise ValueError("totp_secret_encrypted required")
+        return replace(
+            self,
+            trading_mode=TradingMode.LIVE,
+            kyc_attestation_hash=kyc_attestation_hash,
+            daily_loss_cap_usd=daily_loss_cap_usd,
+            totp_secret_encrypted=totp_secret_encrypted,
+            live_mode_enabled_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+
+    def revert_to_paper(self) -> 'User':
+        """Flip back to paper mode (safe anytime — no gates).
+
+        Does NOT wipe TOTP secret or KYC hash; those persist so a subsequent
+        re-enable is a TOTP challenge away rather than a full KYC re-do.
+        """
+        from dataclasses import replace
+        return replace(
+            self,
+            trading_mode=TradingMode.PAPER,
+            updated_at=datetime.now(timezone.utc),
+        )
 
     def update_risk_tolerance(self, new_risk_tolerance: RiskTolerance) -> 'User':
         """Update user's risk tolerance and return new instance"""

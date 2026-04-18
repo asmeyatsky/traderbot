@@ -27,7 +27,7 @@ from src.domain.ports.ai_chat_port import (
     ToolResult,
     UserContext,
 )
-from src.application.use_cases.chat import ChatUseCase, SYSTEM_PROMPT, TOOL_DEFINITIONS
+from src.application.use_cases.chat import ChatUseCase, SYSTEM_PROMPT
 
 
 # ============================================================================
@@ -212,20 +212,17 @@ class TestChatUseCase:
     def _make_use_case(self):
         self.mock_ai = AsyncMock()
         self.mock_conv_repo = Mock()
-        self.mock_market_data = Mock()
-        self.mock_ai_model = Mock()
-        self.mock_news = Mock()
-        self.mock_portfolio_repo = Mock()
         self.mock_user_repo = Mock()
+        # Post-Phase 4: the use case only talks to the tool registry, not
+        # individual services. Tool-level behaviour is covered in
+        # test_mcp_framework.py.
+        self.mock_tool_registry = Mock()
 
         return ChatUseCase(
             ai_chat_port=self.mock_ai,
             conversation_repository=self.mock_conv_repo,
-            market_data_service=self.mock_market_data,
-            ai_model_service=self.mock_ai_model,
-            news_analysis_service=self.mock_news,
-            portfolio_repository=self.mock_portfolio_repo,
             user_repository=self.mock_user_repo,
+            tool_registry=self.mock_tool_registry,
         )
 
     def test_create_conversation(self):
@@ -297,87 +294,12 @@ class TestChatUseCase:
         assert len(result) == 3
         self.mock_conv_repo.get_by_user_id.assert_called_once_with("user-1", 10, 0)
 
-    def test_tool_definitions_exist(self):
-        """Verify all expected tools are defined."""
-        tool_names = {t.name for t in TOOL_DEFINITIONS}
-        assert "get_stock_price" in tool_names
-        assert "get_ml_prediction" in tool_names
-        assert "get_trading_signal" in tool_names
-        assert "get_news_sentiment" in tool_names
-        assert "get_portfolio" in tool_names
-        assert "place_order" in tool_names
+    # Tool-level behaviour moved to MCP servers (Phase 4). See
+    # tests/test_mcp_framework.py for per-tool input validation, round-trip,
+    # and audit-emission tests.
 
-    @pytest.mark.asyncio
-    async def test_tool_get_stock_price(self):
-        uc = self._make_use_case()
-        from src.domain.value_objects import Price
-
-        self.mock_market_data.get_current_price.return_value = Price(
-            Decimal("150.00"), "USD"
-        )
-
-        result = await uc._tool_get_stock_price({"symbol": "AAPL"})
-
-        assert not result.is_error
-        data = json.loads(result.content)
-        assert data["symbol"] == "AAPL"
-        assert data["price"] == 150.0
-
-    @pytest.mark.asyncio
-    async def test_tool_get_stock_price_not_found(self):
-        uc = self._make_use_case()
-        self.mock_market_data.get_current_price.return_value = None
-
-        result = await uc._tool_get_stock_price({"symbol": "XXXX"})
-
-        assert result.is_error
-
-    @pytest.mark.asyncio
-    async def test_tool_get_ml_prediction(self):
-        uc = self._make_use_case()
-        self.mock_ai_model.predict_price_movement.return_value = 0.05
-
-        result = await uc._tool_get_ml_prediction({"symbol": "AAPL", "days": 3})
-
-        assert not result.is_error
-        data = json.loads(result.content)
-        assert data["direction"] == "UP"
-        assert data["days_ahead"] == 3
-
-    @pytest.mark.asyncio
-    async def test_tool_get_trading_signal(self):
-        uc = self._make_use_case()
-        self.mock_ai_model.get_trading_signal.return_value = "BUY"
-
-        result = await uc._tool_get_trading_signal({"symbol": "AAPL"})
-
-        assert not result.is_error
-        data = json.loads(result.content)
-        assert data["signal"] == "BUY"
-
-    @pytest.mark.asyncio
-    async def test_tool_place_order_returns_pending(self):
-        uc = self._make_use_case()
-        result = await uc._tool_place_order(
-            {"symbol": "AAPL", "action": "BUY", "quantity": 10, "reasoning": "Strong buy"},
-            "user-1",
-        )
-
-        assert not result.is_error
-        data = json.loads(result.content)
-        assert data["status"] == "pending_confirmation"
-
-    @pytest.mark.asyncio
-    async def test_tool_get_portfolio_empty(self):
-        uc = self._make_use_case()
-        self.mock_portfolio_repo.get_by_user_id.return_value = None
-
-        result = await uc._tool_get_portfolio("user-1")
-
-        assert not result.is_error
-        data = json.loads(result.content)
-        assert data["total_value"] == 0
-        assert data["positions"] == []
+    # Remaining tool-level tests removed — coverage moved to
+    # tests/test_mcp_framework.py where each MCP server is exercised directly.
 
 
 # ============================================================================

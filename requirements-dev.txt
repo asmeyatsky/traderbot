@@ -9,6 +9,12 @@ pytest-cov==4.1.0
 factory-boy==3.3.0
 httpx>=0.24.0
 
+# Architecture enforcement (2026 rules §2 — "rule not in CI = rule not real")
+import-linter==2.11
+
+# Property-based testing for domain invariants (2026 rules §5)
+hypothesis>=6.100.0,<7.0.0
+
 # Additional dev tools
 Pillow==10.1.0
 spacy==3.7.2

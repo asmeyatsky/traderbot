@@ -75,6 +75,12 @@ async def create_order(
     - Risk tolerance settings
     - Sector preferences/exclusions
 
+    **Live mode:** if the authenticated user is in `trading_mode='live'`, the
+    request MUST include a valid 6-digit TOTP code that verifies against the
+    user's stored secret (ADR-002 — per-order re-challenge). This is evaluated
+    BEFORE any business logic runs so malformed or missing TOTP fails fast
+    without touching the broker. Paper-mode users are unaffected.
+
     Args:
         request: Order creation request details
         user_id: Current authenticated user ID
@@ -83,6 +89,27 @@ async def create_order(
         Created order details
     """
     try:
+        # Per-order TOTP re-challenge for live-mode users (ADR-002).
+        # Kept at the router — it's an auth concern, not a business rule.
+        from src.domain.entities.user import TradingMode
+        from src.infrastructure.services.totp_service import verify_totp
+        from src.presentation.api.dependencies import get_user_repository as _get_user_repo
+        _user_repo = _get_user_repo()
+        _current_user = _user_repo.get_by_id(user_id)
+        if _current_user and _current_user.trading_mode == TradingMode.LIVE:
+            if not request.totp_code:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="TOTP code required for live-mode orders.",
+                )
+            if not _current_user.totp_secret_encrypted or not verify_totp(
+                _current_user.totp_secret_encrypted, request.totp_code
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid TOTP code.",
+                )
+
         logger.info(f"Creating order for user {user_id}: {request.symbol}")
 
         order = use_case.execute(

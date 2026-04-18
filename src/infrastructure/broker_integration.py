@@ -32,6 +32,14 @@ class BrokerAPIException(Exception):
     pass
 
 
+class BrokerAuthenticationError(BrokerAPIException):
+    """Raised when the broker rejects our credentials (HTTP 401/403).
+
+    Never silently simulated — mis-auth in live mode would lose real money.
+    """
+    pass
+
+
 class BrokerOrderResponse:
     """Response object for broker order operations."""
     def __init__(self, broker_order_id: str, status: str, filled_qty: int = 0, avg_fill_price: Optional[float] = None):
@@ -111,13 +119,41 @@ class AlpacaBrokerService(TradingExecutionPort):
     def place_order(self, order: Order) -> BrokerOrderResponse:
         """
         Place an order with Alpaca Broker.
-        
-        Args:
-            order: The domain Order to place
-            
-        Returns:
-            BrokerOrderResponse with broker-specific details
+
+        Emits a LiveOrderPlaced audit event on success for live (non-paper)
+        orders. Paper orders are not audited — they have no real-money impact.
         """
+        from src.infrastructure.adapters.audit_event_sink import audit_event_sink
+        from src.domain.ports.audit_event_sink import AuditEvent, hash_state
+        from datetime import datetime as _dt
+        import uuid as _uuid
+        try:
+            from src.infrastructure.observability import get_correlation_id
+            _correlation_id = get_correlation_id() or None
+        except Exception:
+            _correlation_id = None
+
+        def _emit_live_audit(action: str, payload: dict, after_hash: str | None = None) -> None:
+            if self.paper_trading:
+                return  # paper orders are not real-money events
+            try:
+                audit_event_sink.append(
+                    AuditEvent(
+                        id=str(_uuid.uuid4()),
+                        actor_user_id=order.user_id,
+                        action=action,
+                        aggregate_type="live_order",
+                        aggregate_id=str(order.id),
+                        before_hash=None,
+                        after_hash=after_hash,
+                        payload_json=payload,
+                        occurred_at=_dt.utcnow(),
+                        correlation_id=_correlation_id,
+                    )
+                )
+            except Exception:  # noqa: BLE001 — never let audit break execution
+                logger.exception("audit emission failed for %s", action)
+
         try:
             # Map our order to Alpaca format
             alpaca_order = {
@@ -136,36 +172,72 @@ class AlpacaBrokerService(TradingExecutionPort):
             
             # Place the order
             response = self.session.post(f"{self.base_url}/orders", json=alpaca_order, timeout=10)
-            
-            if response.status_code == 403:
-                # If API keys are invalid, return a simulated response for testing
-                logger.warning("Invalid API keys, returning simulated response")
-                return BrokerOrderResponse(
-                    broker_order_id=f"simulated_{order.id}",
-                    status="pending",
-                    filled_qty=order.quantity,
-                    avg_fill_price=float(order.price.amount) if order.price else 100.0
+
+            if response.status_code in (401, 403):
+                logger.error(
+                    "Alpaca rejected credentials placing order %s (status=%s, paper=%s)",
+                    order.id, response.status_code, self.paper_trading,
                 )
-            
+                _emit_live_audit(
+                    "LiveOrderRejected",
+                    {"reason": "auth_rejected", "http_status": response.status_code},
+                )
+                raise BrokerAuthenticationError(
+                    f"Alpaca credentials rejected (HTTP {response.status_code}); "
+                    "refusing to simulate — verify ALPACA_API_KEY / ALPACA_SECRET_KEY."
+                )
+
             response.raise_for_status()
             order_data = response.json()
-            
-            return BrokerOrderResponse(
+
+            result = BrokerOrderResponse(
                 broker_order_id=order_data["id"],
                 status=order_data["status"],
                 filled_qty=int(order_data.get("filled_qty", 0)),
                 avg_fill_price=float(order_data.get("filled_avg_price", 0)) if order_data.get("filled_avg_price") else None
             )
-            
+            _emit_live_audit(
+                "LiveOrderPlaced",
+                {
+                    "symbol": str(order.symbol),
+                    "quantity": order.quantity,
+                    "side": alpaca_order["side"],
+                    "type": alpaca_order["type"],
+                    "broker_order_id": result.broker_order_id,
+                    "status": result.status,
+                },
+                after_hash=hash_state({
+                    "broker_order_id": result.broker_order_id,
+                    "status": result.status,
+                    "filled_qty": result.filled_qty,
+                }),
+            )
+            return result
+
         except requests.exceptions.HTTPError as e:
             error_details = e.response.json() if e.response.content else {}
             logger.error(f"Alpaca API error placing order: {error_details}")
+            _emit_live_audit(
+                "LiveOrderRejected",
+                {"reason": "http_error", "details": str(error_details)[:500]},
+            )
             raise BrokerAPIException(f"Failed to place order: {error_details}")
         except requests.exceptions.RequestException as e:
             logger.error(f"Request error placing order: {e}")
+            _emit_live_audit(
+                "LiveOrderRejected",
+                {"reason": "network_error", "message": str(e)[:500]},
+            )
             raise BrokerAPIException(f"Network error placing order: {e}")
+        except BrokerAuthenticationError:
+            # Already audited above; re-raise unchanged.
+            raise
         except Exception as e:
             logger.error(f"Unexpected error placing order: {e}")
+            _emit_live_audit(
+                "LiveOrderRejected",
+                {"reason": "unexpected_error", "message": str(e)[:500]},
+            )
             raise BrokerAPIException(f"Unexpected error placing order: {e}")
 
     def cancel_order(self, order_id: str) -> bool:
@@ -176,11 +248,15 @@ class AlpacaBrokerService(TradingExecutionPort):
             if response.status_code == 404:
                 # Order already filled or doesn't exist
                 return True
-            elif response.status_code == 403:
-                # Simulate successful cancellation for testing
-                logger.warning(f"Invalid API key, simulating cancellation for order {order_id}")
-                return True
-            
+            if response.status_code in (401, 403):
+                logger.error(
+                    "Alpaca rejected credentials cancelling order %s (status=%s)",
+                    order_id, response.status_code,
+                )
+                raise BrokerAuthenticationError(
+                    f"Alpaca credentials rejected (HTTP {response.status_code}) cancelling {order_id}."
+                )
+
             response.raise_for_status()
             return True
             
@@ -192,12 +268,16 @@ class AlpacaBrokerService(TradingExecutionPort):
         """Get the current status of an order."""
         try:
             response = self.session.get(f"{self.base_url}/orders/{order_id}", timeout=10)
-            
-            if response.status_code == 403:
-                # Simulate status for testing
-                logger.warning(f"Invalid API key, simulating status for order {order_id}")
-                return "filled"
-            elif response.status_code == 404:
+
+            if response.status_code in (401, 403):
+                logger.error(
+                    "Alpaca rejected credentials reading order %s (status=%s)",
+                    order_id, response.status_code,
+                )
+                raise BrokerAuthenticationError(
+                    f"Alpaca credentials rejected (HTTP {response.status_code}) fetching {order_id}."
+                )
+            if response.status_code == 404:
                 return "not_found"
             
             response.raise_for_status()
@@ -212,11 +292,15 @@ class AlpacaBrokerService(TradingExecutionPort):
         """Get current positions from Alpaca."""
         try:
             response = self.session.get(f"{self.base_url}/positions", timeout=10)
-            
-            if response.status_code == 403:
-                # Simulate positions for testing
-                logger.warning(f"Invalid API key, simulating positions for user {user_id}")
-                return []
+
+            if response.status_code in (401, 403):
+                logger.error(
+                    "Alpaca rejected credentials reading positions for user %s (status=%s)",
+                    user_id, response.status_code,
+                )
+                raise BrokerAuthenticationError(
+                    f"Alpaca credentials rejected (HTTP {response.status_code}) reading positions."
+                )
             
             response.raise_for_status()
             positions_data = response.json()
@@ -260,17 +344,15 @@ class AlpacaBrokerService(TradingExecutionPort):
         """Get account information from Alpaca."""
         try:
             response = self.session.get(f"{self.base_url}/account", timeout=10)
-            
-            if response.status_code == 403:
-                # Simulate account info for testing
-                logger.warning(f"Invalid API key, simulating account info for user {user_id}")
-                return {
-                    "account_number": f"SIM_{user_id[:8]}",
-                    "buying_power": 100000.0,
-                    "cash": 50000.0,
-                    "portfolio_value": 150000.0,
-                    "status": "ACTIVE"
-                }
+
+            if response.status_code in (401, 403):
+                logger.error(
+                    "Alpaca rejected credentials reading account for user %s (status=%s)",
+                    user_id, response.status_code,
+                )
+                raise BrokerAuthenticationError(
+                    f"Alpaca credentials rejected (HTTP {response.status_code}) reading account."
+                )
             
             response.raise_for_status()
             account_data = response.json()
@@ -607,11 +689,15 @@ class BrokerAdapterManager:
 
         self.brokers = {}
 
-        # Initialize Alpaca service
+        # Initialize Alpaca service.
+        # BrokerAdapterManager is used only by legacy pathways that have NOT
+        # been migrated to the per-user BrokerServiceFactory yet. Paper-mode
+        # is the safe default — do not change without a migration of callers.
+        # See src/infrastructure/adapters/broker_factory.py (ADR-002).
         self.brokers[BrokerType.ALPACA] = AlpacaBrokerService(
             api_key=settings.ALPACA_API_KEY,
             secret_key=settings.ALPACA_SECRET_KEY,
-            paper_trading=True
+            paper_trading=True,
         )
 
         # Initialize Interactive Brokers service if API key exists

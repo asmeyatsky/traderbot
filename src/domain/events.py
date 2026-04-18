@@ -164,3 +164,46 @@ class MarketAlertTriggeredEvent(DomainEvent):
     message: str
     triggered_at: datetime
     severity: str = "INFO"  # INFO, WARNING, CRITICAL
+
+
+# ---------------------------------------------------------------------------
+# Security / auth events — emitted into the audit_events append-only table.
+#
+# These are distinct from the business-domain events above: they're security-
+# compliance records required by 2026 rules §4 ("every write emits an audit
+# event: actor, action, before/after hash. Append-only, separate IAM").
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LoginSucceededEvent(DomainEvent):
+    """Event published when a user successfully authenticates."""
+    user_id: str
+    email: str
+    client_ip: str
+    user_agent: str
+
+
+@dataclass(frozen=True)
+class LoginFailedEvent(DomainEvent):
+    """Event published when an authentication attempt fails."""
+    email: str  # best-effort; may be synthetic if request was malformed
+    client_ip: str
+    user_agent: str
+    reason: str  # e.g. "invalid_credentials", "account_locked", "rate_limited"
+
+
+@dataclass(frozen=True)
+class LiveModeEnabledEvent(DomainEvent):
+    """Event published when a user enables live (real-money) trading.
+
+    Required for regulatory traceability: records KYC attestation hash,
+    daily-loss cap, and the exact confirmation phrase the user agreed to.
+    See ADR-002 (docs/adr/ADR-002-live-trading-gate.md).
+    """
+    user_id: str
+    client_ip: str
+    user_agent: str
+    kyc_attestation_hash: str
+    daily_loss_cap_usd: float
+    risk_acknowledgement_phrase: str
