@@ -247,6 +247,10 @@ class AdapterContainer(containers.DeclarativeContainer):
     # AI Chat adapter
     claude_chat_adapter = providers.Singleton(ClaudeChatAdapter)
 
+    # Discipline check (Phase 10.1) — per-user pre-trade AI veto.
+    from src.infrastructure.adapters.discipline_check import ClaudeDisciplineCheckAdapter
+    discipline_check_adapter = providers.Singleton(ClaudeDisciplineCheckAdapter)
+
     # Broker adapter manager
     broker_adapter_manager = providers.Singleton(BrokerAdapterManager)
 
@@ -319,6 +323,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         position_repository=repositories.position_repository,
         activity_log_repository=repositories.activity_log_repository,
         broker_routing=adapters.broker_service_factory,
+        discipline_check=adapters.discipline_check_adapter,
     )
 
     execute_trade_use_case = providers.Factory(

@@ -81,6 +81,8 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             kyc_attestation_hash=getattr(orm_obj, "kyc_attestation_hash", None),
             totp_secret_encrypted=getattr(orm_obj, "totp_secret_encrypted", None),
             live_mode_enabled_at=getattr(orm_obj, "live_mode_enabled_at", None),
+            discipline_rules=getattr(orm_obj, "discipline_rules", None) or [],
+            trading_philosophy=getattr(orm_obj, "trading_philosophy", None),
         )
 
     def _to_orm_model(self, entity: User, password_hash: str = "") -> UserORM:
@@ -121,6 +123,8 @@ class UserRepository(BaseRepository[User, UserORM], UserRepositoryPort):
             kyc_attestation_hash=entity.kyc_attestation_hash,
             totp_secret_encrypted=entity.totp_secret_encrypted,
             live_mode_enabled_at=entity.live_mode_enabled_at,
+            discipline_rules=entity.discipline_rules,
+            trading_philosophy=entity.trading_philosophy,
         )
 
     def save(self, entity: User, password_hash: str = "") -> User:

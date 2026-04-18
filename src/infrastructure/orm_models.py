@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import Column, String, DateTime, Numeric, Boolean, Integer, Enum as SQLEnum, ForeignKey, Index
+from sqlalchemy import Column, String, DateTime, Numeric, Boolean, Integer, Text, Enum as SQLEnum, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import JSON
 
@@ -76,6 +76,12 @@ class UserORM(Base):
     kyc_attestation_hash = Column(String(64), nullable=True)
     totp_secret_encrypted = Column(String(255), nullable=True)
     live_mode_enabled_at = Column(DateTime, nullable=True)
+
+    # ── Discipline rules (migration 010, Phase 10.1) ─────────────────────
+    # JSON array of free-form user-written rules checked pre-trade by the
+    # discipline port; free-text philosophy used as additional context.
+    discipline_rules = Column(JSON, nullable=False, default=list, server_default='[]')
+    trading_philosophy = Column(Text, nullable=True)
 
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

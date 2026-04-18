@@ -89,6 +89,15 @@ class User:
     totp_secret_encrypted: Optional[str] = None
     live_mode_enabled_at: Optional[datetime] = None
 
+    # ── Discipline rules (Phase 10.1) ───────────────────────────────────
+    # Free-form user-written rules the pre-trade AI veto layer checks every
+    # order against. These are in addition to the deterministic guards
+    # already enforced by TradingDomainService.validate_order (position-size
+    # cap, sector exclusions). Empty list + None philosophy means the
+    # discipline check is a no-op for this user.
+    discipline_rules: List[str] = field(default_factory=list)
+    trading_philosophy: Optional[str] = None
+
     def enable_live_mode(
         self,
         kyc_attestation_hash: str,

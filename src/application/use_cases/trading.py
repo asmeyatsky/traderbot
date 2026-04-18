@@ -21,8 +21,21 @@ from src.domain.ports import (
     TradingExecutionPort, NotificationPort, AIModelPort
 )
 from src.domain.ports.broker_routing import BrokerRoutingPort
+from src.domain.ports.discipline_check import DisciplineCheckPort
 from src.domain.services.trading import TradingDomainService, RiskManagementDomainService
 from src.domain.value_objects import NewsSentiment
+
+
+class DisciplineVetoError(ValueError):
+    """Raised when a pre-trade discipline check refuses an order.
+
+    Carries the list of `DisciplineVeto` objects so the router can surface
+    them to the user and offer a structured override path.
+    """
+    def __init__(self, vetoes):  # type: ignore[no-untyped-def]
+        self.vetoes = vetoes
+        messages = "; ".join(v.rule_text for v in vetoes)
+        super().__init__(f"Discipline check refused order: {messages}")
 
 
 class CreateOrderUseCase:
@@ -43,6 +56,7 @@ class CreateOrderUseCase:
         position_repository: Optional[PositionRepositoryPort] = None,
         activity_log_repository=None,
         broker_routing: Optional[BrokerRoutingPort] = None,
+        discipline_check: Optional[DisciplineCheckPort] = None,
     ):
         self.order_repository = order_repository
         self.portfolio_repository = portfolio_repository
@@ -52,6 +66,7 @@ class CreateOrderUseCase:
         self.position_repository = position_repository
         self.activity_log_repository = activity_log_repository
         self.broker_routing = broker_routing
+        self.discipline_check = discipline_check
 
     def execute(
         self,
@@ -61,7 +76,8 @@ class CreateOrderUseCase:
         position_type: str,
         quantity: int,
         limit_price: Optional[float] = None,
-        stop_price: Optional[float] = None
+        stop_price: Optional[float] = None,
+        override_discipline_vetoes: bool = False,
     ) -> Optional[Order]:
         """
         Execute the create order use case.
@@ -69,6 +85,12 @@ class CreateOrderUseCase:
         In paper-trading mode, market orders are auto-filled immediately:
         the order is marked EXECUTED, a position is created/updated, and
         the portfolio cash balance is adjusted.
+
+        Pre-trade discipline veto (Phase 10.1) runs between order validation
+        and broker routing when a `discipline_check` port is wired. Callers
+        can set `override_discipline_vetoes=True` to bypass the check — the
+        router is responsible for gating that flag behind explicit user
+        confirmation and emitting the override audit event.
         """
         # Retrieve user and portfolio
         user = self.user_repository.get_by_id(user_id)
@@ -110,6 +132,17 @@ class CreateOrderUseCase:
         validation_errors = self.trading_service.validate_order(order, user, portfolio)
         if validation_errors:
             raise ValueError(f"Order validation failed: {'; '.join(validation_errors)}")
+
+        # Pre-trade discipline veto (Phase 10.1).
+        # This runs AFTER the deterministic validate_order but BEFORE we touch
+        # the broker. Veto cases are surfaced via DisciplineVetoError so the
+        # router can render the "break this rule?" modal with structured
+        # reasons; explicit override bypasses the check and is audited at the
+        # call site.
+        if self.discipline_check is not None and not override_discipline_vetoes:
+            veto_result = self.discipline_check.check(user, order, portfolio)
+            if not veto_result.approved:
+                raise DisciplineVetoError(veto_result.vetoes)
 
         # Route LIVE orders to the real broker via the routing port.
         # The auto-fill path below is paper-only — it must never run for a
