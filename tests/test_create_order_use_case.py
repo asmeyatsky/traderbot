@@ -15,7 +15,7 @@ from src.application.use_cases.trading import CreateOrderUseCase
 from src.domain.entities.trading import (
     Order, Position, Portfolio, OrderType, PositionType, OrderStatus,
 )
-from src.domain.entities.user import User, RiskTolerance, InvestmentGoal
+from src.domain.entities.user import User, RiskTolerance, InvestmentGoal, TradingMode
 from src.domain.value_objects import Money, Symbol, Price
 
 
@@ -279,3 +279,71 @@ class TestErrorCases:
         mocks["order_repo"].save.assert_called_once()
         # No position repo means no position or portfolio updates
         mocks["portfolio_repo"].update.assert_not_called()
+
+
+class TestLiveModeRouting:
+    """ADR-002: LIVE users MUST NOT be auto-filled in memory.
+
+    The auto-fill path is paper-only. A LIVE user reaching execute() without
+    a wired broker_routing port must be refused, not silently simulated —
+    that was the original launch blocker.
+    """
+
+    def test_live_user_without_broker_routing_is_refused(self):
+        user = _make_user(trading_mode=TradingMode.LIVE)
+        uc, _ = _build_use_case(user=user)
+        # broker_routing is None in _build_use_case — exactly the misconfig we guard.
+        with pytest.raises(ValueError, match="Live trading is not wired"):
+            uc.execute(
+                user_id="user-1",
+                symbol=Symbol("AAPL"),
+                order_type="MARKET",
+                position_type="LONG",
+                quantity=10,
+            )
+
+    def test_live_user_routes_to_broker_and_mirrors_status(self):
+        from types import SimpleNamespace
+
+        broker = MagicMock()
+        broker.place_order.return_value = SimpleNamespace(
+            broker_order_id="alpaca-123",
+            status="filled",
+            filled_qty=10,
+            avg_fill_price=150.00,
+        )
+        routing = MagicMock()
+        routing.for_user.return_value = broker
+
+        user = _make_user(trading_mode=TradingMode.LIVE)
+        uc, _ = _build_use_case(user=user)
+        uc.broker_routing = routing
+
+        order = uc.execute(
+            user_id="user-1",
+            symbol=Symbol("AAPL"),
+            order_type="MARKET",
+            position_type="LONG",
+            quantity=10,
+        )
+        routing.for_user.assert_called_once_with(user)
+        broker.place_order.assert_called_once()
+        assert order.status == OrderStatus.EXECUTED
+        assert order.filled_quantity == 10
+        assert "broker_order_id=alpaca-123" in (order.notes or "")
+
+    def test_paper_user_bypasses_broker_routing(self):
+        """A PAPER user must keep going through the in-memory auto-fill path."""
+        routing = MagicMock()
+        uc, _ = _build_use_case()  # default trading_mode=PAPER
+        uc.broker_routing = routing  # even if wired, paper shouldn't call it
+
+        order = uc.execute(
+            user_id="user-1",
+            symbol=Symbol("AAPL"),
+            order_type="MARKET",
+            position_type="LONG",
+            quantity=10,
+        )
+        routing.for_user.assert_not_called()
+        assert order.status == OrderStatus.EXECUTED

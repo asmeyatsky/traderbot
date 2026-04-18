@@ -318,6 +318,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         market_data_service=adapters.market_data_service,
         position_repository=repositories.position_repository,
         activity_log_repository=repositories.activity_log_repository,
+        broker_routing=adapters.broker_service_factory,
     )
 
     execute_trade_use_case = providers.Factory(

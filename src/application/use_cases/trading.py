@@ -13,13 +13,14 @@ from typing import List, Optional
 import uuid
 
 from src.domain.entities.trading import Order, Position, Portfolio
-from src.domain.entities.user import User
+from src.domain.entities.user import TradingMode, User
 from src.domain.value_objects import Symbol, Money, Price
 from src.domain.ports import (
-    OrderRepositoryPort, PositionRepositoryPort, PortfolioRepositoryPort, 
-    UserRepositoryPort, MarketDataPort, NewsAnalysisPort, 
+    OrderRepositoryPort, PositionRepositoryPort, PortfolioRepositoryPort,
+    UserRepositoryPort, MarketDataPort, NewsAnalysisPort,
     TradingExecutionPort, NotificationPort, AIModelPort
 )
+from src.domain.ports.broker_routing import BrokerRoutingPort
 from src.domain.services.trading import TradingDomainService, RiskManagementDomainService
 from src.domain.value_objects import NewsSentiment
 
@@ -41,6 +42,7 @@ class CreateOrderUseCase:
         market_data_service: MarketDataPort,
         position_repository: Optional[PositionRepositoryPort] = None,
         activity_log_repository=None,
+        broker_routing: Optional[BrokerRoutingPort] = None,
     ):
         self.order_repository = order_repository
         self.portfolio_repository = portfolio_repository
@@ -49,6 +51,7 @@ class CreateOrderUseCase:
         self.market_data_service = market_data_service
         self.position_repository = position_repository
         self.activity_log_repository = activity_log_repository
+        self.broker_routing = broker_routing
 
     def execute(
         self,
@@ -108,16 +111,48 @@ class CreateOrderUseCase:
         if validation_errors:
             raise ValueError(f"Order validation failed: {'; '.join(validation_errors)}")
 
-        # Paper trading: auto-fill market orders immediately
-        if order_type_enum == OrderType.MARKET:
-            order = dc_replace(
-                order,
-                status=OrderStatus.EXECUTED,
-                filled_quantity=quantity,
-                executed_at=datetime.now(),
+        # Route LIVE orders to the real broker via the routing port.
+        # The auto-fill path below is paper-only — it must never run for a
+        # LIVE user because that would silently fake a real-money execution
+        # (rewrite181226.md Phase 6 launch blocker).
+        if user.trading_mode == TradingMode.LIVE:
+            if self.broker_routing is None:
+                raise ValueError(
+                    "Live trading is not wired in this environment — refusing "
+                    "to simulate the order. Contact support."
+                )
+            broker = self.broker_routing.for_user(user)
+            saved_order = self.order_repository.save(order)
+            broker_response = broker.place_order(saved_order)
+            # Reflect broker-side state on the order we persist. Whether the
+            # broker fills immediately (market) or accepts for working
+            # (limit/stop) is a broker concern — we just mirror their answer.
+            filled_qty = getattr(broker_response, "filled_qty", 0) or 0
+            broker_status = getattr(broker_response, "status", "") or ""
+            final_status = (
+                OrderStatus.EXECUTED
+                if broker_status.lower() in ("filled", "executed")
+                else OrderStatus.PENDING
             )
-
-        saved_order = self.order_repository.save(order)
+            saved_order = self.order_repository.save(
+                dc_replace(
+                    saved_order,
+                    status=final_status,
+                    filled_quantity=filled_qty,
+                    executed_at=datetime.now() if final_status == OrderStatus.EXECUTED else None,
+                    notes=f"broker_order_id={broker_response.broker_order_id}",
+                )
+            )
+        else:
+            # Paper trading: auto-fill market orders immediately
+            if order_type_enum == OrderType.MARKET:
+                order = dc_replace(
+                    order,
+                    status=OrderStatus.EXECUTED,
+                    filled_quantity=quantity,
+                    executed_at=datetime.now(),
+                )
+            saved_order = self.order_repository.save(order)
 
         # Log order placement
         self._log_activity(

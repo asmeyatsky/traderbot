@@ -22,6 +22,7 @@ from decimal import Decimal
 from typing import Optional
 
 from src.domain.entities.user import TradingMode, User
+from src.domain.ports.broker_routing import BrokerRoutingPort
 from src.domain.ports.daily_loss_tracker import DailyLossTrackerPort
 from src.infrastructure.broker_integration import (
     AlpacaBrokerService,
@@ -45,7 +46,7 @@ def _flag_on(name: str) -> bool:
     return os.environ.get(name, "").lower() == "true"
 
 
-class BrokerServiceFactory:
+class BrokerServiceFactory(BrokerRoutingPort):
     """Single source of truth for "paper or live" at the adapter boundary.
 
     Callers (order use case, chat MCP) should NEVER construct `AlpacaBrokerService`
