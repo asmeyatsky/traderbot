@@ -29,6 +29,17 @@ case "${1:-deploy}" in
     cd "$SCRIPT_DIR/.." && git pull --ff-only
     cd "$SCRIPT_DIR"
 
+    # Prune BEFORE the build. On a t4g.medium the pip install of the
+    # full ML stack (~2GB of packages) needs ~6GB of working space;
+    # accumulated layers from past deploys eat that fast. A single
+    # disk-full build error wedges prod until an operator SSHes in, so
+    # we spend a few seconds here reclaiming space every deploy.
+    echo "==> Pre-build cleanup (dangling + old images + build cache)"
+    docker image prune -f
+    docker image prune -af --filter "until=168h" || true
+    docker builder prune -f --filter "until=168h" || true
+    df -h / | tail -1
+
     echo "==> Building and starting containers"
     $COMPOSE build --pull
     $COMPOSE up -d --remove-orphans
@@ -36,7 +47,7 @@ case "${1:-deploy}" in
     echo "==> Running database migrations"
     $COMPOSE exec -T api python -m alembic upgrade head
 
-    echo "==> Cleaning up old images"
+    echo "==> Post-build cleanup (dangling layers from this build)"
     docker image prune -f
 
     echo "==> Deployment complete. Checking health..."

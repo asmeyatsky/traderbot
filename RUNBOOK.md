@@ -183,8 +183,47 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod exec db psql -U t
 
 ## 10. Known issues
 
-- **SSE streaming render** (Phase 7 — in progress): chat responses sometimes require a page refresh to appear. If a user reports "AI hangs," ask them to refresh once; the response is already saved server-side.
+- **SSE streaming render** (Phase 7 — fixed in Caddyfile, monitor after next deploy): chat responses required a page refresh; root cause was Caddy's `encode gzip zstd` buffering `text/event-stream`. Fixed by excluding SSE from the encode matcher and adding `Cache-Control: no-transform` to the response. If it regresses, check `deploy/Caddyfile` and the SSE headers in `src/presentation/api/routers/chat.py`.
 - **Local dev on Python 3.14**: PyTorch / TensorFlow wheels don't exist yet. Use Docker for end-to-end dev, or a 3.11 venv for backend-only work.
+
+---
+
+## 11. When deploy is stuck: "No space left on device"
+
+Symptom in the Deploy workflow logs:
+```
+ERROR: Could not install packages due to an OSError: [Errno 28] No space left on device
+```
+
+The t4g.medium host has a small root volume. Docker build layers, old images, the build cache, and accumulated DB backups fill it up. `deploy.sh` now prunes aggressively before every build (see § 4), but if the host is already wedged — the prune step itself needs space — SSH in and do a one-shot heavy clean:
+
+```bash
+ssh ubuntu@traderbotapp.com
+
+# Check what's eating the disk
+df -h /
+sudo du -shx /var/lib/docker /var/log /home/ubuntu/traderbot/deploy/backups 2>/dev/null
+
+# Nuclear clean — removes all unused images, containers, networks, volumes, and the build cache.
+# Running containers are preserved.
+sudo docker system prune -af --volumes
+
+# Trim journal logs (they can grow to GB over time)
+sudo journalctl --vacuum-time=7d
+
+# If backups are over 500MB, drop the oldest
+ls -lh /home/ubuntu/traderbot/deploy/backups/ | head
+# rm /home/ubuntu/traderbot/deploy/backups/traderbot_OLDEST.sql.gz
+```
+
+After recovery, re-run the deploy:
+
+```bash
+cd /home/ubuntu/traderbot/deploy
+bash deploy.sh
+```
+
+**If this recurs more than once a quarter**, the t4g.medium root volume should be expanded (EBS resize is online; 20→40 GB costs ~$2/mo more).
 
 ---
 
