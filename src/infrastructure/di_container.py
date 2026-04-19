@@ -200,6 +200,12 @@ class ServiceContainer(containers.DeclarativeContainer):
 class AdapterContainer(containers.DeclarativeContainer):
     """Container for external adapter dependencies."""
 
+    # Cross-container wiring: the Phase 6 daily-loss-tracker needs the
+    # shared `cache_manager` singleton from RepositoryContainer. Declared
+    # as a DependenciesContainer here and passed in when the top-level
+    # Container wires everything together.
+    repositories = providers.DependenciesContainer()
+
     # Notification adapter (replaces object() placeholder)
     notification_service = providers.Singleton(LoggingNotificationAdapter)
 
@@ -216,7 +222,7 @@ class AdapterContainer(containers.DeclarativeContainer):
     from src.infrastructure.adapters.daily_loss_tracker import RedisDailyLossTracker
     daily_loss_tracker = providers.Singleton(
         RedisDailyLossTracker,
-        redis_client=cache_manager.provided.client,
+        redis_client=repositories.cache_manager.provided.client,
     )
     broker_service_factory = providers.Singleton(
         BrokerServiceFactory,
@@ -418,7 +424,7 @@ class Container(containers.DeclarativeContainer):
     })
 
     repositories = providers.Container(RepositoryContainer)
-    adapters = providers.Container(AdapterContainer)
+    adapters = providers.Container(AdapterContainer, repositories=repositories)
     services = providers.Container(ServiceContainer, repositories=repositories, adapters=adapters)
     use_cases = providers.Container(UseCaseContainer,
                                    repositories=repositories,
