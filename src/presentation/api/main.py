@@ -104,8 +104,19 @@ if is_production:
         for h in os.getenv("ALLOWED_HOSTS", "").split(",")
         if h.strip()
     ]
+    # localhost + 127.0.0.1 are always allowed so the Docker / ECS
+    # healthcheck (curl http://localhost:8000/ready from inside the
+    # container) isn't rejected by the trusted-host middleware. The
+    # loopback interface is inherently private — no reflected-Host
+    # attack can route there externally.
     allowed_hosts = list(
-        {"traderbotapp.com", "www.traderbotapp.com", *extra_hosts}
+        {
+            "traderbotapp.com",
+            "www.traderbotapp.com",
+            "localhost",
+            "127.0.0.1",
+            *extra_hosts,
+        }
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
