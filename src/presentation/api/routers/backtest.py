@@ -13,13 +13,23 @@ from src.infrastructure.security import get_current_user
 
 router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
 
-_backtest_use_case = RunBacktestUseCase()
+
+def _get_backtest_use_case() -> RunBacktestUseCase:
+    """Lazy resolve from DI — avoids constructing the use case at module
+    import time (Phase 4 split the use case from its infrastructure runner
+    port, so it needs a wired container)."""
+    from src.infrastructure.di_container import container
+    return container.use_cases.backtest_use_case()
 
 
 @router.post("/run")
-async def run_backtest(request: BacktestRequest, user_id: str = Depends(get_current_user)):
+async def run_backtest(
+    request: BacktestRequest,
+    user_id: str = Depends(get_current_user),
+    use_case: RunBacktestUseCase = Depends(_get_backtest_use_case),
+):
     """Run a backtest with the specified strategy and parameters."""
-    return _backtest_use_case.run(request.model_dump())
+    return use_case.run(request.model_dump())
 
 
 @router.get("/strategies")
